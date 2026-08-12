@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Bible in 92 Days</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- LOGIN GATE -->
+  <div id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card">
+      <p class="login-eyebrow">The Youth Gathering 2026</p>
+      <h1 class="login-title">Project Bible in 92 Days</h1>
+      <p class="login-sub">Sign in to log today's reading.</p>
+      <label class="field">
+        <span>Username</span>
+        <input type="text" id="login-username" autocomplete="username" required>
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="login-password" autocomplete="current-password" required>
+      </label>
+      <p id="login-error" class="form-error" hidden></p>
+      <button type="submit" class="btn btn-primary">Begin Reading</button>
+    </form>
+  </div>
+
+  <!-- SITE -->
+  <div id="site" class="site" hidden>
+
+    <header class="site-header">
+      <div class="site-header-inner">
+        <div id="nav-left" class="nav-left">
+          <span id="welcome-user" class="welcome-user"></span>
+          <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
+            <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </button>
+          <button id="logout-btn" class="text-btn" type="button">Log out</button>
+        </div>
+
+        <div class="header-title-wrap">
+          <h1 class="site-title">Project Bible in 92 Days</h1>
+          <span class="ribbon" aria-hidden="true"></span>
+        </div>
+
+        <button id="menu-toggle" class="hamburger-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-left">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- SECTION 1: TODAY'S READING -->
+      <section id="section-today" class="card section-today">
+        <p class="eyebrow">Today's Reading Portion</p>
+        <p id="today-date" class="today-date"></p>
+        <p id="today-portion" class="today-portion">Loading…</p>
+
+        <form id="update-form" class="update-form">
+          <label class="field">
+            <span>Date</span>
+            <select id="date-select" required></select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="status-select" required>
+              <option value="">Choose…</option>
+              <option value="Read">Read</option>
+              <option value="Not Read">Not Read</option>
+            </select>
+          </label>
+          <button type="submit" class="btn btn-primary">Update</button>
+        </form>
+        <p id="update-feedback" class="form-feedback" hidden></p>
+      </section>
+
+      <!-- SECTION 2: LEADERBOARD -->
+      <section id="section-leaderboard" class="card section-leaderboard">
+        <p class="eyebrow">Leaderboard</p>
+        <div class="leaderboard-table-wrap">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th class="col-rank">Rank</th>
+                <th>Readers</th>
+                <th class="col-days">Days<br>Completed</th>
+                <th class="col-status">Today's<br>Status</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr><td colspan="4" class="leaderboard-loading">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="leaderboard-error" class="form-error" hidden></p>
+      </section>
+
+      <!-- SECTION 3: DAILY COMMENTS -->
+      <section id="section-comments" class="card section-comments">
+        <p class="eyebrow">Today's Comments</p>
+
+        <div id="comments-list" class="comments-list">
+          <p class="comments-loading">Loading…</p>
+        </div>
+
+        <form id="comment-form" class="comment-form">
+          <label class="field">
+            <span>Share your thoughts on today's portion</span>
+            <textarea id="comment-input" rows="3" maxlength="500" placeholder="What stood out to you today?" required></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Post Comment</button>
+        </form>
+        <p id="comment-already" class="comment-already" hidden>You've already shared your thoughts for today — see you back here tomorrow!</p>
+        <p id="comment-feedback" class="form-feedback" hidden></p>
+      </section>
+
+      <!-- Further sections (playground) land here -->
+      <section class="card section-placeholder">
+        <p class="eyebrow">Coming next</p>
+        <p>The progress playground lands here.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>The Youth Gathering 2026</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
