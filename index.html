@@ -120,10 +120,14 @@
         <p id="comment-feedback" class="form-feedback" hidden></p>
       </section>
 
-      <!-- Further sections (playground) land here -->
-      <section class="card section-placeholder">
-        <p class="eyebrow">Coming next</p>
-        <p>The progress playground lands here.</p>
+      <!-- SECTION 4: PROGRESS PLAYGROUND -->
+      <section id="section-playground" class="card section-playground">
+        <p class="eyebrow">Progress Playground</p>
+        <p class="playground-hint">Drag the circles around — size grows with days completed.</p>
+        <div id="playground" class="playground"></div>
+        <div class="chart-wrap">
+          <canvas id="progress-chart" height="220"></canvas>
+        </div>
       </section>
     </main>
 
@@ -132,6 +136,7 @@
     </footer>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
