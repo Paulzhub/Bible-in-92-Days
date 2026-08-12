@@ -17,8 +17,8 @@
   --font-body: 'Space Grotesk', sans-serif;
 
   --radius: 18px;
-  --cursor-default: url('assets/bible-cursor.png') 8 8, auto;
-  --cursor-pointer: url('assets/bible-cursor.png') 8 8, pointer;
+  --cursor-default: url('assets/bible-cursor.png') 32 32, auto;
+  --cursor-pointer: url('assets/bible-cursor.png') 32 32, pointer;
 }
 
 [data-theme="light"] {
@@ -517,6 +517,74 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   background: var(--surface-2);
   border-radius: 10px;
   padding: 0.8rem;
+}
+
+/* ============ SECTION 4: PLAYGROUND ============ */
+.playground-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.playground {
+  position: relative;
+  height: 320px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  touch-action: none;
+}
+
+.playground-circle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  font-family: var(--font-body);
+  text-align: center;
+  cursor: var(--cursor-pointer);
+  user-select: none;
+  box-shadow: 0 8px 20px -8px rgba(0,0,0,0.55);
+  padding: 0.3rem;
+  line-height: 1.2;
+  transition: width 0.4s ease, height 0.4s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+.playground-circle.dragging {
+  box-shadow: 0 14px 30px -6px rgba(0,0,0,0.65);
+  z-index: 10;
+  transition: box-shadow 0.2s ease;
+}
+
+.playground-circle .circle-name {
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 88%;
+}
+
+.playground-circle .circle-days {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.chart-wrap {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 0.75rem;
 }
 
 .site-footer {
