@@ -14,10 +14,29 @@ function formatDDMMYY(date) {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear()).slice(-2)}`;
 }
 
-function apiGet(params) {
+// Fetches from the Apps Script backend with a timeout (so a stuck
+// request fails fast instead of hanging) and one quiet retry (so a
+// single transient blip — common with Apps Script — doesn't surface
+// as a hard error to the user).
+async function apiGet(params, { retries = 1, timeoutMs = 12000 } = {}) {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  return fetch(url.toString()).then(r => r.json());
+
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url.toString(), { signal: controller.signal });
+      clearTimeout(timer);
+      return await res.json();
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (attempt < retries) await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 function getSession() {
@@ -40,6 +59,17 @@ function applyTheme(theme) {
   document.getElementById('theme-icon-moon').hidden = theme === 'light';
   document.getElementById('theme-icon-sun').hidden = theme !== 'light';
   localStorage.setItem('bible92_theme', theme);
+  refreshChartTheme();
+}
+
+function refreshChartTheme() {
+  if (!progressChart) return;
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+  progressChart.options.scales.x.ticks.color = textColor;
+  progressChart.options.scales.y.ticks.color = textColor;
+  progressChart.options.scales.y.grid.color = gridColor;
+  progressChart.update();
 }
 
 function initTheme() {
@@ -108,11 +138,9 @@ function showSite(session) {
 
   initMobileMenu();
   initDateDropdown();
-  loadToday();
   wireUpdateForm(session);
-  loadLeaderboard(session);
-  loadComments(session);
   wireCommentForm(session);
+  loadInitialData(session);
   startAutoRefresh(session);
 }
 
@@ -120,16 +148,10 @@ function showSite(session) {
 // directly in the Google Sheet (e.g. an admin correcting a user's
 // entry), without requiring the viewer to do anything themselves.
 function startAutoRefresh(session) {
-  setInterval(() => {
-    loadLeaderboard(session);
-    loadComments(session);
-  }, 30000);
+  setInterval(() => loadUpdates(session), 30000);
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      loadLeaderboard(session);
-      loadComments(session);
-    }
+    if (document.visibilityState === 'visible') loadUpdates(session);
   });
 }
 
@@ -181,23 +203,6 @@ function initDateDropdown() {
   select.value = formatDDMMYY(end);
 }
 
-async function loadToday() {
-  const portionEl = document.getElementById('today-portion');
-  const dateEl = document.getElementById('today-date');
-  try {
-    const res = await apiGet({ action: 'getToday' });
-    if (res.success) {
-      portionEl.textContent = res.portion;
-      dateEl.textContent = res.date;
-    } else {
-      portionEl.textContent = "No portion listed for today yet — check back soon.";
-      dateEl.textContent = res.date || '';
-    }
-  } catch (err) {
-    portionEl.textContent = "Couldn't load today's portion. Check your connection.";
-  }
-}
-
 function wireUpdateForm(session) {
   const form = document.getElementById('update-form');
   const feedback = document.getElementById('update-feedback');
@@ -222,7 +227,7 @@ function wireUpdateForm(session) {
       if (res.success) {
         feedback.textContent = `Marked ${date} as "${status}".`;
         feedback.className = 'form-feedback success';
-        loadLeaderboard(session);
+        loadUpdates(session);
       } else {
         feedback.textContent = res.error || 'Something went wrong.';
         feedback.className = 'form-feedback error';
@@ -237,31 +242,84 @@ function wireUpdateForm(session) {
   });
 }
 
-// ====== SECTION 2: LEADERBOARD ======
+// ====== COMBINED DATA LOADS ======
+// One round trip for the initial page load (today + leaderboard +
+// comments), and one for each periodic refresh (leaderboard +
+// comments) — instead of firing several separate Apps Script calls
+// at once, which was the main source of both the slow loads and the
+// occasional "couldn't reach the server" errors.
 
-async function loadLeaderboard(session) {
-  const body = document.getElementById('leaderboard-body');
-  const errorEl = document.getElementById('leaderboard-error');
-  errorEl.hidden = true;
+async function loadInitialData(session) {
+  const portionEl = document.getElementById('today-portion');
+  const dateEl = document.getElementById('today-date');
+  const lbBody = document.getElementById('leaderboard-body');
+  const lbError = document.getElementById('leaderboard-error');
+  const commentsListEl = document.getElementById('comments-list');
 
   try {
-    const res = await apiGet({ action: 'getLeaderboard' });
-    if (!res.success) {
-      body.innerHTML = '';
-      errorEl.textContent = res.error || 'Could not load the leaderboard.';
-      errorEl.hidden = false;
-      return;
+    const res = await apiGet({ action: 'getInitialData' });
+
+    if (res.today.success) {
+      portionEl.textContent = res.today.portion;
+      dateEl.textContent = res.today.date;
+    } else {
+      portionEl.textContent = "No portion listed for today yet — check back soon.";
+      dateEl.textContent = res.today.date || '';
     }
-    renderLeaderboard(res.leaderboard, session);
+
+    if (res.leaderboard.success) {
+      renderLeaderboard(res.leaderboard.leaderboard, session);
+      renderPlayground(res.leaderboard.leaderboard);
+      renderChart(res.leaderboard.leaderboard);
+    } else {
+      lbBody.innerHTML = '';
+      lbError.textContent = res.leaderboard.error || 'Could not load the leaderboard.';
+      lbError.hidden = false;
+    }
+
+    if (res.comments.success) {
+      commentsCache = res.comments.comments;
+      renderComments(session);
+      updateCommentFormVisibility(session);
+    } else {
+      commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
+    }
   } catch (err) {
-    body.innerHTML = '';
-    errorEl.textContent = "Couldn't reach the server.";
-    errorEl.hidden = false;
+    portionEl.textContent = "Couldn't load today's portion. Check your connection.";
+    lbBody.innerHTML = '';
+    lbError.textContent = "Couldn't reach the server.";
+    lbError.hidden = false;
+    commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
   }
 }
 
+async function loadUpdates(session) {
+  const lbBody = document.getElementById('leaderboard-body');
+  const lbError = document.getElementById('leaderboard-error');
+
+  try {
+    const res = await apiGet({ action: 'getUpdates' });
+    if (res.leaderboard.success) {
+      renderLeaderboard(res.leaderboard.leaderboard, session);
+      renderPlayground(res.leaderboard.leaderboard);
+      renderChart(res.leaderboard.leaderboard);
+    }
+    if (res.comments.success) {
+      commentsCache = res.comments.comments;
+      renderComments(session);
+      updateCommentFormVisibility(session);
+    }
+  } catch (err) {
+    // Background refresh — fail quietly and keep the last known-good
+    // state on screen rather than interrupting the user.
+  }
+}
+
+// ====== SECTION 2: LEADERBOARD ======
+
 function renderLeaderboard(rows, session) {
   const body = document.getElementById('leaderboard-body');
+  document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
 
   rows.forEach((row) => {
@@ -307,22 +365,6 @@ const HEART_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" stroke="curr
 // mutated instantly on interaction so likes/posts feel immediate
 // instead of waiting on a full Apps Script round-trip.
 let commentsCache = [];
-
-async function loadComments(session) {
-  const listEl = document.getElementById('comments-list');
-  try {
-    const res = await apiGet({ action: 'getComments' });
-    if (!res.success) {
-      listEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
-      return;
-    }
-    commentsCache = res.comments;
-    renderComments(session);
-    updateCommentFormVisibility(session);
-  } catch (err) {
-    listEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
-  }
-}
 
 function renderComments(session) {
   const listEl = document.getElementById('comments-list');
@@ -487,6 +529,192 @@ function wireCommentForm(session) {
       feedback.className = 'form-feedback error';
     } finally {
       submitBtn.disabled = false;
+    }
+  });
+}
+
+// ====== SECTION 4: PROGRESS PLAYGROUND ======
+
+// Fixed, consistent color per reader — shared between the circles and the chart.
+const USER_COLORS = {
+  'Elisha': '#E8A93B',
+  'Daysel': '#E4685D',
+  'Dechen': '#6FAE8C',
+  'Ducks Fartbomber': '#5B8DEF',
+  'Guptaji': '#C77DFF',
+  'Jason': '#4CC9C0',
+  'Nim Nim': '#F4A6C6',
+  'Paulz': '#F2C14E',
+  'Puia': '#8FBF4D',
+  'Victor': '#64B5F6',
+  'Vishan': '#9D6FD9',
+  'Yutso': '#D9A066'
+};
+const FALLBACK_COLOR = '#8892B0';
+const TOTAL_CHALLENGE_DAYS = 92;
+const CIRCLE_MIN = 52;
+const CIRCLE_MAX = 132;
+
+function colorFor(username) {
+  return USER_COLORS[username] || FALLBACK_COLOR;
+}
+
+function circleSizeFor(daysCompleted) {
+  const fraction = Math.max(0, Math.min(1, daysCompleted / TOTAL_CHALLENGE_DAYS));
+  return CIRCLE_MIN + (CIRCLE_MAX - CIRCLE_MIN) * fraction;
+}
+
+// Tracks each circle's DOM element and current drag position so re-renders
+// (from the 30s auto-refresh) can resize in place without resetting
+// wherever the person has dragged them.
+const playgroundCircles = new Map();
+
+function renderPlayground(rows) {
+  const container = document.getElementById('playground');
+  if (!container) return;
+
+  rows.forEach((row, i) => {
+    const size = circleSizeFor(row.daysCompleted);
+    let entry = playgroundCircles.get(row.username);
+
+    if (!entry) {
+      const el = document.createElement('div');
+      el.className = 'playground-circle';
+      el.style.background = colorFor(row.username);
+      el.innerHTML = `<span class="circle-name">${escapeHtml(row.username)}</span><span class="circle-days">${row.daysCompleted}</span>`;
+
+      const pos = initialPlaygroundPosition(container, i, rows.length, size);
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+
+      makeDraggable(el, container);
+      container.appendChild(el);
+
+      entry = { el, x: pos.x, y: pos.y, size };
+      playgroundCircles.set(row.username, entry);
+    } else {
+      entry.el.style.width = size + 'px';
+      entry.el.style.height = size + 'px';
+      entry.el.querySelector('.circle-days').textContent = row.daysCompleted;
+      entry.size = size;
+    }
+  });
+}
+
+function initialPlaygroundPosition(container, index, total, size) {
+  const w = container.clientWidth || 320;
+  const h = container.clientHeight || 320;
+  const cols = Math.ceil(Math.sqrt(total));
+  const rows = Math.ceil(total / cols);
+  const cellW = w / cols;
+  const cellH = h / rows;
+  const col = index % cols;
+  const row = Math.floor(index / cols);
+  const jitterX = (Math.random() - 0.5) * cellW * 0.3;
+  const jitterY = (Math.random() - 0.5) * cellH * 0.3;
+
+  const x = clamp(col * cellW + cellW / 2 - size / 2 + jitterX, 0, w - size);
+  const y = clamp(row * cellH + cellH / 2 - size / 2 + jitterY, 0, h - size);
+  return { x, y };
+}
+
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function makeDraggable(el, container) {
+  let dragging = false;
+  let startPointerX = 0, startPointerY = 0, startX = 0, startY = 0;
+
+  el.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    el.classList.add('dragging');
+    el.setPointerCapture(e.pointerId);
+    startPointerX = e.clientX;
+    startPointerY = e.clientY;
+    const transform = new DOMMatrix(getComputedStyle(el).transform);
+    startX = transform.m41;
+    startY = transform.m42;
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const size = el.offsetWidth;
+    const dx = e.clientX - startPointerX;
+    const dy = e.clientY - startPointerY;
+    const x = clamp(startX + dx, 0, container.clientWidth - size);
+    const y = clamp(startY + dy, 0, container.clientHeight - size);
+    el.style.transform = `translate(${x}px, ${y}px)`;
+
+    const entry = [...playgroundCircles.values()].find(v => v.el === el);
+    if (entry) { entry.x = x; entry.y = y; }
+  });
+
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+  };
+
+  el.addEventListener('pointerup', endDrag);
+  el.addEventListener('pointercancel', endDrag);
+}
+
+// ====== SECTION 4: CHART ======
+
+let progressChart = null;
+
+function renderChart(rows) {
+  const canvas = document.getElementById('progress-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const labels = rows.map(r => r.username);
+  const data = rows.map(r => r.daysCompleted);
+  const colors = rows.map(r => colorFor(r.username));
+
+  if (progressChart) {
+    progressChart.data.labels = labels;
+    progressChart.data.datasets[0].data = data;
+    progressChart.data.datasets[0].backgroundColor = colors;
+    progressChart.update();
+    return;
+  }
+
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+
+  progressChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Days Completed',
+        data,
+        backgroundColor: colors,
+        borderRadius: 8,
+        maxBarThickness: 36
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, font: { family: 'Space Grotesk' } }, grid: { display: false } },
+        y: {
+          beginAtZero: true,
+          max: TOTAL_CHALLENGE_DAYS,
+          ticks: { color: textColor, font: { family: 'Space Grotesk' } },
+          grid: { color: gridColor }
+        }
+      }
     }
   });
 }
