@@ -216,6 +216,7 @@ function wireUpdateForm(session) {
       if (res.success) {
         feedback.textContent = `Marked ${date} as "${status}".`;
         feedback.className = 'form-feedback success';
+        if (status === 'Read') celebrate(false);
         loadUpdates(session);
       } else {
         feedback.textContent = res.error || 'Something went wrong.';
@@ -238,6 +239,71 @@ function wireUpdateForm(session) {
 // at once, which was the main source of both the slow loads and the
 // occasional "couldn't reach the server" errors.
 
+// ====== CHALLENGE COUNTDOWN ======
+
+function renderDayCountdown(day) {
+  const dayEl = document.getElementById('today-day');
+  const barEl = document.getElementById('challenge-progress-bar');
+
+  if (!day) {
+    dayEl.textContent = '';
+    barEl.style.width = '0%';
+    return;
+  }
+
+  const remaining = Math.max(0, TOTAL_CHALLENGE_DAYS - day);
+  dayEl.textContent = remaining > 0
+    ? `Day ${day} of ${TOTAL_CHALLENGE_DAYS} · ${remaining} day${remaining === 1 ? '' : 's'} left`
+    : `Day ${day} of ${TOTAL_CHALLENGE_DAYS} · Final day!`;
+  barEl.style.width = Math.min(100, (day / TOTAL_CHALLENGE_DAYS) * 100) + '%';
+}
+
+// ====== CELEBRATION MICRO-ANIMATIONS ======
+
+function celebrate(big) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const colors = ['#E8A93B', '#E4685D', '#6FAE8C', '#5B8DEF', '#C77DFF', '#4CC9C0'];
+  const count = big ? 70 : 26;
+
+  const container = document.createElement('div');
+  container.className = 'confetti-container' + (big ? ' big' : '');
+
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = (40 + Math.random() * 20) + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.setProperty('--x', (Math.random() * 2 - 1).toFixed(2));
+    piece.style.setProperty('--rot', Math.floor(Math.random() * 360) + 'deg');
+    piece.style.setProperty('--delay', (Math.random() * 0.25) + 's');
+    container.appendChild(piece);
+  }
+
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), big ? 2400 : 1600);
+}
+
+// Tracks the logged-in user's own days-completed count so we can tell
+// when a leaderboard refresh reflects a newly-crossed milestone
+// (rather than firing confetti on every routine refresh).
+let lastKnownDaysForMe = null;
+const MILESTONE_THRESHOLDS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 46, 50, 55, 60, 65, 70, 75, 80, 85, 90, 92];
+
+function checkMilestoneCelebration(daysCompleted) {
+  if (lastKnownDaysForMe === null) {
+    // First render this session — just establish the baseline, don't
+    // celebrate for progress that happened before this page load.
+    lastKnownDaysForMe = daysCompleted;
+    return;
+  }
+  if (daysCompleted > lastKnownDaysForMe) {
+    const crossed = MILESTONE_THRESHOLDS.some(t => lastKnownDaysForMe < t && daysCompleted >= t);
+    if (crossed) celebrate(true);
+  }
+  lastKnownDaysForMe = daysCompleted;
+}
+
 async function loadInitialData(session) {
   const portionEl = document.getElementById('today-portion');
   const dateEl = document.getElementById('today-date');
@@ -252,11 +318,11 @@ async function loadInitialData(session) {
     if (res.today.success) {
       portionEl.textContent = res.today.portion;
       dateEl.textContent = res.today.date;
-      dayEl.textContent = res.today.day ? `Day ${res.today.day}` : '';
+      renderDayCountdown(res.today.day);
     } else {
       portionEl.textContent = "No portion listed for today yet — check back soon.";
       dateEl.textContent = res.today.date || '';
-      dayEl.textContent = '';
+      renderDayCountdown(null);
     }
 
     if (res.leaderboard.success) {
@@ -375,7 +441,10 @@ function renderLeaderboard(rows, session) {
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     const isYou = session && row.username === session.username;
-    if (isYou) tr.classList.add('is-you');
+    if (isYou) {
+      tr.classList.add('is-you');
+      checkMilestoneCelebration(row.daysCompleted);
+    }
 
     const rankTd = document.createElement('td');
     rankTd.className = 'rank-cell';
