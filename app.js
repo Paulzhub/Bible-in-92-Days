@@ -773,7 +773,7 @@ function spawnFloatingEmoji(e, emojiSymbol) {
   setTimeout(() => particle.remove(), 1200);
 }
 
-function createReactionButtonsRow(reactionsData, session, targetUsername, replyUsername = null) {
+function createReactionButtonsRow(reactionsData, session, targetUsername) {
   const reactionsRow = document.createElement('div');
   reactionsRow.className = 'comment-reactions';
 
@@ -800,7 +800,7 @@ function createReactionButtonsRow(reactionsData, session, targetUsername, replyU
         return;
       }
       spawnFloatingEmoji(e, emoji);
-      handleReactionClick(targetUsername, replyUsername, type, session, reactionsRow);
+      handleReactionClick(targetUsername, type, session, reactionsRow);
     });
 
     reactionsRow.appendChild(btn);
@@ -809,20 +809,12 @@ function createReactionButtonsRow(reactionsData, session, targetUsername, replyU
   return reactionsRow;
 }
 
-function handleReactionClick(targetUsername, replyUsername, type, session, reactionsRow) {
+function handleReactionClick(targetUsername, type, session, reactionsRow) {
   const comment = commentsCache.find(c => c.username === targetUsername);
   if (!comment) return;
 
-  let targetObj;
-  if (replyUsername) {
-    const reply = (comment.replies || []).find(r => r.username === replyUsername);
-    if (!reply) return;
-    if (!reply.reactions) reply.reactions = { heart: [], pray: [], fire: [], laugh: [], cross: [] };
-    targetObj = reply.reactions;
-  } else {
-    if (!comment.reactions) comment.reactions = { heart: [], pray: [], fire: [], laugh: [], cross: [] };
-    targetObj = comment.reactions;
-  }
+  if (!comment.reactions) comment.reactions = { heart: [], pray: [], fire: [], laugh: [], cross: [] };
+  const targetObj = comment.reactions;
 
   const wasActiveInThisType = (targetObj[type] || []).includes(session.username);
   REACTIONS.forEach(r => {
@@ -851,7 +843,6 @@ function handleReactionClick(targetUsername, replyUsername, type, session, react
     reactorUsername: session.username,
     password: session.password,
     targetUsername,
-    replyUser: replyUsername || undefined,
     type
   }).catch(() => {});
 }
@@ -893,133 +884,7 @@ function buildCommentElement(comment, session) {
   actionsBar.className = 'comment-actions-bar';
   actionsBar.appendChild(reactionsRow);
 
-  const repliesList = comment.replies || [];
-  const hasUserReplied = session && repliesList.some(r => r.username === session.username);
-
-  let replyFormWrap;
-
-  if (session && !session.isGuest) {
-    const replyToggleBtn = document.createElement('button');
-    replyToggleBtn.type = 'button';
-    replyToggleBtn.className = 'reply-toggle-btn';
-    replyToggleBtn.textContent = hasUserReplied ? '✏️ Edit Reply' : '💬 Reply';
-
-    replyToggleBtn.addEventListener('click', () => {
-      if (!replyFormWrap) return;
-      replyFormWrap.hidden = !replyFormWrap.hidden;
-      if (!replyFormWrap.hidden) {
-        const input = replyFormWrap.querySelector('input');
-        if (input) {
-          const userReply = repliesList.find(r => r.username === session.username);
-          if (userReply) input.value = userReply.text;
-          input.focus();
-        }
-      }
-    });
-    actionsBar.appendChild(replyToggleBtn);
-  }
-
-  replyFormWrap = document.createElement('form');
-  replyFormWrap.className = 'reply-form';
-  replyFormWrap.hidden = true;
-  replyFormWrap.innerHTML = `
-    <input type="text" maxlength="300" placeholder="Write a reply..." required />
-    <button type="submit" class="btn btn-primary">Reply</button>
-  `;
-
-  replyFormWrap.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const input = replyFormWrap.querySelector('input');
-    const replyText = input.value.trim();
-    if (!replyText) return;
-    const submitBtn = replyFormWrap.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-
-    if (!comment.replies) comment.replies = [];
-    let existingReply = comment.replies.find(r => r.username === session.username);
-    let optimisticReply;
-    if (existingReply) {
-      existingReply.text = replyText;
-      existingReply.timestamp = new Date().toISOString();
-    } else {
-      optimisticReply = {
-        username: session.username,
-        text: replyText,
-        reactions: { heart: [], pray: [], fire: [], laugh: [], cross: [] },
-        timestamp: new Date().toISOString()
-      };
-      comment.replies.push(optimisticReply);
-    }
-
-    renderComments(session);
-
-    try {
-      const res = await apiGet({
-        action: 'postReply',
-        username: session.username,
-        password: session.password,
-        targetUsername: comment.username,
-        text: replyText
-      });
-      if (res.success && res.replies) {
-        comment.replies = res.replies;
-        renderComments(session);
-      } else if (res && !res.success) {
-        if (optimisticReply) {
-          const idx = comment.replies.indexOf(optimisticReply);
-          if (idx !== -1) comment.replies.splice(idx, 1);
-        }
-        renderComments(session);
-        alert(res.error || 'Could not post reply.');
-      }
-    } catch (err) {
-      if (optimisticReply) {
-        const idx = comment.replies.indexOf(optimisticReply);
-        if (idx !== -1) comment.replies.splice(idx, 1);
-      }
-      renderComments(session);
-    }
-  });
-
-  const repliesContainer = document.createElement('div');
-  repliesContainer.className = 'comment-replies';
-
-  if (repliesList.length > 0) {
-    repliesList.forEach(reply => {
-      const replyItem = document.createElement('div');
-      replyItem.className = 'reply-item';
-
-      const replyHead = document.createElement('div');
-      replyHead.className = 'reply-head';
-
-      const replyAuthor = document.createElement('span');
-      replyAuthor.className = 'reply-author';
-      replyAuthor.textContent = reply.username;
-
-      const replyAuthorData = currentLeaderboard.find(u => u.username === reply.username);
-      if (replyAuthorData && replyAuthorData.levelTitle) {
-        replyAuthor.appendChild(createLevelBadgeEl(replyAuthorData.levelTitle));
-      }
-      if (session && reply.username === session.username) {
-        const youTag = document.createElement('span');
-        youTag.className = 'you-tag';
-        youTag.textContent = 'YOU';
-        replyAuthor.appendChild(youTag);
-      }
-      replyHead.appendChild(replyAuthor);
-
-      const replyTextEl = document.createElement('p');
-      replyTextEl.className = 'reply-text';
-      replyTextEl.textContent = reply.text;
-
-      const replyReactionsRow = createReactionButtonsRow(reply.reactions, session, comment.username, reply.username);
-
-      replyItem.append(replyHead, replyTextEl, replyReactionsRow);
-      repliesContainer.appendChild(replyItem);
-    });
-  }
-
-  item.append(head, text, actionsBar, replyFormWrap, repliesContainer);
+  item.append(head, text, actionsBar);
   return item;
 }
 
