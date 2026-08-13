@@ -1,6 +1,6 @@
 // ====== CONFIG ======
 // Paste your Apps Script /exec URL here once deployed.
-const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwwB94GWz7lxHIlL8YjGotKuetc7oaHjTOfYQxRcVJfEnCGpW7MPQPNw-8l73ZMXOmF/exec';
 
 // Challenge window (DD/MM/YY)
 const CHALLENGE_START = { d: 10, m: 8, y: 26 };
@@ -246,7 +246,7 @@ async function loadInitialData(session) {
   const commentsListEl = document.getElementById('comments-list');
 
   try {
-    const res = await apiGet({ action: 'getInitialData' });
+    const res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
 
     if (res.today.success) {
       portionEl.textContent = res.today.portion;
@@ -272,6 +272,10 @@ async function loadInitialData(session) {
     } else {
       commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
     }
+
+    if (res.history && res.history.success) {
+      renderHeatmap(res.history.history);
+    }
   } catch (err) {
     portionEl.textContent = "Couldn't load today's portion. Check your connection.";
     lbBody.innerHTML = '';
@@ -286,7 +290,7 @@ async function loadUpdates(session) {
   const lbError = document.getElementById('leaderboard-error');
 
   try {
-    const res = await apiGet({ action: 'getUpdates' });
+    const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
     if (res.leaderboard.success) {
       renderLeaderboard(res.leaderboard.leaderboard, session);
       renderPlayground(res.leaderboard.leaderboard);
@@ -296,13 +300,69 @@ async function loadUpdates(session) {
       renderComments(session);
       updateCommentFormVisibility(session);
     }
+    if (res.history && res.history.success) {
+      renderHeatmap(res.history.history);
+    }
   } catch (err) {
     // Background refresh — fail quietly and keep the last known-good
     // state on screen rather than interrupting the user.
   }
 }
 
+// ====== YOUR READING HISTORY (HEATMAP) ======
+
+function renderHeatmap(history) {
+  const grid = document.getElementById('heatmap-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (!history.length) {
+    grid.innerHTML = '<p class="heatmap-loading">No reading days on the calendar yet.</p>';
+    return;
+  }
+
+  const todayStr = formatDDMMYY(new Date());
+  const todayIndex = parseDDMMYY(todayStr);
+
+  history.forEach((day) => {
+    const cell = document.createElement('div');
+    cell.className = 'heatmap-cell';
+
+    const status = (day.status || '').trim().toLowerCase();
+    const isFuture = parseDDMMYY(day.date) > todayIndex;
+
+    let stateClass, stateLabel;
+    if (status === 'yes') { stateClass = 'yes'; stateLabel = 'Read'; }
+    else if (status === 'no') { stateClass = 'no'; stateLabel = 'Not read'; }
+    else if (isFuture) { stateClass = 'future'; stateLabel = 'Upcoming'; }
+    else { stateClass = 'pending'; stateLabel = 'Not marked yet'; }
+
+    cell.classList.add(stateClass);
+    cell.title = `${day.date}: ${stateLabel}`;
+    grid.appendChild(cell);
+  });
+}
+
+// Converts DD/MM/YY into a comparable number (YYMMDD) for date ordering.
+function parseDDMMYY(str) {
+  const [d, m, y] = str.split('/').map(Number);
+  return y * 10000 + m * 100 + d;
+}
+
 // ====== SECTION 2: LEADERBOARD ======
+
+// Milestone badges: every 5 days, a special one at halfway (46), and
+// completion (92). Shows only the highest one reached, since that's
+// the meaningful one to display next to a name.
+function badgeFor(daysCompleted) {
+  if (daysCompleted >= TOTAL_CHALLENGE_DAYS) return { icon: '🏆', label: 'Finished all 92 days!' };
+  if (daysCompleted >= 46) return { icon: '🌟', label: 'Halfway there — 46+ days' };
+  if (daysCompleted >= 5) {
+    const tier = Math.floor(daysCompleted / 5) * 5;
+    return { icon: '🔥', label: tier + '-day milestone' };
+  }
+  return null;
+}
 
 function renderLeaderboard(rows, session) {
   const body = document.getElementById('leaderboard-body');
@@ -320,13 +380,37 @@ function renderLeaderboard(rows, session) {
 
     const readerTd = document.createElement('td');
     readerTd.className = 'reader-cell' + (isYou ? ' is-you' : '');
-    readerTd.textContent = row.username;
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'reader-name-row';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = row.username;
+    nameRow.appendChild(nameSpan);
+
     if (isYou) {
       const tag = document.createElement('span');
       tag.className = 'you-tag';
       tag.textContent = 'YOU';
-      readerTd.appendChild(tag);
+      nameRow.appendChild(tag);
     }
+
+    const badge = badgeFor(row.daysCompleted);
+    if (badge) {
+      const badgeEl = document.createElement('span');
+      badgeEl.className = 'badge-icon';
+      badgeEl.textContent = badge.icon;
+      badgeEl.title = badge.label;
+      nameRow.appendChild(badgeEl);
+    }
+
+    readerTd.appendChild(nameRow);
+
+    const streakEl = document.createElement('span');
+    streakEl.className = 'reader-streak';
+    streakEl.innerHTML = row.streak > 0
+      ? `<span class="flame">🔥</span>${row.streak}-day streak`
+      : 'No active streak';
+    readerTd.appendChild(streakEl);
 
     const daysTd = document.createElement('td');
     daysTd.className = 'days-cell';
@@ -346,10 +430,14 @@ function renderLeaderboard(rows, session) {
 
 // ====== SECTION 3: COMMENTS ======
 
-const HEART_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+const REACTIONS = [
+  { type: 'heart', emoji: '❤️', label: 'Love this' },
+  { type: 'pray', emoji: '🙏', label: 'Praying' },
+  { type: 'fire', emoji: '🔥', label: 'On fire' }
+];
 
 // Local cache of today's comments, kept in sync with the server but
-// mutated instantly on interaction so likes/posts feel immediate
+// mutated instantly on interaction so reactions/posts feel immediate
 // instead of waiting on a full Apps Script round-trip.
 let commentsCache = [];
 
@@ -369,7 +457,6 @@ function renderComments(session) {
 
 function buildCommentElement(comment, session) {
   const isYou = session && comment.username === session.username;
-  const liked = session && comment.likedBy.includes(session.username);
 
   const item = document.createElement('div');
   item.className = 'comment-item' + (isYou ? ' is-you' : '');
@@ -387,20 +474,29 @@ function buildCommentElement(comment, session) {
     tag.textContent = 'YOU';
     author.appendChild(tag);
   }
-
-  const likeBtn = document.createElement('button');
-  likeBtn.type = 'button';
-  likeBtn.className = 'like-btn' + (liked ? ' liked' : '');
-  likeBtn.innerHTML = `${HEART_ICON}<span class="like-count">${comment.likes}</span>`;
-  likeBtn.addEventListener('click', () => handleLike(comment.username, session, likeBtn));
-
-  head.append(author, likeBtn);
+  head.appendChild(author);
 
   const text = document.createElement('p');
   text.className = 'comment-text';
   text.textContent = comment.text;
 
-  item.append(head, text);
+  const reactionsRow = document.createElement('div');
+  reactionsRow.className = 'comment-reactions';
+
+  REACTIONS.forEach(({ type, emoji, label }) => {
+    const list = comment.reactions[type] || [];
+    const active = session && list.includes(session.username);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reaction-btn' + (active ? ' active' : '');
+    btn.title = label;
+    btn.innerHTML = `<span class="reaction-emoji">${emoji}</span><span class="reaction-count">${list.length}</span>`;
+    btn.addEventListener('click', () => handleReact(comment.username, type, session, btn));
+    reactionsRow.appendChild(btn);
+  });
+
+  item.append(head, text, reactionsRow);
   return item;
 }
 
@@ -412,56 +508,55 @@ function updateCommentFormVisibility(session) {
   already.hidden = !hasCommented;
 }
 
-async function handleLike(targetUsername, session, likeBtn) {
+async function handleReact(targetUsername, type, session, btnEl) {
   const comment = commentsCache.find(c => c.username === targetUsername);
   if (!comment) return;
 
-  // Optimistic update: flip the heart and count immediately, before the
+  // Optimistic update: flip the reaction immediately, before the
   // server confirms, so it feels instant. Reconciled/reverted below.
-  const wasLiked = comment.likedBy.includes(session.username);
-  const countEl = likeBtn.querySelector('.like-count');
+  const list = comment.reactions[type];
+  const wasActive = list.includes(session.username);
+  const countEl = btnEl.querySelector('.reaction-count');
 
-  if (wasLiked) {
-    comment.likedBy = comment.likedBy.filter(u => u !== session.username);
-    comment.likes -= 1;
+  if (wasActive) {
+    comment.reactions[type] = list.filter(u => u !== session.username);
   } else {
-    comment.likedBy.push(session.username);
-    comment.likes += 1;
+    comment.reactions[type] = [...list, session.username];
   }
-  likeBtn.classList.toggle('liked', !wasLiked);
-  countEl.textContent = comment.likes;
-  likeBtn.disabled = true;
+  btnEl.classList.toggle('active', !wasActive);
+  countEl.textContent = comment.reactions[type].length;
+  btnEl.disabled = true;
 
   try {
     const res = await apiGet({
-      action: 'likeComment',
-      likerUsername: session.username,
+      action: 'reactComment',
+      reactorUsername: session.username,
       password: session.password,
-      targetUsername
+      targetUsername,
+      type
     });
     if (res.success) {
-      // Reconcile with the server's actual count in case of a race
-      // with someone else liking the same comment at once.
-      comment.likes = res.likes;
-      comment.likedBy = res.liked
-        ? Array.from(new Set([...comment.likedBy, session.username]))
-        : comment.likedBy.filter(u => u !== session.username);
-      countEl.textContent = comment.likes;
-      likeBtn.classList.toggle('liked', res.liked);
+      // Reconcile with the server's actual state in case of a race
+      // with someone else reacting to the same comment at once.
+      comment.reactions = res.reactions;
+      countEl.textContent = comment.reactions[type].length;
+      btnEl.classList.toggle('active', res.reacted);
     } else {
-      revertLike(comment, wasLiked, likeBtn, countEl);
+      revertReaction(comment, type, wasActive, session.username, btnEl, countEl);
     }
   } catch (err) {
-    revertLike(comment, wasLiked, likeBtn, countEl);
+    revertReaction(comment, type, wasActive, session.username, btnEl, countEl);
   } finally {
-    likeBtn.disabled = false;
+    btnEl.disabled = false;
   }
 }
 
-function revertLike(comment, wasLiked, likeBtn, countEl) {
-  comment.likes += wasLiked ? 1 : -1;
-  countEl.textContent = comment.likes;
-  likeBtn.classList.toggle('liked', wasLiked);
+function revertReaction(comment, type, wasActive, username, btnEl, countEl) {
+  comment.reactions[type] = wasActive
+    ? Array.from(new Set([...comment.reactions[type], username]))
+    : comment.reactions[type].filter(u => u !== username);
+  countEl.textContent = comment.reactions[type].length;
+  btnEl.classList.toggle('active', wasActive);
 }
 
 function wireCommentForm(session) {
@@ -479,7 +574,7 @@ function wireCommentForm(session) {
     submitBtn.disabled = true;
 
     // Optimistic post: show it and hide the form right away.
-    const optimisticComment = { username: session.username, text, likes: 0, likedBy: [] };
+    const optimisticComment = { username: session.username, text, reactions: { heart: [], pray: [], fire: [] } };
     commentsCache.push(optimisticComment);
     document.getElementById('comments-list').appendChild(buildCommentElement(optimisticComment, session));
     document.querySelector('.comments-empty')?.remove();
