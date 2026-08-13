@@ -1,6 +1,6 @@
 // ====== CONFIG ======
 // Paste your Apps Script /exec URL here once deployed.
-const API_URL = 'https://script.google.com/macros/s/AKfycbwwB94GWz7lxHIlL8YjGotKuetc7oaHjTOfYQxRcVJfEnCGpW7MPQPNw-8l73ZMXOmF/exec';
+const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
 
 // Challenge window (DD/MM/YY)
 const CHALLENGE_START = { d: 10, m: 8, y: 26 };
@@ -59,17 +59,6 @@ function applyTheme(theme) {
   document.getElementById('theme-icon-moon').hidden = theme === 'light';
   document.getElementById('theme-icon-sun').hidden = theme !== 'light';
   localStorage.setItem('bible92_theme', theme);
-  refreshChartTheme();
-}
-
-function refreshChartTheme() {
-  if (!progressChart) return;
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
-  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
-  progressChart.options.scales.x.ticks.color = textColor;
-  progressChart.options.scales.y.ticks.color = textColor;
-  progressChart.options.scales.y.grid.color = gridColor;
-  progressChart.update();
 }
 
 function initTheme() {
@@ -270,7 +259,6 @@ async function loadInitialData(session) {
     if (res.leaderboard.success) {
       renderLeaderboard(res.leaderboard.leaderboard, session);
       renderPlayground(res.leaderboard.leaderboard);
-      renderChart(res.leaderboard.leaderboard);
     } else {
       lbBody.innerHTML = '';
       lbError.textContent = res.leaderboard.error || 'Could not load the leaderboard.';
@@ -302,7 +290,6 @@ async function loadUpdates(session) {
     if (res.leaderboard.success) {
       renderLeaderboard(res.leaderboard.leaderboard, session);
       renderPlayground(res.leaderboard.leaderboard);
-      renderChart(res.leaderboard.leaderboard);
     }
     if (res.comments.success) {
       commentsCache = res.comments.comments;
@@ -535,7 +522,7 @@ function wireCommentForm(session) {
 
 // ====== SECTION 4: PROGRESS PLAYGROUND ======
 
-// Fixed, consistent color per reader — shared between the circles and the chart.
+// Fixed, consistent color per reader.
 const USER_COLORS = {
   'Elisha': '#E8A93B',
   'Daysel': '#E4685D',
@@ -548,7 +535,8 @@ const USER_COLORS = {
   'Puia': '#8FBF4D',
   'Victor': '#64B5F6',
   'Vishan': '#9D6FD9',
-  'Yutso': '#D9A066'
+  'Yutso': '#D9A066',
+  'Yeshi': '#B2495C'
 };
 const FALLBACK_COLOR = '#8892B0';
 const TOTAL_CHALLENGE_DAYS = 92;
@@ -666,57 +654,6 @@ function makeDraggable(el, container) {
 
   el.addEventListener('pointerup', endDrag);
   el.addEventListener('pointercancel', endDrag);
-}
-
-// ====== SECTION 4: CHART ======
-
-let progressChart = null;
-
-function renderChart(rows) {
-  const canvas = document.getElementById('progress-chart');
-  if (!canvas || typeof Chart === 'undefined') return;
-
-  const labels = rows.map(r => r.username);
-  const data = rows.map(r => r.daysCompleted);
-  const colors = rows.map(r => colorFor(r.username));
-
-  if (progressChart) {
-    progressChart.data.labels = labels;
-    progressChart.data.datasets[0].data = data;
-    progressChart.data.datasets[0].backgroundColor = colors;
-    progressChart.update();
-    return;
-  }
-
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
-  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
-
-  progressChart = new Chart(canvas.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Days Completed',
-        data,
-        backgroundColor: colors,
-        borderRadius: 8,
-        maxBarThickness: 36
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: textColor, font: { family: 'Space Grotesk' } }, grid: { display: false } },
-        y: {
-          beginAtZero: true,
-          max: TOTAL_CHALLENGE_DAYS,
-          ticks: { color: textColor, font: { family: 'Space Grotesk' } },
-          grid: { color: gridColor }
-        }
-      }
-    }
-  });
 }
 
 // ====== INIT ======
