@@ -490,7 +490,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .leaderboard-table th {
-  text-align: left;
+  text-align: center;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -652,6 +652,24 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   gap: 0.75rem;
   margin-bottom: 1.5rem;
   text-align: left;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+
+.comments-list::-webkit-scrollbar {
+  width: 6px;
+}
+.comments-list::-webkit-scrollbar-track {
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+.comments-list::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
 }
 
 .comments-loading, .comments-empty {
@@ -833,11 +851,14 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 
 .comment-replies {
   margin-top: 0.75rem;
-  padding-left: 1rem;
+  padding-left: 0.75rem;
   border-left: 2px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .reply-item {
@@ -845,6 +866,10 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   border-radius: 10px;
   padding: 0.6rem 0.8rem;
   border: 1px solid var(--border);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .reply-head {
@@ -1371,7 +1396,34 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   100% { transform: translate(calc(var(--x, 0) * 160px), 100vh) rotate(var(--rot, 180deg)); opacity: 0; }
 }
 
-/* ============ RESPONSIVE ============ */
+/* ============ RESPONSIVE & MOBILE FIXES ============ */
+@media (max-width: 600px) {
+  .comment-replies {
+    padding-left: 0.4rem;
+    margin-top: 0.5rem;
+  }
+  .reply-item {
+    padding: 0.55rem 0.6rem;
+  }
+  .reply-form {
+    flex-wrap: wrap;
+  }
+  .reply-form input {
+    min-width: 0;
+    width: 100%;
+  }
+  .reply-form button {
+    width: 100%;
+  }
+  .comment-item {
+    padding: 0.75rem 0.65rem;
+  }
+  .reaction-btn {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.75rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }

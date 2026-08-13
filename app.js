@@ -690,8 +690,9 @@ function renderWeeklyRecap(recap) {
   document.getElementById('recap-title').textContent = `Week ${recap.weekNum} Highlights (Days ${recap.startDayNum}–${recap.endDayNum})`;
   document.getElementById('recap-pct').textContent = `${recap.stats.weeklyCompletionPct}%`;
   
-  const topReadersText = recap.stats.topReaders && recap.stats.topReaders.length > 0
-    ? recap.stats.topReaders.join(', ')
+  const topReaders = (recap.stats.topReaders || []).slice(0, 3);
+  const topReadersText = topReaders.length > 0
+    ? topReaders.join(', ')
     : 'None yet';
   document.getElementById('recap-top-reader').textContent = topReadersText;
 
@@ -908,14 +909,21 @@ function buildCommentElement(comment, session) {
     const submitBtn = replyFormWrap.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
-    const optimisticReply = {
-      username: session.username,
-      text: replyText,
-      reactions: { heart: [], pray: [], fire: [], laugh: [], cross: [] },
-      timestamp: new Date().toISOString()
-    };
     if (!comment.replies) comment.replies = [];
-    comment.replies.push(optimisticReply);
+    let existingReply = comment.replies.find(r => r.username === session.username);
+    let optimisticReply;
+    if (existingReply) {
+      existingReply.text = replyText;
+      existingReply.timestamp = new Date().toISOString();
+    } else {
+      optimisticReply = {
+        username: session.username,
+        text: replyText,
+        reactions: { heart: [], pray: [], fire: [], laugh: [], cross: [] },
+        timestamp: new Date().toISOString()
+      };
+      comment.replies.push(optimisticReply);
+    }
 
     renderComments(session);
 
@@ -930,8 +938,20 @@ function buildCommentElement(comment, session) {
       if (res.success && res.replies) {
         comment.replies = res.replies;
         renderComments(session);
+      } else if (res && !res.success) {
+        if (optimisticReply) {
+          const idx = comment.replies.indexOf(optimisticReply);
+          if (idx !== -1) comment.replies.splice(idx, 1);
+        }
+        renderComments(session);
+        alert(res.error || 'Could not post reply.');
       }
     } catch (err) {
+      if (optimisticReply) {
+        const idx = comment.replies.indexOf(optimisticReply);
+        if (idx !== -1) comment.replies.splice(idx, 1);
+      }
+      renderComments(session);
     }
   });
 
