@@ -257,30 +257,123 @@ function renderDayCountdown(day) {
   barEl.style.width = Math.min(100, (day / TOTAL_CHALLENGE_DAYS) * 100) + '%';
 }
 
-// ====== CELEBRATION MICRO-ANIMATIONS ======
+// ====== SQUAD FLAME GAUGE & CELEBRATION FX ======
+
+function renderSquadGauge(rows) {
+  const card = document.getElementById('squad-gauge-card');
+  const bar = document.getElementById('squad-gauge-bar');
+  const countEl = document.getElementById('squad-gauge-count');
+  const pctEl = document.getElementById('squad-gauge-pct');
+  const badge = document.getElementById('squad-heatwave-badge');
+  if (!card || !bar) return;
+
+  const readCount = rows.filter(r => r.readToday).length;
+  const total = rows.length || 13;
+  const pct = Math.round((readCount / total) * 100);
+
+  bar.style.width = pct + '%';
+  countEl.textContent = `${readCount} / ${total} Youth Read Today`;
+  pctEl.textContent = `${pct}%`;
+
+  if (readCount === total && total > 0) {
+    card.classList.add('heatwave-active');
+    badge.hidden = false;
+  } else {
+    card.classList.remove('heatwave-active');
+    badge.hidden = true;
+  }
+}
 
 function celebrate(big) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const colors = ['#E8A93B', '#E4685D', '#6FAE8C', '#5B8DEF', '#C77DFF', '#4CC9C0'];
-  const count = big ? 70 : 26;
-
-  const container = document.createElement('div');
-  container.className = 'confetti-container' + (big ? ' big' : '');
-
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement('span');
-    piece.className = 'confetti-piece';
-    piece.style.left = (40 + Math.random() * 20) + '%';
-    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.setProperty('--x', (Math.random() * 2 - 1).toFixed(2));
-    piece.style.setProperty('--rot', Math.floor(Math.random() * 360) + 'deg');
-    piece.style.setProperty('--delay', (Math.random() * 0.25) + 's');
-    container.appendChild(piece);
+  // Haptic vibration feedback for mobile
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate([30, 50, 30]); } catch (e) {}
   }
 
-  document.body.appendChild(container);
-  setTimeout(() => container.remove(), big ? 2400 : 1600);
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const count = big ? 110 : 60;
+  const emojis = ['🔥', '✝️', '👑', '✨', '⚡'];
+  const colors = ['#E8A93B', '#E4685D', '#6FAE8C', '#5B8DEF', '#C77DFF', '#4CC9C0'];
+  const particles = [];
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * (big ? 400 : 200),
+      y: canvas.height * 0.4 + (Math.random() - 0.5) * 100,
+      vx: (Math.random() - 0.5) * (big ? 14 : 9),
+      vy: -(Math.random() * (big ? 16 : 10) + 4),
+      rot: Math.random() * 360,
+      vRot: (Math.random() - 0.5) * 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      emoji: Math.random() > 0.35 ? emojis[Math.floor(Math.random() * emojis.length)] : null,
+      size: Math.random() * 12 + 12,
+      opacity: 1
+    });
+  }
+
+  let startTime = null;
+  const duration = big ? 3200 : 2000;
+
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = timestamp - startTime;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.4; // gravity
+      p.rot += p.vRot;
+      p.opacity = Math.max(0, 1 - progress / duration);
+
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rot * Math.PI) / 180);
+
+      if (p.emoji) {
+        ctx.font = `${p.size * 1.5}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.emoji, 0, 0);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      }
+      ctx.restore();
+    });
+
+    if (progress < duration) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function computeAchievements(row) {
+  const badges = [];
+  if (row.todayTimestamp) {
+    const date = new Date(row.todayTimestamp);
+    const h = date.getHours();
+    if (h < 8) badges.push({ type: 'early-bird', icon: '🌅', label: 'Early Bird' });
+    else if (h >= 22) badges.push({ type: 'night-owl', icon: '🦉', label: 'Night Owl' });
+    if (h === 23) badges.push({ type: 'clutch', icon: '⚡', label: 'Clutch Finish' });
+  }
+  if (row.usedStreakFreeze) {
+    badges.push({ type: 'freeze', icon: '🧊', label: 'Streak Preserved' });
+  }
+  return badges;
 }
 
 let lastKnownDaysForMe = null;
@@ -446,6 +539,7 @@ function badgeFor(daysCompleted) {
 }
 
 function renderLeaderboard(rows, session) {
+  renderSquadGauge(rows);
   const body = document.getElementById('leaderboard-body');
   document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
@@ -492,6 +586,16 @@ function renderLeaderboard(rows, session) {
       badgeEl.title = badge.label;
       nameRow.appendChild(badgeEl);
     }
+
+    // Render achievement badges & streak freeze indicator
+    const achievements = computeAchievements(row);
+    achievements.forEach((ach) => {
+      const achSpan = document.createElement('span');
+      achSpan.className = `achievement-badge ${ach.type}`;
+      achSpan.textContent = `${ach.icon} ${ach.label}`;
+      achSpan.title = ach.label;
+      nameRow.appendChild(achSpan);
+    });
 
     readerTd.appendChild(nameRow);
 
@@ -586,6 +690,20 @@ function renderComments(session) {
   });
 }
 
+function spawnFloatingEmoji(e, emojiSymbol) {
+  const particle = document.createElement('div');
+  particle.className = 'floating-emoji-particle';
+  particle.textContent = emojiSymbol;
+  const x = e ? (e.clientX || window.innerWidth / 2) : (window.innerWidth / 2);
+  const y = e ? (e.clientY || window.innerHeight / 2) : (window.innerHeight / 2);
+  particle.style.left = `${x}px`;
+  particle.style.top = `${y}px`;
+  particle.style.setProperty('--drift-x', `${(Math.random() - 0.5) * 100}px`);
+  particle.style.setProperty('--rot', `${(Math.random() - 0.5) * 50}deg`);
+  document.body.appendChild(particle);
+  setTimeout(() => particle.remove(), 1200);
+}
+
 function buildCommentElement(comment, session) {
   const isYou = session && comment.username === session.username;
 
@@ -630,7 +748,10 @@ function buildCommentElement(comment, session) {
     btn.className = 'reaction-btn' + (active ? ' active' : '');
     btn.title = label;
     btn.innerHTML = `<span class="reaction-emoji">${emoji}</span><span class="reaction-count">${list.length}</span>`;
-    btn.addEventListener('click', () => handleReact(comment.username, type, session, btn));
+    btn.addEventListener('click', (e) => {
+      spawnFloatingEmoji(e, emoji);
+      handleReact(comment.username, type, session, btn);
+    });
     reactionsRow.appendChild(btn);
   });
 
@@ -881,6 +1002,14 @@ function makeDraggable(el, container) {
 // ====== SHAREABLE DAY-STREAK CARD GENERATOR ======
 
 let lastGeneratedCardBlob = null;
+let currentShareTheme = 'midnight';
+let currentShareStickers = new Set(['on_fire', 'squad_read']);
+let activeShareSession = null;
+
+function refreshSharePreview() {
+  if (!activeShareSession) return;
+  openShareModal(activeShareSession);
+}
 
 function wireShareTodayButton(session) {
   const btn = document.getElementById('share-progress-btn');
@@ -899,6 +1028,25 @@ function initShareModal() {
   closeBtn.addEventListener('click', () => modal.hidden = true);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.hidden = true;
+  });
+
+  const themeBtns = document.querySelectorAll('#theme-chip-group .chip-btn');
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      themeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentShareTheme = btn.dataset.theme;
+      refreshSharePreview();
+    });
+  });
+
+  const stickerBoxes = document.querySelectorAll('#sticker-chip-group input[type="checkbox"]');
+  stickerBoxes.forEach(box => {
+    box.addEventListener('change', () => {
+      if (box.checked) currentShareStickers.add(box.value);
+      else currentShareStickers.delete(box.value);
+      refreshSharePreview();
+    });
   });
 
   downloadBtn.addEventListener('click', () => {
@@ -935,6 +1083,7 @@ function initShareModal() {
 }
 
 async function openShareModal(session) {
+  activeShareSession = session;
   const modal = document.getElementById('share-modal');
   const previewImg = document.getElementById('share-card-preview');
 
@@ -945,7 +1094,7 @@ async function openShareModal(session) {
     streak: 0
   };
 
-  const canvas = generateShareCardCanvas(me);
+  const canvas = generateShareCardCanvas(me, currentShareTheme, currentShareStickers);
   canvas.toBlob((blob) => {
     lastGeneratedCardBlob = blob;
     previewImg.src = URL.createObjectURL(blob);
@@ -953,7 +1102,16 @@ async function openShareModal(session) {
   }, 'image/png');
 }
 
-function generateShareCardCanvas(userData) {
+const CARD_THEMES = {
+  midnight: { bg1: '#14162B', bg2: '#1E2140', accent: '#E8A93B', text: '#F6EFE1', border: 'rgba(232, 169, 59, 0.4)' },
+  neon: { bg1: '#0f051d', bg2: '#2a0845', accent: '#00f2fe', text: '#ffffff', border: 'rgba(0, 242, 254, 0.5)' },
+  vaporwave: { bg1: '#1f0036', bg2: '#4b0082', accent: '#ff71ce', text: '#fbf5ff', border: 'rgba(255, 113, 206, 0.5)' },
+  cyberpunk: { bg1: '#0d0d0d', bg2: '#1f1f1f', accent: '#ffe600', text: '#ffffff', border: 'rgba(255, 230, 0, 0.5)' }
+};
+
+function generateShareCardCanvas(userData, themeKey = 'midnight', stickers = new Set()) {
+  const theme = CARD_THEMES[themeKey] || CARD_THEMES.midnight;
+
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
   canvas.height = 675;
@@ -966,33 +1124,33 @@ function generateShareCardCanvas(userData) {
 
   // Background Gradient
   const bgGradient = ctx.createLinearGradient(0, 0, 1200, 675);
-  bgGradient.addColorStop(0, '#14162B');
-  bgGradient.addColorStop(1, '#1E2140');
+  bgGradient.addColorStop(0, theme.bg1);
+  bgGradient.addColorStop(1, theme.bg2);
   ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, 1200, 675);
 
   // Outer Border & Corner Accents
-  ctx.strokeStyle = 'rgba(232, 169, 59, 0.4)';
+  ctx.strokeStyle = theme.border;
   ctx.lineWidth = 12;
   ctx.strokeRect(30, 30, 1140, 615);
 
-  ctx.strokeStyle = '#E8A93B';
+  ctx.strokeStyle = theme.accent;
   ctx.lineWidth = 6;
   ctx.strokeRect(45, 45, 1110, 585);
 
   // Top Eyebrow
-  ctx.fillStyle = '#E8A93B';
+  ctx.fillStyle = theme.accent;
   ctx.font = '600 24px "Space Grotesk", sans-serif';
   ctx.letterSpacing = '4px';
   ctx.fillText('THE YOUTH GATHERING 2026', 90, 110);
 
   // Main Header Title
-  ctx.fillStyle = '#F6EFE1';
+  ctx.fillStyle = theme.text;
   ctx.font = '700 58px "Fraunces", Georgia, serif';
   ctx.fillText('Project Bible in 92 Days', 90, 185);
 
   // Ribbon line under title
-  ctx.fillStyle = '#E8A93B';
+  ctx.fillStyle = theme.accent;
   ctx.fillRect(90, 210, 120, 8);
 
   // User Name
@@ -1001,13 +1159,13 @@ function generateShareCardCanvas(userData) {
   ctx.fillText(username, 90, 310);
 
   // Level Pill Badge
-  ctx.fillStyle = 'rgba(232, 169, 59, 0.18)';
-  ctx.strokeStyle = '#E8A93B';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.strokeStyle = theme.accent;
   ctx.lineWidth = 2;
   const levelWidth = ctx.measureText(levelTitle).width + 40;
   roundRect(ctx, 90, 340, Math.max(160, levelWidth), 46, 23, true, true);
 
-  ctx.fillStyle = '#E8A93B';
+  ctx.fillStyle = theme.accent;
   ctx.font = '700 22px "Space Grotesk", sans-serif';
   ctx.fillText(levelTitle, 110, 371);
 
@@ -1016,7 +1174,7 @@ function generateShareCardCanvas(userData) {
   const streakWidth = ctx.measureText(streakText).width + 40;
   const streakX = 90 + Math.max(160, levelWidth) + 20;
 
-  ctx.fillStyle = 'rgba(228, 104, 93, 0.18)';
+  ctx.fillStyle = 'rgba(228, 104, 93, 0.22)';
   ctx.strokeStyle = '#E4685D';
   ctx.lineWidth = 2;
   roundRect(ctx, streakX, 340, Math.max(180, streakWidth), 46, 23, true, true);
@@ -1025,10 +1183,35 @@ function generateShareCardCanvas(userData) {
   ctx.font = '700 22px "Space Grotesk", sans-serif';
   ctx.fillText(streakText, streakX + 20, 371);
 
+  // Dynamic Stickers Row
+  const STICKER_LABELS = {
+    on_fire: '🔥 ON FIRE',
+    squad_read: '🛡️ SQUAD READ',
+    night_owl: '🦉 NIGHT OWL',
+    clutch: '⚡ CLUTCH'
+  };
+
+  let stickerOffsetX = 90;
+  stickers.forEach((sKey) => {
+    const sText = STICKER_LABELS[sKey];
+    if (!sText) return;
+    ctx.font = '700 18px "Space Grotesk", sans-serif';
+    const sWidth = ctx.measureText(sText).width + 30;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, stickerOffsetX, 410, sWidth, 36, 18, true, true);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(sText, stickerOffsetX + 15, 434);
+    stickerOffsetX += sWidth + 14;
+  });
+
   // Subtitle / Encouragement quote
-  ctx.fillStyle = '#B9B4A8';
-  ctx.font = '400 26px "Fraunces", serif';
-  ctx.fillText('"Holding each other accountable in God\'s Word day by day."', 90, 460);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+  ctx.font = '400 24px "Fraunces", serif';
+  ctx.fillText('"Holding each other accountable in God\'s Word day by day."', 90, 485);
 
   // --- PROGRESS RING ARC (RIGHT SIDE) ---
   const cx = 930;
@@ -1038,7 +1221,7 @@ function generateShareCardCanvas(userData) {
   // Background Ring
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
-  ctx.strokeStyle = 'rgba(246, 239, 225, 0.12)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.lineWidth = 22;
   ctx.stroke();
 
@@ -1049,7 +1232,7 @@ function generateShareCardCanvas(userData) {
 
   ctx.beginPath();
   ctx.arc(cx, cy, radius, startAngle, endAngle);
-  ctx.strokeStyle = '#E8A93B';
+  ctx.strokeStyle = theme.accent;
   ctx.lineWidth = 22;
   ctx.lineCap = 'round';
   ctx.stroke();
@@ -1060,17 +1243,17 @@ function generateShareCardCanvas(userData) {
   ctx.textAlign = 'center';
   ctx.fillText(String(days), cx, cy + 10);
 
-  ctx.fillStyle = '#E8A93B';
+  ctx.fillStyle = theme.accent;
   ctx.font = '600 22px "Space Grotesk", sans-serif';
   ctx.fillText(`OF ${TOTAL_CHALLENGE_DAYS} DAYS`, cx, cy + 50);
   ctx.textAlign = 'left';
 
   // Bottom Footer
-  ctx.fillStyle = '#B9B4A8';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
   ctx.font = '500 22px "Space Grotesk", sans-serif';
   ctx.fillText('tg.youth_ · Instagram', 90, 580);
 
-  ctx.fillStyle = '#E8A93B';
+  ctx.fillStyle = theme.accent;
   ctx.font = '600 22px "Space Grotesk", sans-serif';
   ctx.textAlign = 'right';
   ctx.fillText('92 Days Challenge', 1110, 580);

@@ -59,6 +59,24 @@
     </header>
 
     <main>
+      <!-- SQUAD FLAME GAUGE (CO-OP GOAL) -->
+      <section id="squad-gauge-card" class="card squad-gauge-card">
+        <div class="squad-gauge-header">
+          <div>
+            <p class="eyebrow">Squad Daily Progress</p>
+            <h2 id="squad-gauge-title" class="squad-gauge-title">13-Member Daily Goal</h2>
+          </div>
+          <div id="squad-heatwave-badge" class="heatwave-pill" hidden>🔥 SQUAD HEATWAVE ACTIVE</div>
+        </div>
+        <div class="squad-gauge-bar-wrap">
+          <div id="squad-gauge-bar" class="squad-gauge-bar" style="width: 0%;"></div>
+        </div>
+        <div class="squad-gauge-footer">
+          <span id="squad-gauge-count" class="squad-gauge-count">0 / 13 Youth Read Today</span>
+          <span id="squad-gauge-pct" class="squad-gauge-pct">0%</span>
+        </div>
+      </section>
+
       <!-- SECTION 1: TODAY'S READING -->
       <section id="section-today" class="card section-today">
         <div class="section-head-row">
@@ -216,7 +234,30 @@
         <button id="close-share-modal" class="modal-close-btn" type="button" aria-label="Close modal">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-sub">Save or share your streak card with friends!</p>
+        <p class="modal-sub">Customize theme & stickers for social stories!</p>
+        
+        <!-- CARD THEME SELECTOR -->
+        <div class="share-customizer">
+          <div class="customizer-group">
+            <label class="customizer-label">Card Theme</label>
+            <div id="theme-chip-group" class="chip-group">
+              <button type="button" class="chip-btn active" data-theme="midnight">Midnight Gold</button>
+              <button type="button" class="chip-btn" data-theme="neon">Neon Grace</button>
+              <button type="button" class="chip-btn" data-theme="vaporwave">Vaporwave</button>
+              <button type="button" class="chip-btn" data-theme="cyberpunk">Cyberpunk</button>
+            </div>
+          </div>
+          <div class="customizer-group">
+            <label class="customizer-label">Story Stickers</label>
+            <div id="sticker-chip-group" class="chip-group">
+              <label class="chip-checkbox"><input type="checkbox" value="on_fire" checked> 🔥 ON FIRE</label>
+              <label class="chip-checkbox"><input type="checkbox" value="squad_read" checked> 🛡️ SQUAD READ</label>
+              <label class="chip-checkbox"><input type="checkbox" value="night_owl"> 🦉 NIGHT OWL</label>
+              <label class="chip-checkbox"><input type="checkbox" value="clutch"> ⚡ CLUTCH</label>
+            </div>
+          </div>
+        </div>
+
         <div class="share-preview-container">
           <img id="share-card-preview" class="share-card-preview" alt="Shareable Streak Card Preview">
         </div>
@@ -227,6 +268,9 @@
       </div>
     </div>
   </div>
+
+  <!-- CELEBRATION CONFETTI CANVAS -->
+  <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
   <script src="app.js"></script>
 </body>
