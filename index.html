@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,6 +78,20 @@
           <button type="submit" class="btn btn-primary">Update</button>
         </form>
         <p id="update-feedback" class="form-feedback" hidden></p>
+      </section>
+
+      <!-- YOUR READING HISTORY (HEATMAP) -->
+      <section id="section-heatmap" class="card section-heatmap">
+        <p class="eyebrow">Your Reading History</p>
+        <div id="heatmap-grid" class="heatmap-grid">
+          <p class="heatmap-loading">Loading…</p>
+        </div>
+        <div class="heatmap-legend">
+          <span><i class="legend-swatch legend-yes"></i>Read</span>
+          <span><i class="legend-swatch legend-no"></i>Not read</span>
+          <span><i class="legend-swatch legend-pending"></i>Pending</span>
+          <span><i class="legend-swatch legend-future"></i>Upcoming</span>
+        </div>
       </section>
 
       <!-- SECTION 2: LEADERBOARD -->
