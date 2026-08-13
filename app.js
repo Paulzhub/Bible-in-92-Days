@@ -68,10 +68,14 @@ function initTheme() {
   const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
   applyTheme(saved || (prefersLight ? 'light' : 'dark'));
 
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme') || 'dark';
-    applyTheme(current === 'light' ? 'dark' : 'light');
-  });
+  const toggleBtn = document.getElementById('theme-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(current === 'light' ? 'dark' : 'light');
+    });
+  }
 }
 
 // ====== LEVEL BADGE HELPER ======
@@ -107,7 +111,7 @@ function initLogin() {
     try {
       const res = await apiGet({ action: 'login', username, password });
       if (res.success) {
-        const session = { username: res.username, password };
+        const session = { username: res.username, password, isGuest: !!res.isGuest };
         setSession(session);
         showSite(session);
       } else {
@@ -124,18 +128,33 @@ function initLogin() {
   });
 }
 
+function updateGuestBanner(activeGuest, session) {
+  const banner = document.getElementById('guest-warning-banner');
+  const textEl = document.getElementById('guest-warning-text');
+  if (!banner || !textEl) return;
+
+  const currentGuest = activeGuest || (session && session.isGuest ? session.username : null);
+  if (currentGuest) {
+    textEl.textContent = `A guest is currently logged in (${currentGuest} is watching)! Don't have too much fun or they may die of envy! ✨`;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+  }
+}
+
 function showSite(session) {
   document.getElementById('login-screen').hidden = true;
   const siteEl = document.getElementById('site');
   siteEl.hidden = false;
   siteEl.classList.add('fade-in');
-  document.getElementById('welcome-user').textContent = `Hi, ${session.username}`;
+  document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + (session.isGuest ? ' (Guest)' : '');
 
   document.getElementById('logout-btn').addEventListener('click', () => {
     clearSession();
     location.reload();
   });
 
+  updateGuestBanner(null, session);
   initMobileMenu();
   initDateDropdown();
   initShareModal();
@@ -203,9 +222,24 @@ function initDateDropdown() {
 function wireUpdateForm(session) {
   const form = document.getElementById('update-form');
   const feedback = document.getElementById('update-feedback');
+  if (!form) return;
+
+  if (session && session.isGuest) {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guest View Only';
+    }
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (session && session.isGuest) {
+      feedback.hidden = false;
+      feedback.textContent = 'Guest users are in read-only mode.';
+      feedback.className = 'form-feedback error';
+      return;
+    }
     feedback.hidden = true;
     const date = document.getElementById('date-select').value;
     const status = document.getElementById('status-select').value;
@@ -402,6 +436,7 @@ async function loadInitialData(session) {
 
   try {
     const res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
+    updateGuestBanner(res.activeGuest, session);
 
     if (res.today.success) {
       portionEl.textContent = res.today.portion;
@@ -452,6 +487,8 @@ async function loadInitialData(session) {
 async function loadUpdates(session) {
   try {
     const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
+    updateGuestBanner(res.activeGuest, session);
+
     if (res.leaderboard.success) {
       currentLeaderboard = res.leaderboard.leaderboard;
       renderLeaderboard(currentLeaderboard, session);
@@ -669,9 +706,11 @@ function renderWeeklyRecap(recap) {
 // ====== SECTION 4: COMMENTS ======
 
 const REACTIONS = [
-  { type: 'heart', emoji: '❤️', label: 'Love this' },
+  { type: 'heart', emoji: '❤️', label: 'Amen' },
   { type: 'pray', emoji: '🙏', label: 'Praying' },
-  { type: 'fire', emoji: '🔥', label: 'On fire' }
+  { type: 'fire', emoji: '🔥', label: 'On fire' },
+  { type: 'laugh', emoji: '😂', label: 'Laugh' },
+  { type: 'cross', emoji: '✝️', label: 'Cross' }
 ];
 
 let commentsCache = [];
@@ -704,6 +743,89 @@ function spawnFloatingEmoji(e, emojiSymbol) {
   setTimeout(() => particle.remove(), 1200);
 }
 
+function createReactionButtonsRow(reactionsData, session, targetUsername, replyUsername = null) {
+  const reactionsRow = document.createElement('div');
+  reactionsRow.className = 'comment-reactions';
+
+  const reactionsObj = reactionsData || { heart: [], pray: [], fire: [], laugh: [], cross: [] };
+
+  REACTIONS.forEach(({ type, emoji, label }) => {
+    const list = reactionsObj[type] || [];
+    const active = session && list.includes(session.username);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'reaction-btn' + (active ? ' active' : '');
+    btn.innerHTML = `<span class="reaction-emoji">${emoji}</span><span class="reaction-count">${list.length}</span>`;
+
+    const tooltip = document.createElement('span');
+    tooltip.className = 'reaction-tooltip';
+    tooltip.textContent = list.length > 0 ? `Reacted by: ${list.join(', ')}` : label;
+    btn.appendChild(tooltip);
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (session && session.isGuest) {
+        alert('Guest users are in read-only mode.');
+        return;
+      }
+      spawnFloatingEmoji(e, emoji);
+      handleReactionClick(targetUsername, replyUsername, type, session, reactionsRow);
+    });
+
+    reactionsRow.appendChild(btn);
+  });
+
+  return reactionsRow;
+}
+
+function handleReactionClick(targetUsername, replyUsername, type, session, reactionsRow) {
+  const comment = commentsCache.find(c => c.username === targetUsername);
+  if (!comment) return;
+
+  let targetObj;
+  if (replyUsername) {
+    const reply = (comment.replies || []).find(r => r.username === replyUsername);
+    if (!reply) return;
+    if (!reply.reactions) reply.reactions = { heart: [], pray: [], fire: [], laugh: [], cross: [] };
+    targetObj = reply.reactions;
+  } else {
+    if (!comment.reactions) comment.reactions = { heart: [], pray: [], fire: [], laugh: [], cross: [] };
+    targetObj = comment.reactions;
+  }
+
+  const wasActiveInThisType = (targetObj[type] || []).includes(session.username);
+  REACTIONS.forEach(r => {
+    if (!targetObj[r.type]) targetObj[r.type] = [];
+    targetObj[r.type] = targetObj[r.type].filter(u => u !== session.username);
+  });
+  if (!wasActiveInThisType) {
+    targetObj[type].push(session.username);
+  }
+
+  const btnEls = reactionsRow.querySelectorAll('.reaction-btn');
+  REACTIONS.forEach(({ type: rType, label }, idx) => {
+    const btn = btnEls[idx];
+    if (!btn) return;
+    const rList = targetObj[rType] || [];
+    const rActive = rList.includes(session.username);
+    btn.classList.toggle('active', rActive);
+    const countSpan = btn.querySelector('.reaction-count');
+    if (countSpan) countSpan.textContent = rList.length;
+    const tooltipSpan = btn.querySelector('.reaction-tooltip');
+    if (tooltipSpan) tooltipSpan.textContent = rList.length > 0 ? `Reacted by: ${rList.join(', ')}` : label;
+  });
+
+  apiGet({
+    action: 'reactComment',
+    reactorUsername: session.username,
+    password: session.password,
+    targetUsername,
+    replyUser: replyUsername || undefined,
+    type
+  }).catch(() => {});
+}
+
 function buildCommentElement(comment, session) {
   const isYou = session && comment.username === session.username;
 
@@ -718,7 +840,6 @@ function buildCommentElement(comment, session) {
   author.className = 'comment-author';
   author.textContent = comment.username;
 
-  // Level badge matching comment author
   const authorData = currentLeaderboard.find(u => u.username === comment.username);
   if (authorData && authorData.levelTitle) {
     author.appendChild(createLevelBadgeEl(authorData.levelTitle));
@@ -736,91 +857,160 @@ function buildCommentElement(comment, session) {
   text.className = 'comment-text';
   text.textContent = comment.text;
 
-  const reactionsRow = document.createElement('div');
-  reactionsRow.className = 'comment-reactions';
+  const reactionsRow = createReactionButtonsRow(comment.reactions, session, comment.username);
 
-  REACTIONS.forEach(({ type, emoji, label }) => {
-    const list = comment.reactions[type] || [];
-    const active = session && list.includes(session.username);
+  const actionsBar = document.createElement('div');
+  actionsBar.className = 'comment-actions-bar';
+  actionsBar.appendChild(reactionsRow);
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'reaction-btn' + (active ? ' active' : '');
-    btn.title = label;
-    btn.innerHTML = `<span class="reaction-emoji">${emoji}</span><span class="reaction-count">${list.length}</span>`;
-    btn.addEventListener('click', (e) => {
-      spawnFloatingEmoji(e, emoji);
-      handleReact(comment.username, type, session, btn);
-    });
-    reactionsRow.appendChild(btn);
+  const repliesList = comment.replies || [];
+  const hasUserReplied = session && repliesList.some(r => r.username === session.username);
+
+  let replyFormWrap;
+
+  if (session && !session.isGuest) {
+    if (hasUserReplied) {
+      const tag = document.createElement('span');
+      tag.className = 'already-replied-tag';
+      tag.textContent = 'Already replied';
+      actionsBar.appendChild(tag);
+    } else {
+      const replyToggleBtn = document.createElement('button');
+      replyToggleBtn.type = 'button';
+      replyToggleBtn.className = 'reply-toggle-btn';
+      replyToggleBtn.textContent = '💬 Reply';
+
+      replyToggleBtn.addEventListener('click', () => {
+        if (!replyFormWrap) return;
+        replyFormWrap.hidden = !replyFormWrap.hidden;
+        if (!replyFormWrap.hidden) {
+          const input = replyFormWrap.querySelector('input');
+          if (input) input.focus();
+        }
+      });
+      actionsBar.appendChild(replyToggleBtn);
+    }
+  }
+
+  replyFormWrap = document.createElement('form');
+  replyFormWrap.className = 'reply-form';
+  replyFormWrap.hidden = true;
+  replyFormWrap.innerHTML = `
+    <input type="text" maxlength="300" placeholder="Write a reply..." required />
+    <button type="submit" class="btn btn-primary">Reply</button>
+  `;
+
+  replyFormWrap.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = replyFormWrap.querySelector('input');
+    const replyText = input.value.trim();
+    if (!replyText) return;
+    const submitBtn = replyFormWrap.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    const optimisticReply = {
+      username: session.username,
+      text: replyText,
+      reactions: { heart: [], pray: [], fire: [], laugh: [], cross: [] },
+      timestamp: new Date().toISOString()
+    };
+    if (!comment.replies) comment.replies = [];
+    comment.replies.push(optimisticReply);
+
+    renderComments(session);
+
+    try {
+      const res = await apiGet({
+        action: 'postReply',
+        username: session.username,
+        password: session.password,
+        targetUsername: comment.username,
+        text: replyText
+      });
+      if (res.success && res.replies) {
+        comment.replies = res.replies;
+        renderComments(session);
+      }
+    } catch (err) {
+    }
   });
 
-  item.append(head, text, reactionsRow);
+  const repliesContainer = document.createElement('div');
+  repliesContainer.className = 'comment-replies';
+
+  if (repliesList.length > 0) {
+    repliesList.forEach(reply => {
+      const replyItem = document.createElement('div');
+      replyItem.className = 'reply-item';
+
+      const replyHead = document.createElement('div');
+      replyHead.className = 'reply-head';
+
+      const replyAuthor = document.createElement('span');
+      replyAuthor.className = 'reply-author';
+      replyAuthor.textContent = reply.username;
+
+      const replyAuthorData = currentLeaderboard.find(u => u.username === reply.username);
+      if (replyAuthorData && replyAuthorData.levelTitle) {
+        replyAuthor.appendChild(createLevelBadgeEl(replyAuthorData.levelTitle));
+      }
+      if (session && reply.username === session.username) {
+        const youTag = document.createElement('span');
+        youTag.className = 'you-tag';
+        youTag.textContent = 'YOU';
+        replyAuthor.appendChild(youTag);
+      }
+      replyHead.appendChild(replyAuthor);
+
+      const replyTextEl = document.createElement('p');
+      replyTextEl.className = 'reply-text';
+      replyTextEl.textContent = reply.text;
+
+      const replyReactionsRow = createReactionButtonsRow(reply.reactions, session, comment.username, reply.username);
+
+      replyItem.append(replyHead, replyTextEl, replyReactionsRow);
+      repliesContainer.appendChild(replyItem);
+    });
+  }
+
+  item.append(head, text, actionsBar, replyFormWrap, repliesContainer);
   return item;
 }
 
 function updateCommentFormVisibility(session) {
   const form = document.getElementById('comment-form');
   const already = document.getElementById('comment-already');
+  if (!form || !already) return;
+
+  if (session && session.isGuest) {
+    form.hidden = true;
+    already.hidden = false;
+    already.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    return;
+  }
+
   const hasCommented = session && commentsCache.some(c => c.username === session.username);
   form.hidden = hasCommented;
   already.hidden = !hasCommented;
-}
-
-async function handleReact(targetUsername, type, session, btnEl) {
-  const comment = commentsCache.find(c => c.username === targetUsername);
-  if (!comment) return;
-
-  const list = comment.reactions[type];
-  const wasActive = list.includes(session.username);
-  const countEl = btnEl.querySelector('.reaction-count');
-
-  if (wasActive) {
-    comment.reactions[type] = list.filter(u => u !== session.username);
-  } else {
-    comment.reactions[type] = [...list, session.username];
-  }
-  btnEl.classList.toggle('active', !wasActive);
-  countEl.textContent = comment.reactions[type].length;
-  btnEl.disabled = true;
-
-  try {
-    const res = await apiGet({
-      action: 'reactComment',
-      reactorUsername: session.username,
-      password: session.password,
-      targetUsername,
-      type
-    });
-    if (res.success) {
-      comment.reactions = res.reactions;
-      countEl.textContent = comment.reactions[type].length;
-      btnEl.classList.toggle('active', res.reacted);
-    } else {
-      revertReaction(comment, type, wasActive, session.username, btnEl, countEl);
-    }
-  } catch (err) {
-    revertReaction(comment, type, wasActive, session.username, btnEl, countEl);
-  } finally {
-    btnEl.disabled = false;
-  }
-}
-
-function revertReaction(comment, type, wasActive, username, btnEl, countEl) {
-  comment.reactions[type] = wasActive
-    ? Array.from(new Set([...comment.reactions[type], username]))
-    : comment.reactions[type].filter(u => u !== username);
-  countEl.textContent = comment.reactions[type].length;
-  btnEl.classList.toggle('active', wasActive);
+  already.textContent = 'You\'ve already shared your thoughts for today — see you back here tomorrow!';
 }
 
 function wireCommentForm(session) {
   const form = document.getElementById('comment-form');
   const already = document.getElementById('comment-already');
   const feedback = document.getElementById('comment-feedback');
+  if (!form || !already) return;
+
+  if (session && session.isGuest) {
+    form.hidden = true;
+    already.hidden = false;
+    already.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    return;
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (session && session.isGuest) return;
     feedback.hidden = true;
     const textarea = document.getElementById('comment-input');
     const text = textarea.value.trim();
@@ -828,7 +1018,7 @@ function wireCommentForm(session) {
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
-    const optimisticComment = { username: session.username, text, reactions: { heart: [], pray: [], fire: [] } };
+    const optimisticComment = { username: session.username, text, reactions: { heart: [], pray: [], fire: [], laugh: [], cross: [] }, replies: [] };
     commentsCache.push(optimisticComment);
     document.getElementById('comments-list').appendChild(buildCommentElement(optimisticComment, session));
     document.querySelector('.comments-empty')?.remove();
