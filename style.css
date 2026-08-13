@@ -506,7 +506,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   font-size: 0.95rem;
 }
 
-.leaderboard-table .col-rank, .leaderboard-table .col-days, .leaderboard-table .col-status {
+.leaderboard-table .col-rank, .leaderboard-table .col-reader, .leaderboard-table .col-days, .leaderboard-table .col-status {
   text-align: center;
 }
 
@@ -514,6 +514,10 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--accent);
+  text-align: center;
+}
+
+.reader-cell {
   text-align: center;
 }
 
@@ -531,6 +535,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .reader-name-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   flex-wrap: wrap;
 }
@@ -541,10 +546,13 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .reader-streak {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.72rem;
   color: var(--text-muted);
   margin-top: 0.15rem;
+  text-align: center;
 }
 
 .reader-streak .flame { margin-right: 0.15rem; }
@@ -1427,4 +1435,233 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ============ PASSWORD TOGGLE ============ */
+.password-field .password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-field .password-input-wrap input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.toggle-password-btn:hover {
+  color: var(--accent);
+}
+
+.toggle-password-btn svg {
+  pointer-events: none;
+}
+
+/* ============ DAYWISE READING PORTION SIDEBAR ============ */
+.sidebar-toggle-btn {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  gap: 0.35rem;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-backdrop.active {
+  opacity: 1;
+}
+
+.reading-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reading-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.sidebar-sub {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sidebar-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem;
+  cursor: pointer;
+}
+
+.sidebar-close-btn:hover {
+  color: var(--text);
+}
+
+.sidebar-search-wrap {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-search-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sidebar-search-input:focus {
+  outline: 2px solid var(--accent);
+}
+
+.sidebar-portions-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+
+.sidebar-portion-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.sidebar-portion-item:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.sidebar-portion-item.current-day {
+  background: rgba(232, 169, 59, 0.16);
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(232, 169, 59, 0.25);
+}
+
+.sidebar-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-day-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+}
+
+.sidebar-date-tag {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.sidebar-portion-text {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ============ SCROLL & LANDING TRANSITIONS ============ */
+@keyframes siteEaseIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.site-ease-in, .login-card {
+  animation: siteEaseIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scroll-animate {
+  opacity: 0;
+  transform: translateY(32px) scale(0.97);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-animate.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 

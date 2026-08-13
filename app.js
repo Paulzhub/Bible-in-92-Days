@@ -87,9 +87,10 @@ function createLevelBadgeEl(levelTitle) {
   return span;
 }
 
-// ====== LOGIN ======
+// ====== LOGIN & APP LIFECYCLE ======
 
 function initLogin() {
+  initPasswordToggle();
   const session = getSession();
   if (session) {
     showSite(session);
@@ -128,6 +129,23 @@ function initLogin() {
   });
 }
 
+function initPasswordToggle() {
+  const toggleBtn = document.getElementById('toggle-password-btn');
+  const passwordInput = document.getElementById('login-password');
+  const eyeShow = document.getElementById('eye-icon-show');
+  const eyeHide = document.getElementById('eye-icon-hide');
+
+  if (!toggleBtn || !passwordInput) return;
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    if (eyeShow) eyeShow.hidden = isPassword;
+    if (eyeHide) eyeHide.hidden = !isPassword;
+  });
+}
+
 function updateGuestBanner(activeGuest, session) {
   const banner = document.getElementById('guest-warning-banner');
   const textEl = document.getElementById('guest-warning-text');
@@ -146,7 +164,7 @@ function showSite(session) {
   document.getElementById('login-screen').hidden = true;
   const siteEl = document.getElementById('site');
   siteEl.hidden = false;
-  siteEl.classList.add('fade-in');
+  siteEl.classList.add('fade-in', 'site-ease-in');
   document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + (session.isGuest ? ' (Guest)' : '');
 
   document.getElementById('logout-btn').addEventListener('click', () => {
@@ -158,6 +176,8 @@ function showSite(session) {
   initMobileMenu();
   initDateDropdown();
   initShareModal();
+  initReadingSidebar();
+  initScrollTransitions();
   wireUpdateForm(session);
   wireCommentForm(session);
   wireShareTodayButton(session);
@@ -441,11 +461,16 @@ async function loadInitialData(session) {
     if (res.today.success) {
       portionEl.textContent = res.today.portion;
       dateEl.textContent = res.today.date;
+      currentDayNum = res.today.day;
       renderDayCountdown(res.today.day);
     } else {
       portionEl.textContent = "No portion listed for today yet — check back soon.";
       dateEl.textContent = res.today.date || '';
       renderDayCountdown(null);
+    }
+
+    if (res.allPortions && res.allPortions.success) {
+      renderReadingSidebar(res.allPortions.portions);
     }
 
     if (res.leaderboard.success) {
@@ -591,7 +616,11 @@ function renderLeaderboard(rows, session) {
 
     const rankTd = document.createElement('td');
     rankTd.className = 'rank-cell';
-    rankTd.textContent = row.rank;
+    let rankBadge = '';
+    if (row.rank === 1) rankBadge = ' 🏆';
+    else if (row.rank === 2) rankBadge = ' 🥈';
+    else if (row.rank === 3) rankBadge = ' 🥉';
+    rankTd.textContent = `${row.rank}${rankBadge}`;
 
     const readerTd = document.createElement('td');
     readerTd.className = 'reader-cell' + (isYou ? ' is-you' : '');
@@ -870,27 +899,24 @@ function buildCommentElement(comment, session) {
   let replyFormWrap;
 
   if (session && !session.isGuest) {
-    if (hasUserReplied) {
-      const tag = document.createElement('span');
-      tag.className = 'already-replied-tag';
-      tag.textContent = 'Already replied';
-      actionsBar.appendChild(tag);
-    } else {
-      const replyToggleBtn = document.createElement('button');
-      replyToggleBtn.type = 'button';
-      replyToggleBtn.className = 'reply-toggle-btn';
-      replyToggleBtn.textContent = '💬 Reply';
+    const replyToggleBtn = document.createElement('button');
+    replyToggleBtn.type = 'button';
+    replyToggleBtn.className = 'reply-toggle-btn';
+    replyToggleBtn.textContent = hasUserReplied ? '✏️ Edit Reply' : '💬 Reply';
 
-      replyToggleBtn.addEventListener('click', () => {
-        if (!replyFormWrap) return;
-        replyFormWrap.hidden = !replyFormWrap.hidden;
-        if (!replyFormWrap.hidden) {
-          const input = replyFormWrap.querySelector('input');
-          if (input) input.focus();
+    replyToggleBtn.addEventListener('click', () => {
+      if (!replyFormWrap) return;
+      replyFormWrap.hidden = !replyFormWrap.hidden;
+      if (!replyFormWrap.hidden) {
+        const input = replyFormWrap.querySelector('input');
+        if (input) {
+          const userReply = repliesList.find(r => r.username === session.username);
+          if (userReply) input.value = userReply.text;
+          input.focus();
         }
-      });
-      actionsBar.appendChild(replyToggleBtn);
-    }
+      }
+    });
+    actionsBar.appendChild(replyToggleBtn);
   }
 
   replyFormWrap = document.createElement('form');
@@ -1486,6 +1512,148 @@ function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
   ctx.closePath();
   if (fill) ctx.fill();
   if (stroke) ctx.stroke();
+}
+
+// ====== DAYWISE BIBLE READING PORTION SIDEBAR ======
+
+let allPortionsCache = [];
+let currentDayNum = null;
+
+function initReadingSidebar() {
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const closeBtn = document.getElementById('close-sidebar-btn');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const sidebar = document.getElementById('reading-sidebar');
+  const searchInput = document.getElementById('sidebar-search-input');
+
+  if (!toggleBtn || !sidebar) return;
+
+  const openSidebar = () => {
+    sidebar.hidden = false;
+    backdrop.hidden = false;
+    requestAnimationFrame(() => {
+      sidebar.classList.add('open');
+      backdrop.classList.add('active');
+    });
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.focus();
+    }
+    filterSidebarPortions('');
+
+    setTimeout(() => {
+      const currentEl = sidebar.querySelector('.sidebar-portion-item.current-day');
+      if (currentEl) {
+        currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 350);
+  };
+
+  const closeSidebar = () => {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('active');
+    setTimeout(() => {
+      sidebar.hidden = true;
+      backdrop.hidden = true;
+    }, 400);
+  };
+
+  toggleBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      filterSidebarPortions(e.target.value.trim().toLowerCase());
+    });
+  }
+}
+
+function renderReadingSidebar(portions) {
+  allPortionsCache = portions || [];
+  filterSidebarPortions('');
+}
+
+function filterSidebarPortions(query) {
+  const listEl = document.getElementById('sidebar-portions-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  if (!allPortionsCache.length) {
+    listEl.innerHTML = '<p class="sidebar-loading">No reading schedule available.</p>';
+    return;
+  }
+
+  const filtered = allPortionsCache.filter(item => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return String(item.day).includes(q) ||
+           (item.portion && item.portion.toLowerCase().includes(q)) ||
+           (item.date && item.date.toLowerCase().includes(q));
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<p class="sidebar-loading">No matching portions found.</p>';
+    return;
+  }
+
+  filtered.forEach(item => {
+    const el = document.createElement('div');
+    const isCurrent = currentDayNum !== null && item.day === currentDayNum;
+    el.className = 'sidebar-portion-item' + (isCurrent ? ' current-day' : '');
+
+    el.innerHTML = `
+      <div class="sidebar-item-top">
+        <span class="sidebar-day-tag">Day ${item.day} ${isCurrent ? '• TODAY' : ''}</span>
+        <span class="sidebar-date-tag">${item.date || ''}</span>
+      </div>
+      <div class="sidebar-portion-text">${item.portion || ''}</div>
+    `;
+
+    el.addEventListener('click', () => {
+      const select = document.getElementById('date-select');
+      if (select && item.date) {
+        let matchedOpt = Array.from(select.options).find(o => o.value === item.date);
+        if (matchedOpt) {
+          select.value = item.date;
+        } else {
+          const opt = document.createElement('option');
+          opt.value = item.date;
+          opt.textContent = item.date;
+          select.appendChild(opt);
+          select.value = item.date;
+        }
+        const sectionToday = document.getElementById('section-today');
+        if (sectionToday) sectionToday.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const closeBtn = document.getElementById('close-sidebar-btn');
+      if (closeBtn) closeBtn.click();
+    });
+
+    listEl.appendChild(el);
+  });
+}
+
+// ====== SECTION SCROLL TRANSITIONS ======
+
+function initScrollTransitions() {
+  const sections = document.querySelectorAll('main section, .squad-gauge-card');
+  sections.forEach(sec => sec.classList.add('scroll-animate'));
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+      } else {
+        entry.target.classList.remove('is-visible');
+      }
+    });
+  }, {
+    threshold: 0.08,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  sections.forEach(sec => observer.observe(sec));
 }
 
 // ====== INIT ======

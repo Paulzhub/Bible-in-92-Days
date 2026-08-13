@@ -43,9 +43,15 @@
         <span>Username</span>
         <input type="text" id="login-username" autocomplete="username" required>
       </label>
-      <label class="field">
+      <label class="field password-field">
         <span>Password</span>
-        <input type="password" id="login-password" autocomplete="current-password" required>
+        <div class="password-input-wrap">
+          <input type="password" id="login-password" autocomplete="current-password" required>
+          <button type="button" id="toggle-password-btn" class="toggle-password-btn" aria-label="Toggle password visibility" title="Show/Hide password">
+            <svg id="eye-icon-show" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="eye-icon-hide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
       </label>
       <p id="login-error" class="form-error" hidden></p>
       <button type="submit" class="btn btn-primary">Begin Reading</button>
@@ -62,6 +68,10 @@
             <span id="welcome-user" class="welcome-user"></span>
             <span id="header-user-level" class="level-badge"></span>
           </div>
+          <button id="sidebar-toggle-btn" class="btn btn-secondary sidebar-toggle-btn" type="button" title="View 92-Day Reading Schedule">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Schedule</span>
+          </button>
           <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
             <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -161,7 +171,7 @@
             <thead>
               <tr>
                 <th class="col-rank">Rank</th>
-                <th>Readers & Level</th>
+                <th class="col-reader">Readers & Level</th>
                 <th class="col-days">Days<br>Completed</th>
                 <th class="col-status">Today's<br>Status</th>
               </tr>
@@ -296,6 +306,24 @@
       </div>
     </div>
   </div>
+
+  <!-- DAYWISE READING PORTION SIDEBAR -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
+  <aside id="reading-sidebar" class="reading-sidebar" hidden>
+    <div class="sidebar-header">
+      <div class="sidebar-title-group">
+        <h3 class="sidebar-title">92-Day Reading Schedule</h3>
+        <p class="sidebar-sub">Full Bible Reading Plan</p>
+      </div>
+      <button id="close-sidebar-btn" class="sidebar-close-btn" type="button" aria-label="Close schedule sidebar">&times;</button>
+    </div>
+    <div class="sidebar-search-wrap">
+      <input type="text" id="sidebar-search-input" class="sidebar-search-input" placeholder="Search portion or day number…">
+    </div>
+    <div id="sidebar-portions-list" class="sidebar-portions-list">
+      <p class="sidebar-loading">Loading schedule…</p>
+    </div>
+  </aside>
 
   <!-- CELEBRATION CONFETTI CANVAS -->
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>

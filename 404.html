@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — Page Not Found | Project Bible in 92 Days</title>
+<meta name="description" content="Page not found — Return to Project Bible in 92 Days.">
+<link rel="icon" type="image/png" href="assets/bible-cursor.png">
+<link rel="shortcut icon" href="assets/bible-cursor.png">
+<link rel="apple-touch-icon" href="assets/bible-cursor.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+
+<style>
+  .error-page-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: var(--bg-radial);
+  }
+  .error-card {
+    max-width: 520px;
+    width: 100%;
+    text-align: center;
+    padding: var(--space-8) var(--space-6);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: siteEaseIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .error-code-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.35rem 1rem;
+    background: rgba(228, 104, 93, 0.12);
+    border: 1px solid rgba(228, 104, 93, 0.3);
+    border-radius: var(--radius-full);
+    color: var(--accent-red);
+    font-size: var(--font-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: var(--space-4);
+  }
+  .error-title {
+    font-family: var(--font-heading);
+    font-size: var(--font-3xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.15;
+    margin-bottom: var(--space-3);
+  }
+  .error-quote {
+    font-family: var(--font-heading);
+    font-style: italic;
+    font-size: var(--font-md);
+    color: var(--accent-gold);
+    margin-bottom: var(--space-4);
+    line-height: 1.5;
+  }
+  .error-desc {
+    color: var(--text-secondary);
+    font-size: var(--font-sm);
+    line-height: 1.6;
+    margin-bottom: var(--space-6);
+  }
+  .error-actions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body class="error-page-body">
+
+  <main class="error-card">
+    <div class="error-code-badge">
+      <span>✨ 404 Page Not Found</span>
+    </div>
+    <h1 class="error-title">Looking for something?</h1>
+    <p class="error-quote">"Your word is a lamp for my feet, a light on my path." — Psalm 119:105</p>
+    <p class="error-desc">The page or portion you are trying to reach seems to have wandered off. Let's guide you back to today's reading portion!</p>
+
+    <div class="error-actions">
+      <a href="index.html" class="btn btn-primary">Return to Today's Reading</a>
+    </div>
+  </main>
+
+</body>
+</html>
