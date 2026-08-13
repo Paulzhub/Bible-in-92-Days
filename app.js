@@ -241,6 +241,7 @@ function wireUpdateForm(session) {
 async function loadInitialData(session) {
   const portionEl = document.getElementById('today-portion');
   const dateEl = document.getElementById('today-date');
+  const dayEl = document.getElementById('today-day');
   const lbBody = document.getElementById('leaderboard-body');
   const lbError = document.getElementById('leaderboard-error');
   const commentsListEl = document.getElementById('comments-list');
@@ -251,9 +252,11 @@ async function loadInitialData(session) {
     if (res.today.success) {
       portionEl.textContent = res.today.portion;
       dateEl.textContent = res.today.date;
+      dayEl.textContent = res.today.day ? `Day ${res.today.day}` : '';
     } else {
       portionEl.textContent = "No portion listed for today yet — check back soon.";
       dateEl.textContent = res.today.date || '';
+      dayEl.textContent = '';
     }
 
     if (res.leaderboard.success) {
