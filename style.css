@@ -580,13 +580,6 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   font-weight: 700;
 }
 
-.chart-wrap {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1rem 0.75rem;
-}
-
 .site-footer {
   text-align: center;
   color: var(--text-muted);
