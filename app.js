@@ -5,6 +5,12 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwwB94GWz7lxHIlL8YjGotK
 // Challenge window (DD/MM/YY)
 const CHALLENGE_START = { d: 10, m: 8, y: 26 };
 const CHALLENGE_END = { d: 9, m: 11, y: 26 };
+const TOTAL_CHALLENGE_DAYS = 92;
+
+// Cache of latest data
+let currentUserData = null;
+let currentLeaderboard = [];
+let currentWeeklyRecap = null;
 
 // ====== HELPERS ======
 
@@ -14,10 +20,6 @@ function formatDDMMYY(date) {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear()).slice(-2)}`;
 }
 
-// Fetches from the Apps Script backend with a timeout (so a stuck
-// request fails fast instead of hanging) and one quiet retry (so a
-// single transient blip — common with Apps Script — doesn't surface
-// as a hard error to the user).
 async function apiGet(params, { retries = 1, timeoutMs = 12000 } = {}) {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -70,6 +72,15 @@ function initTheme() {
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     applyTheme(current === 'light' ? 'dark' : 'light');
   });
+}
+
+// ====== LEVEL BADGE HELPER ======
+
+function createLevelBadgeEl(levelTitle) {
+  const span = document.createElement('span');
+  span.className = 'level-badge' + (levelTitle && levelTitle.includes('Finisher') ? ' finisher' : '');
+  span.textContent = levelTitle || 'Disciple I';
+  return span;
 }
 
 // ====== LOGIN ======
@@ -127,15 +138,14 @@ function showSite(session) {
 
   initMobileMenu();
   initDateDropdown();
+  initShareModal();
   wireUpdateForm(session);
   wireCommentForm(session);
+  wireShareTodayButton(session);
   loadInitialData(session);
   startAutoRefresh(session);
 }
 
-// Keeps the leaderboard and comments in sync with manual edits made
-// directly in the Google Sheet (e.g. an admin correcting a user's
-// entry), without requiring the viewer to do anything themselves.
 function startAutoRefresh(session) {
   setInterval(() => loadUpdates(session), 30000);
 
@@ -155,7 +165,6 @@ function initMobileMenu() {
     menuBtn.setAttribute('aria-expanded', String(isOpen));
   });
 
-  // Close the dropdown after choosing an action inside it, or when tapping outside.
   navLeft.addEventListener('click', (e) => {
     if (e.target.closest('button, a')) {
       navLeft.classList.remove('open');
@@ -188,7 +197,6 @@ function initDateDropdown() {
     opt.textContent = formatDDMMYY(d);
     select.appendChild(opt);
   }
-  // default to today (or the latest available date)
   select.value = formatDDMMYY(end);
 }
 
@@ -231,15 +239,6 @@ function wireUpdateForm(session) {
     }
   });
 }
-
-// ====== COMBINED DATA LOADS ======
-// One round trip for the initial page load (today + leaderboard +
-// comments), and one for each periodic refresh (leaderboard +
-// comments) — instead of firing several separate Apps Script calls
-// at once, which was the main source of both the slow loads and the
-// occasional "couldn't reach the server" errors.
-
-// ====== CHALLENGE COUNTDOWN ======
 
 function renderDayCountdown(day) {
   const dayEl = document.getElementById('today-day');
@@ -284,16 +283,11 @@ function celebrate(big) {
   setTimeout(() => container.remove(), big ? 2400 : 1600);
 }
 
-// Tracks the logged-in user's own days-completed count so we can tell
-// when a leaderboard refresh reflects a newly-crossed milestone
-// (rather than firing confetti on every routine refresh).
 let lastKnownDaysForMe = null;
 const MILESTONE_THRESHOLDS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 46, 50, 55, 60, 65, 70, 75, 80, 85, 90, 92];
 
 function checkMilestoneCelebration(daysCompleted) {
   if (lastKnownDaysForMe === null) {
-    // First render this session — just establish the baseline, don't
-    // celebrate for progress that happened before this page load.
     lastKnownDaysForMe = daysCompleted;
     return;
   }
@@ -304,10 +298,11 @@ function checkMilestoneCelebration(daysCompleted) {
   lastKnownDaysForMe = daysCompleted;
 }
 
+// ====== DATA FETCHING ======
+
 async function loadInitialData(session) {
   const portionEl = document.getElementById('today-portion');
   const dateEl = document.getElementById('today-date');
-  const dayEl = document.getElementById('today-day');
   const lbBody = document.getElementById('leaderboard-body');
   const lbError = document.getElementById('leaderboard-error');
   const commentsListEl = document.getElementById('comments-list');
@@ -326,12 +321,19 @@ async function loadInitialData(session) {
     }
 
     if (res.leaderboard.success) {
-      renderLeaderboard(res.leaderboard.leaderboard, session);
-      renderPlayground(res.leaderboard.leaderboard);
+      currentLeaderboard = res.leaderboard.leaderboard;
+      renderLeaderboard(currentLeaderboard, session);
+      renderPlayground(currentLeaderboard);
+      updateHeaderLevel(currentLeaderboard, session);
     } else {
       lbBody.innerHTML = '';
       lbError.textContent = res.leaderboard.error || 'Could not load the leaderboard.';
       lbError.hidden = false;
+    }
+
+    if (res.recap && res.recap.success) {
+      currentWeeklyRecap = res.recap;
+      renderWeeklyRecap(res.recap);
     }
 
     if (res.comments.success) {
@@ -355,14 +357,17 @@ async function loadInitialData(session) {
 }
 
 async function loadUpdates(session) {
-  const lbBody = document.getElementById('leaderboard-body');
-  const lbError = document.getElementById('leaderboard-error');
-
   try {
     const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
     if (res.leaderboard.success) {
-      renderLeaderboard(res.leaderboard.leaderboard, session);
-      renderPlayground(res.leaderboard.leaderboard);
+      currentLeaderboard = res.leaderboard.leaderboard;
+      renderLeaderboard(currentLeaderboard, session);
+      renderPlayground(currentLeaderboard);
+      updateHeaderLevel(currentLeaderboard, session);
+    }
+    if (res.recap && res.recap.success) {
+      currentWeeklyRecap = res.recap;
+      renderWeeklyRecap(res.recap);
     }
     if (res.comments.success) {
       commentsCache = res.comments.comments;
@@ -373,8 +378,19 @@ async function loadUpdates(session) {
       renderHeatmap(res.history.history);
     }
   } catch (err) {
-    // Background refresh — fail quietly and keep the last known-good
-    // state on screen rather than interrupting the user.
+    // Quiet failure on background refresh
+  }
+}
+
+function updateHeaderLevel(leaderboard, session) {
+  const me = leaderboard.find(u => u.username === session.username);
+  if (me) {
+    currentUserData = me;
+    const headerLevelEl = document.getElementById('header-user-level');
+    if (headerLevelEl) {
+      headerLevelEl.className = 'level-badge' + (me.levelTitle.includes('Finisher') ? ' finisher' : '');
+      headerLevelEl.textContent = me.levelTitle;
+    }
   }
 }
 
@@ -412,7 +428,6 @@ function renderHeatmap(history) {
   });
 }
 
-// Converts DD/MM/YY into a comparable number (YYMMDD) for date ordering.
 function parseDDMMYY(str) {
   const [d, m, y] = str.split('/').map(Number);
   return y * 10000 + m * 100 + d;
@@ -420,9 +435,6 @@ function parseDDMMYY(str) {
 
 // ====== SECTION 2: LEADERBOARD ======
 
-// Milestone badges: every 5 days, a special one at halfway (46), and
-// completion (92). Shows only the highest one reached, since that's
-// the meaningful one to display next to a name.
 function badgeFor(daysCompleted) {
   if (daysCompleted >= TOTAL_CHALLENGE_DAYS) return { icon: '🏆', label: 'Finished all 92 days!' };
   if (daysCompleted >= 46) return { icon: '🌟', label: 'Halfway there — 46+ days' };
@@ -455,9 +467,15 @@ function renderLeaderboard(rows, session) {
 
     const nameRow = document.createElement('div');
     nameRow.className = 'reader-name-row';
+
     const nameSpan = document.createElement('span');
     nameSpan.textContent = row.username;
     nameRow.appendChild(nameSpan);
+
+    if (row.levelTitle) {
+      const lvlBadge = createLevelBadgeEl(row.levelTitle);
+      nameRow.appendChild(lvlBadge);
+    }
 
     if (isYou) {
       const tag = document.createElement('span');
@@ -500,7 +518,51 @@ function renderLeaderboard(rows, session) {
   });
 }
 
-// ====== SECTION 3: COMMENTS ======
+// ====== SECTION 3: WEEKLY RECAP STATS ======
+
+function renderWeeklyRecap(recap) {
+  if (!recap || !recap.stats) return;
+
+  const select = document.getElementById('recap-week-select');
+  if (select && select.children.length === 0) {
+    select.innerHTML = '';
+    const total = recap.totalWeeks || 14;
+    for (let w = 1; w <= total; w++) {
+      const opt = document.createElement('option');
+      opt.value = w;
+      opt.textContent = `Week ${w}` + (w === recap.currentWeek ? ' (Current)' : '');
+      select.appendChild(opt);
+    }
+    select.value = recap.weekNum;
+
+    select.addEventListener('change', async (e) => {
+      const selectedWeek = parseInt(e.target.value, 10);
+      try {
+        const res = await apiGet({ action: 'getWeeklyRecap', weekNum: selectedWeek });
+        if (res.success) renderWeeklyRecap(res);
+      } catch (err) {
+        // silent fail
+      }
+    });
+  }
+
+  document.getElementById('recap-title').textContent = `Week ${recap.weekNum} Highlights (Days ${recap.startDayNum}–${recap.endDayNum})`;
+  document.getElementById('recap-pct').textContent = `${recap.stats.weeklyCompletionPct}%`;
+  
+  const topReadersText = recap.stats.topReaders && recap.stats.topReaders.length > 0
+    ? recap.stats.topReaders.join(', ')
+    : 'None yet';
+  document.getElementById('recap-top-reader').textContent = topReadersText;
+
+  const topStreakText = recap.stats.topStreakHolder && recap.stats.topStreakHolder.streak > 0
+    ? `${recap.stats.topStreakHolder.username} (${recap.stats.topStreakHolder.streak}d)`
+    : '0 days';
+  document.getElementById('recap-top-streak').textContent = topStreakText;
+
+  document.getElementById('recap-total-days').textContent = recap.stats.totalGroupDaysCompleted;
+}
+
+// ====== SECTION 4: COMMENTS ======
 
 const REACTIONS = [
   { type: 'heart', emoji: '❤️', label: 'Love this' },
@@ -508,9 +570,6 @@ const REACTIONS = [
   { type: 'fire', emoji: '🔥', label: 'On fire' }
 ];
 
-// Local cache of today's comments, kept in sync with the server but
-// mutated instantly on interaction so reactions/posts feel immediate
-// instead of waiting on a full Apps Script round-trip.
 let commentsCache = [];
 
 function renderComments(session) {
@@ -540,6 +599,13 @@ function buildCommentElement(comment, session) {
   const author = document.createElement('span');
   author.className = 'comment-author';
   author.textContent = comment.username;
+
+  // Level badge matching comment author
+  const authorData = currentLeaderboard.find(u => u.username === comment.username);
+  if (authorData && authorData.levelTitle) {
+    author.appendChild(createLevelBadgeEl(authorData.levelTitle));
+  }
+
   if (isYou) {
     const tag = document.createElement('span');
     tag.className = 'you-tag';
@@ -584,8 +650,6 @@ async function handleReact(targetUsername, type, session, btnEl) {
   const comment = commentsCache.find(c => c.username === targetUsername);
   if (!comment) return;
 
-  // Optimistic update: flip the reaction immediately, before the
-  // server confirms, so it feels instant. Reconciled/reverted below.
   const list = comment.reactions[type];
   const wasActive = list.includes(session.username);
   const countEl = btnEl.querySelector('.reaction-count');
@@ -608,8 +672,6 @@ async function handleReact(targetUsername, type, session, btnEl) {
       type
     });
     if (res.success) {
-      // Reconcile with the server's actual state in case of a race
-      // with someone else reacting to the same comment at once.
       comment.reactions = res.reactions;
       countEl.textContent = comment.reactions[type].length;
       btnEl.classList.toggle('active', res.reacted);
@@ -645,7 +707,6 @@ function wireCommentForm(session) {
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
-    // Optimistic post: show it and hide the form right away.
     const optimisticComment = { username: session.username, text, reactions: { heart: [], pray: [], fire: [] } };
     commentsCache.push(optimisticComment);
     document.getElementById('comments-list').appendChild(buildCommentElement(optimisticComment, session));
@@ -662,7 +723,6 @@ function wireCommentForm(session) {
         text
       });
       if (!res.success) {
-        // Roll back the optimistic comment and let them try again.
         commentsCache = commentsCache.filter(c => c !== optimisticComment);
         renderComments(session);
         form.hidden = false;
@@ -687,9 +747,8 @@ function wireCommentForm(session) {
   });
 }
 
-// ====== SECTION 4: PROGRESS PLAYGROUND ======
+// ====== SECTION 5: PROGRESS PLAYGROUND ======
 
-// Fixed, consistent color per reader.
 const USER_COLORS = {
   'Elisha': '#E8A93B',
   'Daysel': '#E4685D',
@@ -706,7 +765,6 @@ const USER_COLORS = {
   'Yeshi': '#B2495C'
 };
 const FALLBACK_COLOR = '#8892B0';
-const TOTAL_CHALLENGE_DAYS = 92;
 const CIRCLE_MIN = 52;
 const CIRCLE_MAX = 132;
 
@@ -719,9 +777,6 @@ function circleSizeFor(daysCompleted) {
   return CIRCLE_MIN + (CIRCLE_MAX - CIRCLE_MIN) * fraction;
 }
 
-// Tracks each circle's DOM element and current drag position so re-renders
-// (from the 30s auto-refresh) can resize in place without resetting
-// wherever the person has dragged them.
 const playgroundCircles = new Map();
 
 function renderPlayground(rows) {
@@ -821,6 +876,223 @@ function makeDraggable(el, container) {
 
   el.addEventListener('pointerup', endDrag);
   el.addEventListener('pointercancel', endDrag);
+}
+
+// ====== SHAREABLE DAY-STREAK CARD GENERATOR ======
+
+let lastGeneratedCardBlob = null;
+
+function wireShareTodayButton(session) {
+  const btn = document.getElementById('share-progress-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    openShareModal(session);
+  });
+}
+
+function initShareModal() {
+  const modal = document.getElementById('share-modal');
+  const closeBtn = document.getElementById('close-share-modal');
+  const downloadBtn = document.getElementById('download-card-btn');
+  const shareBtn = document.getElementById('native-share-btn');
+
+  closeBtn.addEventListener('click', () => modal.hidden = true);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.hidden = true;
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!lastGeneratedCardBlob) return;
+    const url = URL.createObjectURL(lastGeneratedCardBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ProjectBible_Streak_Day${currentUserData ? currentUserData.daysCompleted : 0}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  shareBtn.addEventListener('click', async () => {
+    if (!lastGeneratedCardBlob) return;
+    const filename = `ProjectBible_Streak_Day${currentUserData ? currentUserData.daysCompleted : 0}.png`;
+    const file = new File([lastGeneratedCardBlob], filename, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          title: 'Project Bible in 92 Days',
+          text: `Day ${currentUserData ? currentUserData.daysCompleted : 0}/92 🔥 — Reading accountability with The Youth Gathering!`,
+          files: [file]
+        });
+      } catch (err) {
+        // User cancelled share
+      }
+    } else {
+      alert('Direct image sharing is not supported on this browser. Use "Download PNG" to save the image!');
+    }
+  });
+}
+
+async function openShareModal(session) {
+  const modal = document.getElementById('share-modal');
+  const previewImg = document.getElementById('share-card-preview');
+
+  const me = currentLeaderboard.find(u => u.username === session.username) || {
+    username: session.username,
+    levelTitle: 'Disciple I',
+    daysCompleted: 0,
+    streak: 0
+  };
+
+  const canvas = generateShareCardCanvas(me);
+  canvas.toBlob((blob) => {
+    lastGeneratedCardBlob = blob;
+    previewImg.src = URL.createObjectURL(blob);
+    modal.hidden = false;
+  }, 'image/png');
+}
+
+function generateShareCardCanvas(userData) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 675;
+  const ctx = canvas.getContext('2d');
+
+  const username = userData.username || 'Reader';
+  const levelTitle = (userData.levelTitle || 'Disciple I').toUpperCase();
+  const days = userData.daysCompleted || 0;
+  const streak = userData.streak || 0;
+
+  // Background Gradient
+  const bgGradient = ctx.createLinearGradient(0, 0, 1200, 675);
+  bgGradient.addColorStop(0, '#14162B');
+  bgGradient.addColorStop(1, '#1E2140');
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, 1200, 675);
+
+  // Outer Border & Corner Accents
+  ctx.strokeStyle = 'rgba(232, 169, 59, 0.4)';
+  ctx.lineWidth = 12;
+  ctx.strokeRect(30, 30, 1140, 615);
+
+  ctx.strokeStyle = '#E8A93B';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(45, 45, 1110, 585);
+
+  // Top Eyebrow
+  ctx.fillStyle = '#E8A93B';
+  ctx.font = '600 24px "Space Grotesk", sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('THE YOUTH GATHERING 2026', 90, 110);
+
+  // Main Header Title
+  ctx.fillStyle = '#F6EFE1';
+  ctx.font = '700 58px "Fraunces", Georgia, serif';
+  ctx.fillText('Project Bible in 92 Days', 90, 185);
+
+  // Ribbon line under title
+  ctx.fillStyle = '#E8A93B';
+  ctx.fillRect(90, 210, 120, 8);
+
+  // User Name
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 54px "Space Grotesk", sans-serif';
+  ctx.fillText(username, 90, 310);
+
+  // Level Pill Badge
+  ctx.fillStyle = 'rgba(232, 169, 59, 0.18)';
+  ctx.strokeStyle = '#E8A93B';
+  ctx.lineWidth = 2;
+  const levelWidth = ctx.measureText(levelTitle).width + 40;
+  roundRect(ctx, 90, 340, Math.max(160, levelWidth), 46, 23, true, true);
+
+  ctx.fillStyle = '#E8A93B';
+  ctx.font = '700 22px "Space Grotesk", sans-serif';
+  ctx.fillText(levelTitle, 110, 371);
+
+  // Streak Pill Badge
+  const streakText = `🔥 ${streak}-DAY STREAK`;
+  const streakWidth = ctx.measureText(streakText).width + 40;
+  const streakX = 90 + Math.max(160, levelWidth) + 20;
+
+  ctx.fillStyle = 'rgba(228, 104, 93, 0.18)';
+  ctx.strokeStyle = '#E4685D';
+  ctx.lineWidth = 2;
+  roundRect(ctx, streakX, 340, Math.max(180, streakWidth), 46, 23, true, true);
+
+  ctx.fillStyle = '#E4685D';
+  ctx.font = '700 22px "Space Grotesk", sans-serif';
+  ctx.fillText(streakText, streakX + 20, 371);
+
+  // Subtitle / Encouragement quote
+  ctx.fillStyle = '#B9B4A8';
+  ctx.font = '400 26px "Fraunces", serif';
+  ctx.fillText('"Holding each other accountable in God\'s Word day by day."', 90, 460);
+
+  // --- PROGRESS RING ARC (RIGHT SIDE) ---
+  const cx = 930;
+  const cy = 340;
+  const radius = 125;
+
+  // Background Ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(246, 239, 225, 0.12)';
+  ctx.lineWidth = 22;
+  ctx.stroke();
+
+  // Progress Arc
+  const progressRatio = Math.min(1, Math.max(0, days / TOTAL_CHALLENGE_DAYS));
+  const startAngle = -0.5 * Math.PI;
+  const endAngle = startAngle + (progressRatio * 2 * Math.PI);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, startAngle, endAngle);
+  ctx.strokeStyle = '#E8A93B';
+  ctx.lineWidth = 22;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Center Text inside Ring
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 68px "Space Grotesk", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(String(days), cx, cy + 10);
+
+  ctx.fillStyle = '#E8A93B';
+  ctx.font = '600 22px "Space Grotesk", sans-serif';
+  ctx.fillText(`OF ${TOTAL_CHALLENGE_DAYS} DAYS`, cx, cy + 50);
+  ctx.textAlign = 'left';
+
+  // Bottom Footer
+  ctx.fillStyle = '#B9B4A8';
+  ctx.font = '500 22px "Space Grotesk", sans-serif';
+  ctx.fillText('tg.youth_ · Instagram', 90, 580);
+
+  ctx.fillStyle = '#E8A93B';
+  ctx.font = '600 22px "Space Grotesk", sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('92 Days Challenge', 1110, 580);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
 }
 
 // ====== INIT ======

@@ -1,2 +1,6 @@
-credentials.json
-.env
+# Exclude Apps Script backend file containing plain-text credentials
+Code.gs
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -36,7 +36,10 @@
     <header class="site-header">
       <div class="site-header-inner">
         <div id="nav-left" class="nav-left">
-          <span id="welcome-user" class="welcome-user"></span>
+          <div class="user-badge-wrap">
+            <span id="welcome-user" class="welcome-user"></span>
+            <span id="header-user-level" class="level-badge"></span>
+          </div>
           <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
             <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -58,7 +61,13 @@
     <main>
       <!-- SECTION 1: TODAY'S READING -->
       <section id="section-today" class="card section-today">
-        <p class="eyebrow">Today's Reading Portion</p>
+        <div class="section-head-row">
+          <p class="eyebrow">Today's Reading Portion</p>
+          <button id="share-progress-btn" class="btn btn-secondary btn-share-today" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share Progress
+          </button>
+        </div>
         <p id="today-date" class="today-date"></p>
         <p id="today-day" class="today-day"></p>
         <div class="challenge-progress" aria-hidden="true">
@@ -106,7 +115,7 @@
             <thead>
               <tr>
                 <th class="col-rank">Rank</th>
-                <th>Readers</th>
+                <th>Readers & Level</th>
                 <th class="col-days">Days<br>Completed</th>
                 <th class="col-status">Today's<br>Status</th>
               </tr>
@@ -119,7 +128,43 @@
         <p id="leaderboard-error" class="form-error" hidden></p>
       </section>
 
-      <!-- SECTION 3: DAILY COMMENTS -->
+      <!-- SECTION 3: WEEKLY RECAP STATS -->
+      <section id="section-recap" class="card section-recap">
+        <div class="recap-header">
+          <div>
+            <p class="eyebrow">Weekly Recap Stats</p>
+            <h2 id="recap-title" class="recap-title">Group Highlights</h2>
+          </div>
+          <div class="recap-select-wrap">
+            <select id="recap-week-select" class="recap-select"></select>
+          </div>
+        </div>
+
+        <div class="recap-grid">
+          <div class="recap-card">
+            <div class="recap-icon">📈</div>
+            <div id="recap-pct" class="recap-value">0%</div>
+            <div class="recap-label">Group Completion Rate</div>
+          </div>
+          <div class="recap-card">
+            <div class="recap-icon">⭐</div>
+            <div id="recap-top-reader" class="recap-value">—</div>
+            <div class="recap-label">Most Consistent Reader(s)</div>
+          </div>
+          <div class="recap-card">
+            <div class="recap-icon">🔥</div>
+            <div id="recap-top-streak" class="recap-value">—</div>
+            <div class="recap-label">Top Active Streak</div>
+          </div>
+          <div class="recap-card">
+            <div class="recap-icon">📖</div>
+            <div id="recap-total-days" class="recap-value">0</div>
+            <div class="recap-label">Total Days Read Together</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: DAILY COMMENTS -->
       <section id="section-comments" class="card section-comments">
         <p class="eyebrow">Today's Comments</p>
 
@@ -138,7 +183,7 @@
         <p id="comment-feedback" class="form-feedback" hidden></p>
       </section>
 
-      <!-- SECTION 4: PROGRESS PLAYGROUND -->
+      <!-- SECTION 5: PROGRESS PLAYGROUND -->
       <section id="section-playground" class="card section-playground">
         <p class="eyebrow">Progress Playground</p>
         <p class="playground-hint">Drag the circles around — size grows with days completed.</p>
@@ -146,9 +191,41 @@
       </section>
     </main>
 
+    <!-- FOOTER & INSTAGRAM CONNECT -->
     <footer class="site-footer">
-      <p>The Youth Gathering 2026</p>
+      <div class="social-connect-banner">
+        <p class="social-title">Connect with us on</p>
+        <a href="https://www.instagram.com/tg.youth_/" target="_blank" rel="noopener noreferrer" class="social-link" title="Follow TG Youth on Instagram">
+          <svg class="instagram-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+          </svg>
+          <span>@tg.youth_</span>
+        </a>
+      </div>
+      <p class="footer-copy">The Youth Gathering 2026</p>
     </footer>
+  </div>
+
+  <!-- SHARE CARD MODAL -->
+  <div id="share-modal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Share Your Progress</h3>
+        <button id="close-share-modal" class="modal-close-btn" type="button" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-sub">Save or share your streak card with friends!</p>
+        <div class="share-preview-container">
+          <img id="share-card-preview" class="share-card-preview" alt="Shareable Streak Card Preview">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="download-card-btn" class="btn btn-primary" type="button">Download PNG</button>
+        <button id="native-share-btn" class="btn btn-secondary" type="button">Share Image</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
