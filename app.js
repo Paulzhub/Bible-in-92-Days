@@ -1897,9 +1897,12 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
   if (tabsContainer) {
     tabsContainer.innerHTML = '';
     parsed.chapters.forEach((ch, idx) => {
+      const isInitialActive = targetChapterObj
+        ? (ch.bookId === targetChapterObj.bookId && ch.chapter === targetChapterObj.chapter)
+        : idx === 0;
       const tab = document.createElement('button');
       tab.type = 'button';
-      tab.className = 'reader-tab-btn' + (idx === 0 ? ' active' : '');
+      tab.className = 'reader-tab-btn' + (isInitialActive ? ' active' : '');
       tab.textContent = ch.label;
       tab.dataset.targetId = `reader-ch-${ch.bookId}-${ch.chapter}`;
       tab.addEventListener('click', () => {
