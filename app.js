@@ -1755,11 +1755,40 @@ function initScriptureReader(session) {
         alert('Guest users are in read-only mode.');
         return;
       }
+
+      // Check for future dates
+      let isFuture = false;
+      if (activeReaderDay !== null && activeReaderDay !== undefined) {
+        if (currentDayNum !== null && currentDayNum !== undefined) {
+          if (activeReaderDay > currentDayNum) {
+            isFuture = true;
+          }
+        } else {
+          const targetDateObj = new Date(2000 + CHALLENGE_START.y, CHALLENGE_START.m - 1, CHALLENGE_START.d + (activeReaderDay - 1));
+          const now = new Date();
+          now.setHours(23, 59, 59, 999);
+          if (targetDateObj > now) {
+            isFuture = true;
+          }
+        }
+      }
+
+      if (isFuture) {
+        alert("Time travel currently impossible, please stick to your current timeline!");
+        return;
+      }
+
       markReadBtn.disabled = true;
       markReadBtn.textContent = 'Updating…';
 
-      const dateSelect = document.getElementById('date-select');
-      const targetDate = dateSelect ? dateSelect.value : todayFormatted();
+      let targetDate;
+      if (activeReaderDay !== null && activeReaderDay !== undefined) {
+        const targetDateObj = new Date(2000 + CHALLENGE_START.y, CHALLENGE_START.m - 1, CHALLENGE_START.d + (activeReaderDay - 1));
+        targetDate = formatDDMMYY(targetDateObj);
+      } else {
+        const dateSelect = document.getElementById('date-select');
+        targetDate = dateSelect ? dateSelect.value : formatDDMMYY(new Date());
+      }
 
       try {
         const res = await apiGet({
@@ -1777,12 +1806,16 @@ function initScriptureReader(session) {
         } else {
           alert(res.error || 'Failed to update status.');
           markReadBtn.disabled = false;
-          markReadBtn.textContent = '✓ Mark Today as Read';
+          markReadBtn.textContent = (activeReaderDay && activeReaderDay === currentDayNum) || !activeReaderDay
+            ? '✓ Mark Today as Read'
+            : `✓ Mark Day ${activeReaderDay} as Read`;
         }
       } catch (err) {
         alert("Couldn't reach the server. Please try again.");
         markReadBtn.disabled = false;
-        markReadBtn.textContent = '✓ Mark Today as Read';
+        markReadBtn.textContent = (activeReaderDay && activeReaderDay === currentDayNum) || !activeReaderDay
+          ? '✓ Mark Today as Read'
+          : `✓ Mark Day ${activeReaderDay} as Read`;
       }
     });
   }
@@ -1852,7 +1885,13 @@ async function openReaderModal({ portion, day, initialChapter }) {
 
   if (markReadBtn) {
     markReadBtn.disabled = false;
-    markReadBtn.textContent = '✓ Mark Today as Read';
+    if (day && currentDayNum && day === currentDayNum) {
+      markReadBtn.textContent = '✓ Mark Today as Read';
+    } else if (day) {
+      markReadBtn.textContent = `✓ Mark Day ${day} as Read`;
+    } else {
+      markReadBtn.textContent = '✓ Mark Today as Read';
+    }
   }
 
   modal.hidden = false;

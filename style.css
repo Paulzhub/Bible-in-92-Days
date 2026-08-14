@@ -633,14 +633,15 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .reader-header {
-  padding: 1.1rem 1.4rem;
+  padding: 0.85rem 1.25rem;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.85rem;
   background: var(--surface-2);
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .reader-title-wrap {
@@ -662,7 +663,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 
 .reader-portion-title {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.18rem;
   margin: 0;
   line-height: 1.2;
 }
@@ -747,13 +748,15 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .reader-chapter-tabs {
   display: flex;
   align-items: center;
-  gap: 0.45rem 0.55rem;
-  padding: 0.75rem 1.4rem;
+  gap: 0.4rem 0.5rem;
+  padding: 0.65rem 1.25rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
-  max-height: 120px;
+  flex-shrink: 0;
+  max-height: 160px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .reader-chapter-tabs::-webkit-scrollbar {
@@ -773,7 +776,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .reader-tab-btn {
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.32rem 0.75rem;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -802,9 +805,10 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .reader-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 1.5rem 2rem;
+  padding: 1.25rem 1.75rem;
   font-family: var(--font-body);
   font-size: var(--reader-font-size, 1.05rem);
   line-height: 1.75;
@@ -858,7 +862,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .reader-footer {
-  padding: 0.9rem 1.4rem;
+  padding: 0.75rem 1.25rem;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
   display: flex;
@@ -866,6 +870,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .reader-external-link {
@@ -1007,9 +1012,8 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   text-align: center;
 }
 
-.leaderboard-table .col-reader {
-  text-align: left;
-  padding-left: 0.85rem;
+.leaderboard-table th.col-reader {
+  text-align: center;
 }
 
 .rank-cell {
