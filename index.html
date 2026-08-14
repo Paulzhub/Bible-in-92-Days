@@ -143,6 +143,36 @@
           <div id="challenge-progress-bar" class="challenge-progress-bar"></div>
         </div>
         <p id="today-portion" class="today-portion">Loading…</p>
+
+        <!-- PORTION DETAIL & PREVIEW CARD -->
+        <div id="portion-detail-card" class="portion-detail-card" hidden>
+          <div class="portion-detail-meta">
+            <span class="portion-meta-item reading-time-badge" id="portion-reading-time">⏱️ ~45–60 mins</span>
+            <span class="portion-meta-item chapters-count-badge" id="portion-chapters-count">📖 0 chapters</span>
+          </div>
+
+          <!-- KEY VERSE PREVIEW -->
+          <div class="key-verse-box" id="key-verse-box">
+            <p class="key-verse-eyebrow">Key Verse for Today</p>
+            <blockquote id="key-verse-text" class="key-verse-text">"Your word is a lamp to my feet and a light to my path."</blockquote>
+            <cite id="key-verse-ref" class="key-verse-ref">— Psalm 119:105</cite>
+          </div>
+
+          <!-- CHAPTER BREAKDOWN CHIPS -->
+          <div class="chapter-breakdown-wrap">
+            <span class="breakdown-label">Chapters in today's reading:</span>
+            <div id="chapter-breakdown-chips" class="chapter-breakdown-chips"></div>
+          </div>
+
+          <!-- READ PASSAGE PRIMARY CTA -->
+          <div class="portion-actions-row">
+            <button type="button" id="open-today-reader-btn" class="btn btn-primary btn-read-passage">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <span>Read Passage</span>
+            </button>
+          </div>
+        </div>
+
         <div class="today-schedule-action">
           <button id="sidebar-toggle-btn" class="btn btn-secondary sidebar-toggle-btn" type="button" title="View 92-Day Reading Schedule">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -328,6 +358,67 @@
       <div class="modal-actions">
         <button id="download-card-btn" class="btn btn-primary" type="button">Download PNG</button>
         <button id="native-share-btn" class="btn btn-secondary" type="button">Share Image</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTURE READER MODAL -->
+  <div id="reader-modal-backdrop" class="reader-modal-backdrop" hidden></div>
+  <div id="reader-modal" class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-portion-title" hidden>
+    <div class="reader-modal-dialog">
+      <!-- HEADER TOOLBAR -->
+      <div class="reader-header">
+        <div class="reader-title-wrap">
+          <span id="reader-day-badge" class="reader-day-badge">Day 1</span>
+          <h2 id="reader-portion-title" class="reader-portion-title">Genesis 1–11</h2>
+        </div>
+        
+        <div class="reader-controls">
+          <!-- BIBLE VERSION SELECTOR -->
+          <div class="version-select-wrap">
+            <label for="bible-version-select" class="sr-only">Bible Translation</label>
+            <select id="bible-version-select" class="bible-version-select" title="Choose Bible Translation">
+              <option value="NIV" selected>NIV (New International)</option>
+              <option value="ESV">ESV (English Standard)</option>
+              <option value="NLT">NLT (New Living)</option>
+              <option value="KJV">KJV (King James)</option>
+              <option value="NKJV">NKJV (New King James)</option>
+              <option value="WEB">WEB (World English)</option>
+              <option value="NASB">NASB (New American)</option>
+            </select>
+          </div>
+
+          <!-- FONT SIZE CONTROLS -->
+          <div class="reader-font-controls">
+            <button type="button" id="reader-font-decrease" class="icon-btn-sm" title="Decrease font size" aria-label="Decrease font size">A-</button>
+            <button type="button" id="reader-font-increase" class="icon-btn-sm" title="Increase font size" aria-label="Increase font size">A+</button>
+          </div>
+
+          <!-- CLOSE BUTTON -->
+          <button id="close-reader-btn" class="reader-close-btn" type="button" aria-label="Close scripture reader">&times;</button>
+        </div>
+      </div>
+
+      <!-- CHAPTER QUICK-TABS -->
+      <div id="reader-chapter-tabs" class="reader-chapter-tabs"></div>
+
+      <!-- SCRIPTURE TEXT CONTENT -->
+      <div id="reader-content" class="reader-content">
+        <div class="reader-loading-state">
+          <div class="reader-spinner"></div>
+          <p>Loading Scripture passage…</p>
+        </div>
+      </div>
+
+      <!-- FOOTER ACTIONS -->
+      <div class="reader-footer">
+        <a id="reader-external-link" class="reader-external-link" target="_blank" rel="noopener noreferrer" href="https://www.biblegateway.com">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span>Open on Bible Gateway</span>
+        </a>
+        <button type="button" id="reader-mark-read-btn" class="btn btn-primary btn-sm">
+          ✓ Mark Today as Read
+        </button>
       </div>
     </div>
   </div>

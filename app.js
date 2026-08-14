@@ -177,6 +177,7 @@ function showSite(session) {
   initDateDropdown();
   initShareModal();
   initReadingSidebar();
+  initScriptureReader(session);
   initScrollTransitions();
   wireUpdateForm(session);
   wireCommentForm(session);
@@ -463,10 +464,12 @@ async function loadInitialData(session) {
       dateEl.textContent = res.today.date;
       currentDayNum = res.today.day;
       renderDayCountdown(res.today.day);
+      renderTodayPortionDetail(res.today.portion, res.today.day, session);
     } else {
       portionEl.textContent = "No portion listed for today yet — check back soon.";
       dateEl.textContent = res.today.date || '';
       renderDayCountdown(null);
+      renderTodayPortionDetail('', null, session);
     }
 
     if (res.allPortions && res.allPortions.success) {
@@ -1497,6 +1500,541 @@ function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
   if (stroke) ctx.stroke();
 }
 
+// ==================== BIBLE READER & PORTION DETAIL ENGINE ====================
+
+const BIBLE_BOOKS = [
+  { id: 1, name: 'Genesis', abbr: 'Gen', aliases: ['genesis', 'gen', 'gn'] },
+  { id: 2, name: 'Exodus', abbr: 'Exo', aliases: ['exodus', 'exo', 'ex'] },
+  { id: 3, name: 'Leviticus', abbr: 'Lev', aliases: ['leviticus', 'lev', 'lv'] },
+  { id: 4, name: 'Numbers', abbr: 'Num', aliases: ['numbers', 'num', 'nm'] },
+  { id: 5, name: 'Deuteronomy', abbr: 'Deu', aliases: ['deuteronomy', 'deu', 'deut', 'dt'] },
+  { id: 6, name: 'Joshua', abbr: 'Jos', aliases: ['joshua', 'jos', 'josh'] },
+  { id: 7, name: 'Judges', abbr: 'Jdg', aliases: ['judges', 'jdg', 'judg'] },
+  { id: 8, name: 'Ruth', abbr: 'Rut', aliases: ['ruth', 'rut', 'ru'] },
+  { id: 9, name: '1 Samuel', abbr: '1Sa', aliases: ['1 samuel', '1 sam', '1 sa', '1samuel', '1sam'] },
+  { id: 10, name: '2 Samuel', abbr: '2Sa', aliases: ['2 samuel', '2 sam', '2 sa', '2samuel', '2sam'] },
+  { id: 11, name: '1 Kings', abbr: '1Ki', aliases: ['1 kings', '1 kgs', '1 ki', '1kings', '1kgs', '1ki'] },
+  { id: 12, name: '2 Kings', abbr: '2Ki', aliases: ['2 kings', '2 kgs', '2 ki', '2kings', '2kgs', '2ki'] },
+  { id: 13, name: '1 Chronicles', abbr: '1Ch', aliases: ['1 chronicles', '1 chron', '1 chr', '1 ch', '1chronicles', '1chr'] },
+  { id: 14, name: '2 Chronicles', abbr: '2Ch', aliases: ['2 chronicles', '2 chron', '2 chr', '2 ch', '2chronicles', '2chr'] },
+  { id: 15, name: 'Ezra', abbr: 'Ezr', aliases: ['ezra', 'ezr'] },
+  { id: 16, name: 'Nehemiah', abbr: 'Neh', aliases: ['nehemiah', 'neh', 'ne'] },
+  { id: 17, name: 'Esther', abbr: 'Est', aliases: ['esther', 'est'] },
+  { id: 18, name: 'Job', abbr: 'Job', aliases: ['job', 'jb'] },
+  { id: 19, name: 'Psalms', abbr: 'Psa', aliases: ['psalms', 'psalm', 'psa', 'ps', 'pss'] },
+  { id: 20, name: 'Proverbs', abbr: 'Pro', aliases: ['proverbs', 'proverb', 'pro', 'prov', 'prv', 'pr'] },
+  { id: 21, name: 'Ecclesiastes', abbr: 'Ecc', aliases: ['ecclesiastes', 'eccl', 'ecc', 'ec'] },
+  { id: 22, name: 'Song of Solomon', abbr: 'Sng', aliases: ['song of solomon', 'song of songs', 'song', 'sos', 'canticles'] },
+  { id: 23, name: 'Isaiah', abbr: 'Isa', aliases: ['isaiah', 'isa', 'is'] },
+  { id: 24, name: 'Jeremiah', abbr: 'Jer', aliases: ['jeremiah', 'jer', 'je'] },
+  { id: 25, name: 'Lamentations', abbr: 'Lam', aliases: ['lamentations', 'lam', 'la'] },
+  { id: 26, name: 'Ezekiel', abbr: 'Ezk', aliases: ['ezekiel', 'ezk', 'eze', 'ez'] },
+  { id: 27, name: 'Daniel', abbr: 'Dan', aliases: ['daniel', 'dan', 'da'] },
+  { id: 28, name: 'Hosea', abbr: 'Hos', aliases: ['hosea', 'hos', 'ho'] },
+  { id: 29, name: 'Joel', abbr: 'Jol', aliases: ['joel', 'jol', 'joe', 'jl'] },
+  { id: 30, name: 'Amos', abbr: 'Amo', aliases: ['amos', 'amo', 'am'] },
+  { id: 31, name: 'Obadiah', abbr: 'Oba', aliases: ['obadiah', 'oba', 'ob'] },
+  { id: 32, name: 'Jonah', abbr: 'Jon', aliases: ['jonah', 'jon', 'jnh'] },
+  { id: 33, name: 'Micah', abbr: 'Mic', aliases: ['micah', 'mic', 'mc'] },
+  { id: 34, name: 'Nahum', abbr: 'Nah', aliases: ['nahum', 'nah', 'na'] },
+  { id: 35, name: 'Habakkuk', abbr: 'Hab', aliases: ['habakkuk', 'hab', 'hb'] },
+  { id: 36, name: 'Zephaniah', abbr: 'Zep', aliases: ['zephaniah', 'zep', 'ze'] },
+  { id: 37, name: 'Haggai', abbr: 'Hag', aliases: ['haggai', 'hag', 'hg'] },
+  { id: 38, name: 'Zechariah', abbr: 'Zec', aliases: ['zechariah', 'zec', 'zech', 'zc'] },
+  { id: 39, name: 'Malachi', abbr: 'Mal', aliases: ['malachi', 'mal', 'ml'] },
+  { id: 40, name: 'Matthew', abbr: 'Mat', aliases: ['matthew', 'matt', 'mat', 'mt'] },
+  { id: 41, name: 'Mark', abbr: 'Mrk', aliases: ['mark', 'mrk', 'mk'] },
+  { id: 42, name: 'Luke', abbr: 'Luk', aliases: ['luke', 'luk', 'lk'] },
+  { id: 43, name: 'John', abbr: 'Jhn', aliases: ['john', 'jhn', 'jn'] },
+  { id: 44, name: 'Acts', abbr: 'Act', aliases: ['acts', 'act', 'ac'] },
+  { id: 45, name: 'Romans', abbr: 'Rom', aliases: ['romans', 'rom', 'ro', 'rm'] },
+  { id: 46, name: '1 Corinthians', abbr: '1Co', aliases: ['1 corinthians', '1 cor', '1 co', '1corinthians', '1cor'] },
+  { id: 47, name: '2 Corinthians', abbr: '2Co', aliases: ['2 corinthians', '2 cor', '2 co', '2corinthians', '2cor'] },
+  { id: 48, name: 'Galatians', abbr: 'Gal', aliases: ['galatians', 'gal', 'ga'] },
+  { id: 49, name: 'Ephesians', abbr: 'Eph', aliases: ['ephesians', 'eph', 'ep'] },
+  { id: 50, name: 'Philippians', abbr: 'Php', aliases: ['philippians', 'phil', 'php', 'pp'] },
+  { id: 51, name: 'Colossians', abbr: 'Col', aliases: ['colossians', 'col', 'co'] },
+  { id: 52, name: '1 Thessalonians', abbr: '1Th', aliases: ['1 thessalonians', '1 thess', '1 th', '1thessalonians', '1thess'] },
+  { id: 53, name: '2 Thessalonians', abbr: '2Th', aliases: ['2 thessalonians', '2 thess', '2 th', '2thessalonians', '2thess'] },
+  { id: 54, name: '1 Timothy', abbr: '1Ti', aliases: ['1 timothy', '1 tim', '1 ti', '1timothy', '1tim'] },
+  { id: 55, name: '2 Timothy', abbr: '2Ti', aliases: ['2 timothy', '2 tim', '2 ti', '2timothy', '2tim'] },
+  { id: 56, name: 'Titus', abbr: 'Tit', aliases: ['titus', 'tit', 'ti'] },
+  { id: 57, name: 'Philemon', abbr: 'Phm', aliases: ['philemon', 'phm', 'phlm'] },
+  { id: 58, name: 'Hebrews', abbr: 'Heb', aliases: ['hebrews', 'heb', 'he'] },
+  { id: 59, name: 'James', abbr: 'Jas', aliases: ['james', 'jas', 'jm'] },
+  { id: 60, name: '1 Peter', abbr: '1Pe', aliases: ['1 peter', '1 pet', '1 pe', '1peter', '1pet'] },
+  { id: 61, name: '2 Peter', abbr: '2Pe', aliases: ['2 peter', '2 pet', '2 pe', '2peter', '2pet'] },
+  { id: 62, name: '1 John', abbr: '1Jn', aliases: ['1 john', '1 jn', '1 jhn', '1john'] },
+  { id: 63, name: '2 John', abbr: '2Jn', aliases: ['2 john', '2 jn', '2 jhn', '2john'] },
+  { id: 64, name: '3 John', abbr: '3Jn', aliases: ['3 john', '3 jn', '3 jhn', '3john'] },
+  { id: 65, name: 'Jude', abbr: 'Jud', aliases: ['jude', 'jud', 'jd'] },
+  { id: 66, name: 'Revelation', abbr: 'Rev', aliases: ['revelation', 'revelations', 'rev', 'rv'] }
+];
+
+const CURATED_KEY_VERSES = {
+  1: { text: "In the beginning God created the heavens and the earth.", ref: "Genesis 1:1" },
+  2: { text: "I will make you into a great nation, and I will bless you; I will make your name great, and you will be a blessing.", ref: "Genesis 12:2" },
+  3: { text: "You intended to harm me, but God intended it for good to accomplish what is now being done.", ref: "Genesis 50:20" },
+  4: { text: "God said to Moses, 'I AM WHO I AM.' This is what you are to say: 'I AM has sent me to you.'", ref: "Exodus 3:14" },
+  5: { text: "The Lord will fight for you; you need only to be still.", ref: "Exodus 14:14" },
+  6: { text: "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you.", ref: "Numbers 6:24–25" },
+  7: { text: "Love the Lord your God with all your heart and with all your soul and with all your strength.", ref: "Deuteronomy 6:5" },
+  8: { text: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", ref: "Joshua 1:9" },
+  9: { text: "Where you go I will go, and where you stay I will stay. Your people will be my people and your God my God.", ref: "Ruth 1:16" },
+  10: { text: "People look at the outward appearance, but the Lord looks at the heart.", ref: "1 Samuel 16:7" },
+  15: { text: "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.", ref: "Proverbs 3:5–6" },
+  20: { text: "The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters.", ref: "Psalm 23:1–2" },
+  25: { text: "For to us a child is born, to us a son is given... And he will be called Wonderful Counselor, Mighty God, Everlasting Father, Prince of Peace.", ref: "Isaiah 9:6" },
+  30: { text: "Those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary.", ref: "Isaiah 40:31" },
+  35: { text: "'For I know the plans I have for you,' declares the Lord, 'plans to prosper you and not to harm you, plans to give you hope and a future.'", ref: "Jeremiah 29:11" },
+  40: { text: "The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.", ref: "Lamentations 3:22–23" },
+  45: { text: "Seek first his kingdom and his righteousness, and all these things will be given to you as well.", ref: "Matthew 6:33" },
+  50: { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
+  55: { text: "For even the Son of Man did not come to be served, but to serve, and to give his life as a ransom for many.", ref: "Mark 10:45" },
+  60: { text: "For the Son of Man came to seek and to save the lost.", ref: "Luke 19:10" },
+  69: { text: "He is not here; he has risen! Remember how he told you, while he was still with you in Galilee.", ref: "Luke 24:6" },
+  70: { text: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", ref: "John 3:16" },
+  71: { text: "Believe in the Lord Jesus, and you will be saved—you and your household.", ref: "Acts 16:31" },
+  73: { text: "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.", ref: "Romans 8:28" },
+  74: { text: "Love is patient, love is kind. It does not envy, it does not boast, it is not proud... Love never fails.", ref: "1 Corinthians 13:4,8" },
+  76: { text: "For it is by grace you have been saved, through faith—and this is not from yourselves, it is the gift of God.", ref: "Ephesians 2:8" },
+  77: { text: "I can do all this through him who gives me strength.", ref: "Philippians 4:13" },
+  80: { text: "Now faith is confidence in what we hope for and assurance about what we do not see.", ref: "Hebrews 11:1" },
+  83: { text: "He will wipe every tear from their eyes. There will be no more death or mourning or crying or pain, for the old order of things has passed away.", ref: "Revelation 21:4" }
+};
+
+function findBibleBook(name) {
+  if (!name) return null;
+  const clean = name.trim().toLowerCase().replace(/[.:]/g, '');
+  return BIBLE_BOOKS.find(b => 
+    b.name.toLowerCase() === clean ||
+    b.abbr.toLowerCase() === clean ||
+    b.aliases.includes(clean)
+  ) || null;
+}
+
+function parsePassage(portionText) {
+  if (!portionText || typeof portionText !== 'string') return { chapters: [], totalChapters: 0, isCatchUp: false };
+  const str = portionText.trim();
+  if (str.toLowerCase().includes('catch-up')) {
+    return { chapters: [], totalChapters: 0, isCatchUp: true };
+  }
+
+  const segments = str.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  const chapters = [];
+
+  segments.forEach(seg => {
+    const match = seg.match(/^((?:\d\s+)?[A-Za-z\s]+?)(?:\s+(\d+)(?:\s*[\u2013\u2014\-]\s*(\d+))?)?$/);
+    if (!match) return;
+
+    const rawBook = match[1].trim();
+    const startCh = match[2] ? parseInt(match[2], 10) : 1;
+    const endCh = match[3] ? parseInt(match[3], 10) : startCh;
+
+    const bookObj = findBibleBook(rawBook);
+    if (!bookObj) return;
+
+    for (let c = startCh; c <= endCh; c++) {
+      chapters.push({
+        bookName: bookObj.name,
+        bookId: bookObj.id,
+        abbr: bookObj.abbr,
+        chapter: c,
+        label: `${bookObj.abbr} ${c}`
+      });
+    }
+  });
+
+  return {
+    chapters,
+    totalChapters: chapters.length,
+    isCatchUp: false
+  };
+}
+
+function getKeyVerseForPortion(portionText, dayNum) {
+  if (dayNum && CURATED_KEY_VERSES[dayNum]) {
+    return CURATED_KEY_VERSES[dayNum];
+  }
+  const parsed = parsePassage(portionText);
+  if (parsed.isCatchUp) {
+    return {
+      text: "Be still, and know that I am God; I will be exalted among the nations, I will be exalted in the earth.",
+      ref: "Psalm 46:10"
+    };
+  }
+  if (parsed.chapters.length > 0) {
+    const first = parsed.chapters[0];
+    const last = parsed.chapters[parsed.chapters.length - 1];
+    return {
+      text: `Daily reading from ${first.bookName} chapter ${first.chapter} through ${last.bookName} chapter ${last.chapter}.`,
+      ref: `${first.bookName} ${first.chapter}`
+    };
+  }
+  return {
+    text: "Your word is a lamp to my feet and a light to my path.",
+    ref: "Psalm 119:105"
+  };
+}
+
+let readerChapterCache = {};
+let activeReaderPortion = null;
+let activeReaderDay = null;
+let activeReaderVersion = localStorage.getItem('bible_reader_version') || 'NIV';
+let activeReaderFontSize = parseFloat(localStorage.getItem('bible_reader_font_size')) || 1.05;
+
+function initScriptureReader(session) {
+  const modal = document.getElementById('reader-modal');
+  const backdrop = document.getElementById('reader-modal-backdrop');
+  const closeBtn = document.getElementById('close-reader-btn');
+  const versionSelect = document.getElementById('bible-version-select');
+  const fontDecBtn = document.getElementById('reader-font-decrease');
+  const fontIncBtn = document.getElementById('reader-font-increase');
+  const markReadBtn = document.getElementById('reader-mark-read-btn');
+  const openTodayBtn = document.getElementById('open-today-reader-btn');
+
+  if (versionSelect) {
+    versionSelect.value = activeReaderVersion;
+    versionSelect.addEventListener('change', (e) => {
+      activeReaderVersion = e.target.value;
+      localStorage.setItem('bible_reader_version', activeReaderVersion);
+      if (activeReaderPortion) {
+        renderReaderPassageContent(activeReaderPortion, activeReaderVersion);
+      }
+    });
+  }
+
+  const applyFontSize = () => {
+    const contentEl = document.getElementById('reader-content');
+    if (contentEl) {
+      contentEl.style.setProperty('--reader-font-size', `${activeReaderFontSize}rem`);
+      localStorage.setItem('bible_reader_font_size', String(activeReaderFontSize));
+    }
+  };
+
+  if (fontDecBtn) {
+    fontDecBtn.addEventListener('click', () => {
+      if (activeReaderFontSize > 0.85) {
+        activeReaderFontSize = Math.round((activeReaderFontSize - 0.1) * 100) / 100;
+        applyFontSize();
+      }
+    });
+  }
+
+  if (fontIncBtn) {
+    fontIncBtn.addEventListener('click', () => {
+      if (activeReaderFontSize < 1.45) {
+        activeReaderFontSize = Math.round((activeReaderFontSize + 0.1) * 100) / 100;
+        applyFontSize();
+      }
+    });
+  }
+
+  const closeModal = () => {
+    if (!modal || !backdrop) return;
+    modal.classList.remove('active');
+    backdrop.classList.remove('active');
+    setTimeout(() => {
+      modal.hidden = true;
+      backdrop.hidden = true;
+    }, 300);
+  };
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) {
+      closeModal();
+    }
+  });
+
+  if (markReadBtn) {
+    markReadBtn.addEventListener('click', async () => {
+      if (!session || session.isGuest) {
+        alert('Guest users are in read-only mode.');
+        return;
+      }
+      markReadBtn.disabled = true;
+      markReadBtn.textContent = 'Updating…';
+
+      const dateSelect = document.getElementById('date-select');
+      const targetDate = dateSelect ? dateSelect.value : todayFormatted();
+
+      try {
+        const res = await apiGet({
+          action: 'updateStatus',
+          username: session.username,
+          password: session.password,
+          date: targetDate,
+          status: 'Read'
+        });
+
+        if (res.success) {
+          markReadBtn.textContent = '✓ Marked as Read!';
+          celebrate(true);
+          loadUpdates(session);
+        } else {
+          alert(res.error || 'Failed to update status.');
+          markReadBtn.disabled = false;
+          markReadBtn.textContent = '✓ Mark Today as Read';
+        }
+      } catch (err) {
+        alert("Couldn't reach the server. Please try again.");
+        markReadBtn.disabled = false;
+        markReadBtn.textContent = '✓ Mark Today as Read';
+      }
+    });
+  }
+
+  if (openTodayBtn) {
+    openTodayBtn.addEventListener('click', () => {
+      const portionText = document.getElementById('today-portion')?.textContent || '';
+      openReaderModal({ portion: portionText, day: currentDayNum });
+    });
+  }
+
+  applyFontSize();
+}
+
+async function fetchChapterFromApi(version, bookId, chapter) {
+  const cacheKey = `${version}_${bookId}_${chapter}`;
+  if (readerChapterCache[cacheKey]) {
+    return readerChapterCache[cacheKey];
+  }
+
+  try {
+    const res = await fetch(`https://bolls.life/get-chapter/${encodeURIComponent(version)}/${bookId}/${chapter}/`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      readerChapterCache[cacheKey] = data;
+      return data;
+    }
+    throw new Error('Empty chapter response');
+  } catch (err) {
+    if (version !== 'WEB') {
+      try {
+        const fallbackRes = await fetch(`https://bolls.life/get-chapter/WEB/${bookId}/${chapter}/`);
+        if (fallbackRes.ok) {
+          const fbData = await fallbackRes.json();
+          if (Array.isArray(fbData) && fbData.length > 0) return fbData;
+        }
+      } catch (e) {}
+    }
+    throw err;
+  }
+}
+
+async function openReaderModal({ portion, day, initialChapter }) {
+  const modal = document.getElementById('reader-modal');
+  const backdrop = document.getElementById('reader-modal-backdrop');
+  const titleEl = document.getElementById('reader-portion-title');
+  const dayBadge = document.getElementById('reader-day-badge');
+  const extLink = document.getElementById('reader-external-link');
+  const markReadBtn = document.getElementById('reader-mark-read-btn');
+
+  if (!modal || !backdrop) return;
+
+  activeReaderPortion = portion;
+  activeReaderDay = day;
+
+  if (titleEl) titleEl.textContent = portion || "Today's Reading";
+  if (dayBadge) {
+    dayBadge.textContent = day ? `Day ${day}` : 'Reading';
+    dayBadge.hidden = !day;
+  }
+
+  if (extLink) {
+    const bgQuery = encodeURIComponent(portion.replace(/[–—]/g, '-'));
+    extLink.href = `https://www.biblegateway.com/passage/?search=${bgQuery}&version=${activeReaderVersion}`;
+  }
+
+  if (markReadBtn) {
+    markReadBtn.disabled = false;
+    markReadBtn.textContent = '✓ Mark Today as Read';
+  }
+
+  modal.hidden = false;
+  backdrop.hidden = false;
+  requestAnimationFrame(() => {
+    modal.classList.add('active');
+    backdrop.classList.add('active');
+  });
+
+  await renderReaderPassageContent(portion, activeReaderVersion, initialChapter);
+}
+
+async function renderReaderPassageContent(portionText, version, targetChapterObj) {
+  const tabsContainer = document.getElementById('reader-chapter-tabs');
+  const contentContainer = document.getElementById('reader-content');
+  if (!contentContainer) return;
+
+  const parsed = parsePassage(portionText);
+
+  if (parsed.isCatchUp) {
+    if (tabsContainer) tabsContainer.innerHTML = '';
+    contentContainer.innerHTML = `
+      <div class="reader-loading-state" style="text-align: center; max-width: 500px; margin: 2rem auto;">
+        <span style="font-size: 3rem;">🕊️</span>
+        <h3 style="font-family: var(--font-display); font-size: 1.5rem; color: var(--accent); margin: 0.5rem 0;">Catch-Up & Sabbath Day</h3>
+        <p style="color: var(--text-muted); line-height: 1.6;">Use today to reflect on the Scriptures read so far, catch up on any missed chapters, or spend time in prayer.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (!parsed.chapters.length) {
+    if (tabsContainer) tabsContainer.innerHTML = '';
+    contentContainer.innerHTML = `
+      <div class="reader-loading-state">
+        <p>No chapters found for this portion.</p>
+      </div>
+    `;
+    return;
+  }
+
+  if (tabsContainer) {
+    tabsContainer.innerHTML = '';
+    parsed.chapters.forEach((ch, idx) => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'reader-tab-btn' + (idx === 0 ? ' active' : '');
+      tab.textContent = ch.label;
+      tab.dataset.targetId = `reader-ch-${ch.bookId}-${ch.chapter}`;
+      tab.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.reader-tab-btn').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const targetEl = document.getElementById(tab.dataset.targetId);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+      tabsContainer.appendChild(tab);
+    });
+  }
+
+  contentContainer.innerHTML = `
+    <div class="reader-loading-state">
+      <div class="reader-spinner"></div>
+      <p>Loading ${portionText} (${version})…</p>
+    </div>
+  `;
+
+  try {
+    const results = await Promise.allSettled(
+      parsed.chapters.map(ch => fetchChapterFromApi(version, ch.bookId, ch.chapter))
+    );
+
+    contentContainer.innerHTML = '';
+
+    results.forEach((res, idx) => {
+      const chMeta = parsed.chapters[idx];
+      const chSection = document.createElement('section');
+      chSection.className = 'reader-chapter-section';
+      chSection.id = `reader-ch-${chMeta.bookId}-${chMeta.chapter}`;
+
+      const heading = document.createElement('h3');
+      heading.className = 'reader-chapter-heading';
+      heading.textContent = `${chMeta.bookName} ${chMeta.chapter}`;
+      chSection.appendChild(heading);
+
+      if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+        const bodyWrap = document.createElement('div');
+        bodyWrap.className = 'reader-chapter-body';
+
+        res.value.forEach(v => {
+          const row = document.createElement('span');
+          row.className = 'verse-row';
+          const cleanText = String(v.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          row.innerHTML = `<sup class="verse-num">${v.verse}</sup><span class="verse-text">${cleanText}</span> `;
+          bodyWrap.appendChild(row);
+        });
+
+        chSection.appendChild(bodyWrap);
+      } else {
+        const errP = document.createElement('p');
+        errP.className = 'reader-error-note';
+        errP.style.color = 'var(--text-muted)';
+        errP.style.fontStyle = 'italic';
+        errP.textContent = `Could not load ${chMeta.bookName} ${chMeta.chapter} in ${version}. Tap "Open on Bible Gateway" below to read.`;
+        chSection.appendChild(errP);
+      }
+
+      contentContainer.appendChild(chSection);
+    });
+
+    if (targetChapterObj) {
+      setTimeout(() => {
+        const targetEl = document.getElementById(`reader-ch-${targetChapterObj.bookId}-${targetChapterObj.chapter}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  } catch (err) {
+    contentContainer.innerHTML = `
+      <div class="reader-loading-state">
+        <p style="color: var(--bad);">Couldn't load Scripture text from online Bible service.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">You can read today's portion directly via Bible Gateway below.</p>
+      </div>
+    `;
+  }
+}
+
+function renderTodayPortionDetail(portionText, dayNum, session) {
+  const detailCard = document.getElementById('portion-detail-card');
+  const readingTimeEl = document.getElementById('portion-reading-time');
+  const chaptersCountEl = document.getElementById('portion-chapters-count');
+  const keyVerseText = document.getElementById('key-verse-text');
+  const keyVerseRef = document.getElementById('key-verse-ref');
+  const chipsContainer = document.getElementById('chapter-breakdown-chips');
+
+  if (!detailCard) return;
+
+  if (!portionText || portionText.trim() === '' || portionText.toLowerCase().includes('no portion')) {
+    detailCard.hidden = true;
+    return;
+  }
+
+  detailCard.hidden = false;
+
+  const parsed = parsePassage(portionText);
+
+  if (readingTimeEl) {
+    readingTimeEl.textContent = parsed.isCatchUp ? '⏱️ Sabbath / Reflection' : '⏱️ ~45–60 mins';
+  }
+
+  if (chaptersCountEl) {
+    chaptersCountEl.textContent = parsed.isCatchUp 
+      ? '📖 Catch-up & Prayer'
+      : `📖 ${parsed.totalChapters} ${parsed.totalChapters === 1 ? 'chapter' : 'chapters'}`;
+  }
+
+  const kv = getKeyVerseForPortion(portionText, dayNum);
+  if (keyVerseText) keyVerseText.textContent = `"${kv.text}"`;
+  if (keyVerseRef) keyVerseRef.textContent = `— ${kv.ref}`;
+
+  if (chipsContainer) {
+    chipsContainer.innerHTML = '';
+    if (parsed.isCatchUp) {
+      chipsContainer.innerHTML = '<span class="breakdown-empty" style="font-size: 0.82rem; color: var(--text-muted);">Catch up on previous readings at your own pace ✨</span>';
+    } else {
+      parsed.chapters.forEach(ch => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chapter-chip';
+        chip.textContent = ch.label;
+        chip.title = `Read ${ch.bookName} ${ch.chapter}`;
+        chip.addEventListener('click', () => {
+          openReaderModal({ portion: portionText, day: dayNum, initialChapter: ch });
+        });
+        chipsContainer.appendChild(chip);
+      });
+    }
+  }
+}
+
 // ====== DAYWISE BIBLE READING PORTION SIDEBAR ======
 
 let allPortionsCache = [];
@@ -1585,15 +2123,26 @@ function filterSidebarPortions(query) {
     const isCurrent = currentDayNum !== null && item.day === currentDayNum;
     el.className = 'sidebar-portion-item' + (isCurrent ? ' current-day' : '');
 
+    const parsed = parsePassage(item.portion);
+    let chipsHtml = '';
+    if (!parsed.isCatchUp && parsed.chapters.length > 0) {
+      chipsHtml = `<div class="sidebar-chips-row">${parsed.chapters.slice(0, 8).map(c => `<span class="sidebar-mini-chip">${c.abbr} ${c.chapter}</span>`).join('')}${parsed.chapters.length > 8 ? `<span class="sidebar-mini-chip">+${parsed.chapters.length - 8} more</span>` : ''}</div>`;
+    }
+
     el.innerHTML = `
       <div class="sidebar-item-top">
         <span class="sidebar-day-tag">Day ${item.day} ${isCurrent ? '• TODAY' : ''}</span>
         <span class="sidebar-date-tag">${item.date || ''}</span>
       </div>
       <div class="sidebar-portion-text">${item.portion || ''}</div>
+      ${chipsHtml}
+      <div class="sidebar-item-actions">
+        <button type="button" class="btn-sidebar-read">📖 Read Passage</button>
+      </div>
     `;
 
-    el.addEventListener('click', () => {
+    // Click handler: opens reader modal for that day!
+    el.addEventListener('click', (e) => {
       const select = document.getElementById('date-select');
       if (select && item.date) {
         let matchedOpt = Array.from(select.options).find(o => o.value === item.date);
@@ -1606,9 +2155,10 @@ function filterSidebarPortions(query) {
           select.appendChild(opt);
           select.value = item.date;
         }
-        const sectionToday = document.getElementById('section-today');
-        if (sectionToday) sectionToday.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+
+      openReaderModal({ portion: item.portion, day: item.day });
+
       const closeBtn = document.getElementById('close-sidebar-btn');
       if (closeBtn) closeBtn.click();
     });
