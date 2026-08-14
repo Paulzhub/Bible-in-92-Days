@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://paulzhub.github.io/Bible-in-92-Days/sitemap.xml

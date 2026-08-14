@@ -847,6 +847,109 @@ function handleReactionClick(targetUsername, type, session, reactionsRow) {
   }).catch(() => {});
 }
 
+function getCharAndWordCount(text) {
+  const chars = text ? text.length : 0;
+  const words = text && text.trim() ? text.trim().split(/\s+/).length : 0;
+  return `${chars} / 2500 chars (${words} words)`;
+}
+
+function startCommentEditMode(comment, session, itemEl) {
+  if (itemEl.querySelector('.comment-inline-edit-form')) return;
+
+  const textEl = itemEl.querySelector('.comment-text');
+  const originalText = comment.text;
+
+  textEl.style.display = 'none';
+
+  const editForm = document.createElement('form');
+  editForm.className = 'comment-inline-edit-form';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'edit-textarea';
+  textarea.rows = 4;
+  textarea.maxLength = 2500;
+  textarea.value = originalText;
+  textarea.required = true;
+
+  const counterSpan = document.createElement('span');
+  counterSpan.className = 'comment-char-counter';
+  counterSpan.textContent = getCharAndWordCount(textarea.value);
+
+  textarea.addEventListener('input', () => {
+    counterSpan.textContent = getCharAndWordCount(textarea.value);
+  });
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'edit-actions-row';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'submit';
+  saveBtn.className = 'btn btn-primary btn-sm';
+  saveBtn.textContent = 'Save Changes';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn-secondary btn-sm';
+  cancelBtn.textContent = 'Cancel';
+
+  const feedbackSpan = document.createElement('span');
+  feedbackSpan.className = 'edit-feedback';
+  feedbackSpan.hidden = true;
+
+  actionsDiv.append(saveBtn, cancelBtn, feedbackSpan);
+  editForm.append(textarea, counterSpan, actionsDiv);
+
+  textEl.after(editForm);
+  textarea.focus();
+
+  cancelBtn.addEventListener('click', () => {
+    editForm.remove();
+    textEl.style.display = '';
+  });
+
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newText = textarea.value.trim();
+    if (!newText) return;
+
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    feedbackSpan.hidden = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const res = await apiGet({
+        action: 'editComment',
+        username: session.username,
+        password: session.password,
+        text: newText
+      });
+
+      if (res && res.success) {
+        comment.text = newText;
+        textEl.textContent = newText;
+        editForm.remove();
+        textEl.style.display = '';
+
+        itemEl.classList.add('just-edited');
+        setTimeout(() => itemEl.classList.remove('just-edited'), 1500);
+      } else {
+        feedbackSpan.hidden = false;
+        feedbackSpan.textContent = res.error || 'Failed to save changes.';
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        saveBtn.textContent = 'Save Changes';
+      }
+    } catch (err) {
+      feedbackSpan.hidden = false;
+      feedbackSpan.textContent = "Couldn't reach server.";
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      saveBtn.textContent = 'Save Changes';
+    }
+  });
+}
+
 function buildCommentElement(comment, session) {
   const isYou = session && comment.username === session.username;
 
@@ -874,6 +977,18 @@ function buildCommentElement(comment, session) {
   }
   head.appendChild(author);
 
+  if (isYou && (!session || !session.isGuest)) {
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'comment-edit-btn';
+    editBtn.innerHTML = '✏️ Edit';
+    editBtn.title = 'Edit your comment';
+    editBtn.addEventListener('click', () => {
+      startCommentEditMode(comment, session, item);
+    });
+    head.appendChild(editBtn);
+  }
+
   const text = document.createElement('p');
   text.className = 'comment-text';
   text.textContent = comment.text;
@@ -890,32 +1005,57 @@ function buildCommentElement(comment, session) {
 
 function updateCommentFormVisibility(session) {
   const form = document.getElementById('comment-form');
-  const already = document.getElementById('comment-already');
-  if (!form || !already) return;
+  const alreadyWrap = document.getElementById('comment-already-wrap');
+  const alreadyMsg = document.getElementById('comment-already');
+  const editTodayBtn = document.getElementById('edit-today-comment-btn');
+  if (!form || !alreadyWrap) return;
 
   if (session && session.isGuest) {
     form.hidden = true;
-    already.hidden = false;
-    already.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    if (editTodayBtn) editTodayBtn.hidden = true;
     return;
   }
 
-  const hasCommented = session && commentsCache.some(c => c.username === session.username);
+  const userComment = session && commentsCache.find(c => c.username === session.username);
+  const hasCommented = Boolean(userComment);
   form.hidden = hasCommented;
-  already.hidden = !hasCommented;
-  already.textContent = 'You\'ve already shared your thoughts for today — see you back here tomorrow!';
+  alreadyWrap.hidden = !hasCommented;
+
+  if (hasCommented) {
+    if (alreadyMsg) alreadyMsg.textContent = "You've shared your thoughts for today — see you back here tomorrow!";
+    if (editTodayBtn) {
+      editTodayBtn.hidden = false;
+      editTodayBtn.onclick = () => {
+        const itemEl = document.querySelector(`.comment-item[data-username="${CSS.escape(session.username)}"]`);
+        if (itemEl) {
+          itemEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          startCommentEditMode(userComment, session, itemEl);
+        }
+      };
+    }
+  }
 }
 
 function wireCommentForm(session) {
   const form = document.getElementById('comment-form');
-  const already = document.getElementById('comment-already');
+  const alreadyWrap = document.getElementById('comment-already-wrap');
   const feedback = document.getElementById('comment-feedback');
-  if (!form || !already) return;
+  const textarea = document.getElementById('comment-input');
+  const counterEl = document.getElementById('comment-char-counter');
+  if (!form || !alreadyWrap) return;
+
+  if (textarea && counterEl) {
+    counterEl.textContent = getCharAndWordCount(textarea.value);
+    textarea.addEventListener('input', () => {
+      counterEl.textContent = getCharAndWordCount(textarea.value);
+    });
+  }
 
   if (session && session.isGuest) {
     form.hidden = true;
-    already.hidden = false;
-    already.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    alreadyWrap.hidden = false;
     return;
   }
 
@@ -923,7 +1063,6 @@ function wireCommentForm(session) {
     e.preventDefault();
     if (session && session.isGuest) return;
     feedback.hidden = true;
-    const textarea = document.getElementById('comment-input');
     const text = textarea.value.trim();
     if (!text) return;
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -934,8 +1073,10 @@ function wireCommentForm(session) {
     document.getElementById('comments-list').appendChild(buildCommentElement(optimisticComment, session));
     document.querySelector('.comments-empty')?.remove();
     textarea.value = '';
+    if (counterEl) counterEl.textContent = getCharAndWordCount('');
     form.hidden = true;
-    already.hidden = false;
+    alreadyWrap.hidden = false;
+    updateCommentFormVisibility(session);
 
     try {
       const res = await apiGet({
@@ -948,21 +1089,25 @@ function wireCommentForm(session) {
         commentsCache = commentsCache.filter(c => c !== optimisticComment);
         renderComments(session);
         form.hidden = false;
-        already.hidden = true;
+        alreadyWrap.hidden = true;
         textarea.value = text;
+        if (counterEl) counterEl.textContent = getCharAndWordCount(text);
         feedback.hidden = false;
         feedback.textContent = res.error || 'Something went wrong.';
         feedback.className = 'form-feedback error';
+        updateCommentFormVisibility(session);
       }
     } catch (err) {
       commentsCache = commentsCache.filter(c => c !== optimisticComment);
       renderComments(session);
       form.hidden = false;
-      already.hidden = true;
+      alreadyWrap.hidden = true;
       textarea.value = text;
+      if (counterEl) counterEl.textContent = getCharAndWordCount(text);
       feedback.hidden = false;
       feedback.textContent = "Couldn't reach the server. Try again.";
       feedback.className = 'form-feedback error';
+      updateCommentFormVisibility(session);
     } finally {
       submitBtn.disabled = false;
     }

@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Bible in 92 Days — The Youth Gathering 2026</title>
-<meta name="description" content="Project Bible in 92 Days — Join The Youth Gathering 2026 as we read through the entire Bible in 92 days with daily tracking, squad progress, streaks, and community discussions.">
-<meta name="keywords" content="Bible in 92 Days, The Youth Gathering 2026, Daily Bible Reading, Squad Progress, Bible Challenge">
+<meta name="description" content="Project Bible in 92 Days — Join The Youth Gathering 2026 as we read through the entire Bible in 92 days with daily tracking, squad progress, streaks, level badges, and community discussions.">
+<meta name="keywords" content="Bible in 92 Days, The Youth Gathering 2026, Daily Bible Reading Plan, Scripture Tracker, Youth Bible Challenge, Christian Youth Group, Daily Bible Portion, Bible Reading Schedule, Squad Progress, Scripture Reflections, Christian Growth, Bible Study Group">
 <meta name="author" content="The Youth Gathering 2026">
+<meta name="google-site-verification" content="40CRs5c7daeR22YvgBiyd0w7VEjawJ8BkTFOO6pg6SQ" />
 
 <!-- Favicon Set (Cross Cursor Asset) -->
 <link rel="icon" type="image/png" href="assets/bible-cursor.png">
@@ -30,6 +31,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+
+<!-- Structured Data (JSON-LD) for SEO -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Project Bible in 92 Days",
+  "alternateName": "The Youth Gathering 2026 Bible Challenge",
+  "url": "https://paulzhub.github.io/Bible-in-92-Days/",
+  "description": "A responsive interactive 92-day Bible reading platform for youth squad progress tracking, community commentary, and level streaks.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "The Youth Gathering 2026"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -231,11 +248,17 @@
         <form id="comment-form" class="comment-form">
           <label class="field">
             <span>Share your thoughts on today's portion</span>
-            <textarea id="comment-input" rows="3" maxlength="500" placeholder="What stood out to you today?" required></textarea>
+            <textarea id="comment-input" rows="4" maxlength="2500" placeholder="What stood out to you today?" required></textarea>
+            <div class="comment-input-meta">
+              <span id="comment-char-counter" class="comment-char-counter">0 / 2500 chars (0 words)</span>
+            </div>
           </label>
           <button type="submit" class="btn btn-primary">Post Comment</button>
         </form>
-        <p id="comment-already" class="comment-already" hidden>You've already shared your thoughts for today — see you back here tomorrow!</p>
+        <div id="comment-already-wrap" class="comment-already-wrap" hidden>
+          <p id="comment-already" class="comment-already">You've already shared your thoughts for today — see you back here tomorrow!</p>
+          <button type="button" id="edit-today-comment-btn" class="btn btn-secondary btn-sm edit-today-comment-btn">✏️ Edit My Comment</button>
+        </div>
         <p id="comment-feedback" class="form-feedback" hidden></p>
       </section>
 
