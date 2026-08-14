@@ -1679,17 +1679,27 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   margin: 0;
 }
 
-.edit-today-comment-btn {
+.delete-today-comment-btn {
   font-size: 0.8rem;
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   cursor: pointer;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  transition: all 0.2s ease;
 }
 
-.comment-edit-btn {
-  background: rgba(232, 169, 59, 0.1);
-  border: 1px solid rgba(232, 169, 59, 0.25);
-  color: var(--accent);
+.delete-today-comment-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.comment-delete-btn {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.2rem 0.55rem;
@@ -1699,52 +1709,10 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   transition: all 0.2s ease;
 }
 
-.comment-edit-btn:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
+.comment-delete-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
   transform: translateY(-1px);
-}
-
-.comment-inline-edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin: 0.6rem 0;
-  width: 100%;
-}
-
-.edit-textarea {
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  padding: 0.65rem 0.8rem;
-  border-radius: 10px;
-  border: 1px solid var(--accent);
-  background: var(--surface-2);
-  color: var(--text);
-  resize: vertical;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.edit-actions-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.edit-feedback {
-  font-size: 0.78rem;
-  color: #ff5252;
-  font-weight: 500;
-}
-
-.comment-item.just-edited {
-  animation: editPulse 1.2s ease;
-}
-
-@keyframes editPulse {
-  0% { box-shadow: 0 0 0 2px var(--accent); }
-  100% { box-shadow: none; }
 }
 
 

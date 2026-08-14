@@ -853,101 +853,76 @@ function getCharAndWordCount(text) {
   return `${chars} / 2500 chars (${words} words)`;
 }
 
-function startCommentEditMode(comment, session, itemEl) {
-  if (itemEl.querySelector('.comment-inline-edit-form')) return;
+async function confirmAndDeleteComment(session) {
+  if (!session || session.isGuest) return;
+  const confirmed = window.confirm('Are you sure you want to delete your comment for today?');
+  if (!confirmed) return;
 
-  const textEl = itemEl.querySelector('.comment-text');
-  const originalText = comment.text;
-
-  textEl.style.display = 'none';
-
-  const editForm = document.createElement('form');
-  editForm.className = 'comment-inline-edit-form';
-
-  const textarea = document.createElement('textarea');
-  textarea.className = 'edit-textarea';
-  textarea.rows = 4;
-  textarea.maxLength = 2500;
-  textarea.value = originalText;
-  textarea.required = true;
-
-  const counterSpan = document.createElement('span');
-  counterSpan.className = 'comment-char-counter';
-  counterSpan.textContent = getCharAndWordCount(textarea.value);
-
-  textarea.addEventListener('input', () => {
-    counterSpan.textContent = getCharAndWordCount(textarea.value);
+  const deleteBtns = document.querySelectorAll('.comment-delete-btn, .delete-today-comment-btn');
+  deleteBtns.forEach(b => {
+    b.disabled = true;
+    b.textContent = 'Deleting…';
   });
 
-  const actionsDiv = document.createElement('div');
-  actionsDiv.className = 'edit-actions-row';
+  const feedback = document.getElementById('comment-feedback');
+  if (feedback) feedback.hidden = true;
 
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'submit';
-  saveBtn.className = 'btn btn-primary btn-sm';
-  saveBtn.textContent = 'Save Changes';
+  try {
+    const res = await apiGet({
+      action: 'deleteComment',
+      username: session.username,
+      password: session.password
+    });
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'btn btn-secondary btn-sm';
-  cancelBtn.textContent = 'Cancel';
-
-  const feedbackSpan = document.createElement('span');
-  feedbackSpan.className = 'edit-feedback';
-  feedbackSpan.hidden = true;
-
-  actionsDiv.append(saveBtn, cancelBtn, feedbackSpan);
-  editForm.append(textarea, counterSpan, actionsDiv);
-
-  textEl.after(editForm);
-  textarea.focus();
-
-  cancelBtn.addEventListener('click', () => {
-    editForm.remove();
-    textEl.style.display = '';
-  });
-
-  editForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newText = textarea.value.trim();
-    if (!newText) return;
-
-    saveBtn.disabled = true;
-    cancelBtn.disabled = true;
-    feedbackSpan.hidden = true;
-    saveBtn.textContent = 'Saving…';
-
-    try {
-      const res = await apiGet({
-        action: 'editComment',
-        username: session.username,
-        password: session.password,
-        text: newText
-      });
-
-      if (res && res.success) {
-        comment.text = newText;
-        textEl.textContent = newText;
-        editForm.remove();
-        textEl.style.display = '';
-
-        itemEl.classList.add('just-edited');
-        setTimeout(() => itemEl.classList.remove('just-edited'), 1500);
-      } else {
-        feedbackSpan.hidden = false;
-        feedbackSpan.textContent = res.error || 'Failed to save changes.';
-        saveBtn.disabled = false;
-        cancelBtn.disabled = false;
-        saveBtn.textContent = 'Save Changes';
+    if (res && res.success) {
+      commentsCache = commentsCache.filter(c => c.username !== session.username);
+      
+      const itemEl = document.querySelector(`.comment-item[data-username="${CSS.escape(session.username)}"]`);
+      if (itemEl) {
+        itemEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+        itemEl.style.opacity = '0';
+        itemEl.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          itemEl.remove();
+          const listEl = document.getElementById('comments-list');
+          if (listEl && listEl.querySelectorAll('.comment-item').length === 0) {
+            listEl.innerHTML = '<p class="comments-empty">No comments yet today — be the first to share!</p>';
+          }
+        }, 250);
       }
-    } catch (err) {
-      feedbackSpan.hidden = false;
-      feedbackSpan.textContent = "Couldn't reach server.";
-      saveBtn.disabled = false;
-      cancelBtn.disabled = false;
-      saveBtn.textContent = 'Save Changes';
+
+      updateCommentFormVisibility(session);
+
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.className = 'form-feedback success';
+        feedback.textContent = 'Your comment has been deleted.';
+        setTimeout(() => {
+          feedback.hidden = true;
+        }, 3500);
+      }
+    } else {
+      alert(res?.error || 'Failed to delete comment.');
+      deleteBtns.forEach(b => {
+        b.disabled = false;
+        if (b.classList.contains('delete-today-comment-btn')) {
+          b.textContent = '🗑️ Delete My Comment';
+        } else {
+          b.innerHTML = '🗑️ Delete';
+        }
+      });
     }
-  });
+  } catch (err) {
+    alert("Couldn't reach server. Please try again.");
+    deleteBtns.forEach(b => {
+      b.disabled = false;
+      if (b.classList.contains('delete-today-comment-btn')) {
+        b.textContent = '🗑️ Delete My Comment';
+      } else {
+        b.innerHTML = '🗑️ Delete';
+      }
+    });
+  }
 }
 
 function buildCommentElement(comment, session) {
@@ -978,15 +953,15 @@ function buildCommentElement(comment, session) {
   head.appendChild(author);
 
   if (isYou && (!session || !session.isGuest)) {
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'comment-edit-btn';
-    editBtn.innerHTML = '✏️ Edit';
-    editBtn.title = 'Edit your comment';
-    editBtn.addEventListener('click', () => {
-      startCommentEditMode(comment, session, item);
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'comment-delete-btn';
+    deleteBtn.innerHTML = '🗑️ Delete';
+    deleteBtn.title = 'Delete your comment';
+    deleteBtn.addEventListener('click', () => {
+      confirmAndDeleteComment(session);
     });
-    head.appendChild(editBtn);
+    head.appendChild(deleteBtn);
   }
 
   const text = document.createElement('p');
@@ -1007,14 +982,14 @@ function updateCommentFormVisibility(session) {
   const form = document.getElementById('comment-form');
   const alreadyWrap = document.getElementById('comment-already-wrap');
   const alreadyMsg = document.getElementById('comment-already');
-  const editTodayBtn = document.getElementById('edit-today-comment-btn');
+  const deleteTodayBtn = document.getElementById('delete-today-comment-btn');
   if (!form || !alreadyWrap) return;
 
   if (session && session.isGuest) {
     form.hidden = true;
     alreadyWrap.hidden = false;
     if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and enjoy!';
-    if (editTodayBtn) editTodayBtn.hidden = true;
+    if (deleteTodayBtn) deleteTodayBtn.hidden = true;
     return;
   }
 
@@ -1025,14 +1000,12 @@ function updateCommentFormVisibility(session) {
 
   if (hasCommented) {
     if (alreadyMsg) alreadyMsg.textContent = "You've shared your thoughts for today — see you back here tomorrow!";
-    if (editTodayBtn) {
-      editTodayBtn.hidden = false;
-      editTodayBtn.onclick = () => {
-        const itemEl = document.querySelector(`.comment-item[data-username="${CSS.escape(session.username)}"]`);
-        if (itemEl) {
-          itemEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          startCommentEditMode(userComment, session, itemEl);
-        }
+    if (deleteTodayBtn) {
+      deleteTodayBtn.hidden = false;
+      deleteTodayBtn.disabled = false;
+      deleteTodayBtn.textContent = '🗑️ Delete My Comment';
+      deleteTodayBtn.onclick = () => {
+        confirmAndDeleteComment(session);
       };
     }
   }
