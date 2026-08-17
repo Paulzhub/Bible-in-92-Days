@@ -546,12 +546,19 @@ function celebrate(big) {
 
 function computeAchievements(row) {
   const badges = [];
-  if (row.todayTimestamp) {
+  // Time-based badges (Early Bird, Night Owl, Clutch Finish) only apply if read today AND within the current calendar day
+  if (row.readToday && row.todayTimestamp) {
     const date = new Date(row.todayTimestamp);
-    const h = date.getHours();
-    if (h < 8) badges.push({ type: 'early-bird', icon: '🌅', label: 'Early Bird' });
-    else if (h >= 22) badges.push({ type: 'night-owl', icon: '🦉', label: 'Night Owl' });
-    if (h === 23) badges.push({ type: 'clutch', icon: '⚡', label: 'Clutch Finish' });
+    const now = new Date();
+    const isSameDay = date.getDate() === now.getDate() &&
+                      date.getMonth() === now.getMonth() &&
+                      date.getFullYear() === now.getFullYear();
+    if (isSameDay) {
+      const h = date.getHours();
+      if (h < 8) badges.push({ type: 'early-bird', icon: '🌅', label: 'Early Bird' });
+      else if (h >= 22) badges.push({ type: 'night-owl', icon: '🦉', label: 'Night Owl' });
+      if (h === 23) badges.push({ type: 'clutch', icon: '⚡', label: 'Clutch Finish' });
+    }
   }
   if (row.usedStreakFreeze) {
     badges.push({ type: 'freeze', icon: '🧊', label: 'Streak Preserved' });
