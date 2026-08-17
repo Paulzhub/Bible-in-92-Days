@@ -2265,5 +2265,415 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   transform: translateY(-1px);
 }
 
+/* ============ SECTION DATE PICKERS & HEADERS ============ */
+.section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.section-date-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.section-date-picker {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.section-date-picker:focus {
+  border-color: var(--accent);
+}
+
+.btn-xs {
+  font-size: 0.72rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.section-subtext {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* ============ SQUAD NUDGE BANNER & BUTTONS ============ */
+.squad-nudge-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(239, 68, 68, 0.15));
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: var(--text);
+  padding: 0.75rem 1.15rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.nudge-banner-icon {
+  font-size: 1.25rem;
+  animation: pulseGlow 1.5s infinite;
+}
+
+.nudge-banner-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.nudge-dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.nudge-dismiss-btn:hover {
+  color: var(--text);
+}
+
+.nudge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.4rem;
+}
+
+.nudge-btn:hover {
+  background: #f59e0b;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.nudge-btn.nudged {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  cursor: default;
+}
+
+.nudge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  margin-left: 0.35rem;
+}
+
+.freezes-left-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(0, 188, 212, 0.1);
+  border: 1px solid rgba(0, 188, 212, 0.25);
+  color: #00bcd4;
+  margin-left: 0.35rem;
+}
+
+/* ============ SECTION 4B: PRAYER & GRATITUDE WALL ============ */
+.section-prayers {
+  margin-top: 1.5rem;
+}
+
+.prayers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.prayer-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.prayer-card:hover {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.prayer-card.is-my-prayer {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, var(--surface-2), rgba(245, 158, 11, 0.04));
+}
+
+.prayer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.prayer-author-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prayer-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #f59e0b);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.prayer-author {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.prayer-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.prayer-text {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prayer-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.prayer-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  position: relative;
+}
+
+.prayer-reaction-chip:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.prayer-reaction-chip.active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.prayer-already-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.delete-today-prayer-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  transition: all 0.2s ease;
+}
+
+.delete-today-prayer-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* ============ SCRIPTURE READER AUDIO NARRATOR ============ */
+.reader-audio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+}
+
+.audio-left-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 240px;
+}
+
+.audio-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.audio-btn {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audio-play-btn {
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  font-size: 0.9rem;
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.08);
+  filter: brightness(1.1);
+}
+
+.audio-skip-btn {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.audio-skip-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+}
+
+.audio-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-left: 0.35rem;
+}
+
+.audio-chapter-title {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.audio-time-display {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-speed-select {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.audio-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+}
+
+.audio-wave span {
+  width: 3px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: height 0.2s ease;
+}
+
+.audio-wave.playing span:nth-child(1) { animation: wavePulse 0.8s ease-in-out infinite 0.1s; }
+.audio-wave.playing span:nth-child(2) { animation: wavePulse 0.8s ease-in-out infinite 0.3s; }
+.audio-wave.playing span:nth-child(3) { animation: wavePulse 0.8s ease-in-out infinite 0.2s; }
+.audio-wave.playing span:nth-child(4) { animation: wavePulse 0.8s ease-in-out infinite 0.4s; }
+
+@keyframes wavePulse {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4)); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.8)); }
+}
+
 
 

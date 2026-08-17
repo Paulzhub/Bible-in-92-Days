@@ -11,6 +11,11 @@ const TOTAL_CHALLENGE_DAYS = 92;
 let currentUserData = null;
 let currentLeaderboard = [];
 let currentWeeklyRecap = null;
+let currentNudges = [];
+let nudgedTargetsToday = new Set();
+let prayersCache = [];
+let activeCommentsDate = null;
+let activePrayersDate = null;
 
 // ====== HELPERS ======
 
@@ -18,6 +23,28 @@ function pad(n) { return String(n).padStart(2, '0'); }
 
 function formatDDMMYY(date) {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear()).slice(-2)}`;
+}
+
+function formatISODate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseISODateToDDMMYY(isoStr) {
+  if (!isoStr) return '';
+  const parts = isoStr.split('-');
+  if (parts.length < 3) return '';
+  return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+}
+
+function parseDDMMYYToISO(ddmmyyStr) {
+  if (!ddmmyyStr) return '';
+  const parts = ddmmyyStr.split('/');
+  if (parts.length < 3) return '';
+  const fullYear = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+  return `${fullYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
 }
 
 async function apiGet(params, { retries = 1, timeoutMs = 12000 } = {}) {
@@ -303,8 +330,13 @@ function showSite(session) {
   initReadingSidebar();
   initScriptureReader(session);
   initScrollTransitions();
+  initSquadNudgeBanner(session);
+  initCommentsDateSearch(session);
+  initPrayersDateSearch(session);
   wireUpdateForm(session);
   wireCommentForm(session);
+  wirePrayerForm(session);
+  initAudioNarrator();
   wireShareTodayButton(session);
   loadInitialData(session);
   startAutoRefresh(session);
@@ -589,6 +621,7 @@ async function loadInitialData(session) {
   const lbBody = document.getElementById('leaderboard-body');
   const lbError = document.getElementById('leaderboard-error');
   const commentsListEl = document.getElementById('comments-list');
+  const prayersListEl = document.getElementById('prayers-list');
 
   try {
     const res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
@@ -611,6 +644,11 @@ async function loadInitialData(session) {
       renderReadingSidebar(res.allPortions.portions);
     }
 
+    if (res.nudges && res.nudges.success) {
+      currentNudges = res.nudges.nudges || [];
+      renderSquadNudgeBanner(currentNudges, session);
+    }
+
     if (res.leaderboard.success) {
       currentLeaderboard = res.leaderboard.leaderboard;
       renderLeaderboard(currentLeaderboard, session);
@@ -627,12 +665,20 @@ async function loadInitialData(session) {
       renderWeeklyRecap(res.recap);
     }
 
-    if (res.comments.success) {
+    if (res.comments && res.comments.success) {
       commentsCache = res.comments.comments;
       renderComments(session);
       updateCommentFormVisibility(session);
     } else {
-      commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
+      if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
+    }
+
+    if (res.prayers && res.prayers.success) {
+      prayersCache = res.prayers.prayers;
+      renderPrayers(session);
+      updatePrayerFormVisibility(session);
+    } else {
+      if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Could not load prayers.</p>';
     }
 
     if (res.history && res.history.success) {
@@ -643,7 +689,8 @@ async function loadInitialData(session) {
     lbBody.innerHTML = '';
     lbError.textContent = "Couldn't reach the server.";
     lbError.hidden = false;
-    commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
+    if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
+    if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
   }
 }
 
@@ -651,6 +698,11 @@ async function loadUpdates(session) {
   try {
     const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
     updateGuestBanner(res.activeGuest, session);
+
+    if (res.nudges && res.nudges.success) {
+      currentNudges = res.nudges.nudges || [];
+      renderSquadNudgeBanner(currentNudges, session);
+    }
 
     if (res.leaderboard.success) {
       currentLeaderboard = res.leaderboard.leaderboard;
@@ -662,16 +714,21 @@ async function loadUpdates(session) {
       currentWeeklyRecap = res.recap;
       renderWeeklyRecap(res.recap);
     }
-    if (res.comments.success) {
+    if (res.comments && res.comments.success) {
       commentsCache = res.comments.comments;
       renderComments(session);
       updateCommentFormVisibility(session);
+    }
+    if (res.prayers && res.prayers.success) {
+      prayersCache = res.prayers.prayers;
+      renderPrayers(session);
+      updatePrayerFormVisibility(session);
     }
     if (res.history && res.history.success) {
       renderHeatmap(res.history.history);
     }
   } catch (err) {
-    // Quiet failure on background refresh
+    // silent fail during auto-refresh
   }
 }
 
@@ -744,6 +801,9 @@ function renderLeaderboard(rows, session) {
   document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
 
+  const me = rows.find(r => session && r.username === session.username);
+  const meHasReadToday = me && me.readToday;
+
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     const isYou = session && row.username === session.username;
@@ -800,6 +860,43 @@ function renderLeaderboard(rows, session) {
       achSpan.title = ach.label;
       nameRow.appendChild(achSpan);
     });
+
+    // Available Streak Freezes Counter
+    if (row.freezesAvailable !== undefined && row.freezesAvailable > 0) {
+      const freezeSpan = document.createElement('span');
+      freezeSpan.className = 'freezes-left-badge';
+      freezeSpan.textContent = `🧊 ${row.freezesAvailable} left`;
+      freezeSpan.title = `${row.freezesAvailable} of ${row.maxFreezes || 3} streak freeze(s) available`;
+      nameRow.appendChild(freezeSpan);
+    }
+
+    // Squad Nudge / Encouragement Ping Action
+    if (!row.readToday && !isYou && (!session || !session.isGuest)) {
+      const nudgeBtn = document.createElement('button');
+      nudgeBtn.type = 'button';
+      const isAlreadyNudged = nudgedTargetsToday.has(row.username);
+      nudgeBtn.className = 'nudge-btn' + (isAlreadyNudged ? ' nudged' : '');
+      nudgeBtn.textContent = isAlreadyNudged ? '⚡ Nudged!' : '⚡ Nudge';
+      nudgeBtn.disabled = isAlreadyNudged || !meHasReadToday;
+      nudgeBtn.title = meHasReadToday
+        ? (isAlreadyNudged ? `You nudged ${row.username} today!` : `Send ${row.username} an encouragement nudge!`)
+        : `Finish today's reading to unlock sending nudges!`;
+      nudgeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleNudgeUser(row.username, nudgeBtn, session);
+      });
+      nameRow.appendChild(nudgeBtn);
+    }
+
+    // Nudge counter indicator on leaderboard
+    const nudgesReceived = currentNudges.filter(n => n.target && n.target.toLowerCase() === row.username.toLowerCase()).length;
+    if (nudgesReceived > 0 && !row.readToday) {
+      const nudgeTag = document.createElement('span');
+      nudgeTag.className = 'nudge-tag';
+      nudgeTag.textContent = `⚡ ${nudgesReceived}x`;
+      nudgeTag.title = `Received ${nudgesReceived} encouragement nudge(s) today`;
+      nameRow.appendChild(nudgeTag);
+    }
 
     readerTd.appendChild(nameRow);
 
@@ -1223,6 +1320,477 @@ function wireCommentForm(session) {
       submitBtn.disabled = false;
     }
   });
+}
+
+// ====== COMMENTS DATE SEARCH ======
+
+function initCommentsDateSearch(session) {
+  const picker = document.getElementById('comments-date-picker');
+  const todayBtn = document.getElementById('comments-today-btn');
+  if (!picker) return;
+
+  const todayIso = formatISODate(new Date());
+  picker.max = todayIso;
+  picker.min = '2026-08-10';
+  picker.value = todayIso;
+  activeCommentsDate = formatDDMMYY(new Date());
+
+  picker.addEventListener('change', async (e) => {
+    const val = e.target.value;
+    if (!val) return;
+    if (val > todayIso) {
+      alert("Time travel currently impossible, please stick to your current timeline!");
+      picker.value = todayIso;
+      return;
+    }
+    const ddmmyy = parseISODateToDDMMYY(val);
+    activeCommentsDate = ddmmyy;
+    await fetchCommentsForDate(ddmmyy, session);
+  });
+
+  if (todayBtn) {
+    todayBtn.addEventListener('click', async () => {
+      picker.value = todayIso;
+      activeCommentsDate = formatDDMMYY(new Date());
+      await fetchCommentsForDate(activeCommentsDate, session);
+    });
+  }
+}
+
+async function fetchCommentsForDate(ddmmyy, session) {
+  const listEl = document.getElementById('comments-list');
+  const titleEl = document.getElementById('comments-section-title');
+  const form = document.getElementById('comment-form');
+  const alreadyWrap = document.getElementById('comment-already-wrap');
+  const alreadyMsg = document.getElementById('comment-already');
+  const deleteBtn = document.getElementById('delete-today-comment-btn');
+
+  if (listEl) listEl.innerHTML = '<p class="comments-loading">Loading comments…</p>';
+
+  const todayStr = formatDDMMYY(new Date());
+  const isToday = ddmmyy === todayStr;
+
+  if (titleEl) {
+    titleEl.textContent = isToday ? "Today's Comments" : `Comments (${ddmmyy})`;
+  }
+
+  try {
+    const res = await apiGet({ action: 'getComments', date: ddmmyy });
+    if (res.success) {
+      commentsCache = res.comments || [];
+      renderComments(session);
+      
+      if (!isToday) {
+        if (form) form.hidden = true;
+        if (alreadyWrap) alreadyWrap.hidden = false;
+        if (alreadyMsg) alreadyMsg.textContent = `Viewing comments from ${ddmmyy}. You can post comments for today's reading.`;
+        if (deleteBtn) deleteBtn.hidden = true;
+      } else {
+        updateCommentFormVisibility(session);
+      }
+    } else {
+      if (listEl) listEl.innerHTML = '<p class="comments-empty">Could not load comments for this date.</p>';
+    }
+  } catch (err) {
+    if (listEl) listEl.innerHTML = '<p class="comments-empty">Could not reach the server.</p>';
+  }
+}
+
+// ====== SECTION 4B: PRAYER & GRATITUDE WALL ======
+
+const PRAYER_REACTIONS_MAP = [
+  { key: 'pray', icon: '🙏', label: 'Pray' },
+  { key: 'heart', icon: '❤️', label: 'Heart' },
+  { key: 'amen', icon: '✨', label: 'Amen' },
+  { key: 'strength', icon: '💪', label: 'Strength' },
+  { key: 'candle', icon: '🕯️', label: 'Candle' }
+];
+
+function initPrayersDateSearch(session) {
+  const picker = document.getElementById('prayers-date-picker');
+  const todayBtn = document.getElementById('prayers-today-btn');
+  if (!picker) return;
+
+  const todayIso = formatISODate(new Date());
+  picker.max = todayIso;
+  picker.min = '2026-08-10';
+  picker.value = todayIso;
+  activePrayersDate = formatDDMMYY(new Date());
+
+  picker.addEventListener('change', async (e) => {
+    const val = e.target.value;
+    if (!val) return;
+    if (val > todayIso) {
+      alert("Time travel currently impossible, please stick to your current timeline!");
+      picker.value = todayIso;
+      return;
+    }
+    const ddmmyy = parseISODateToDDMMYY(val);
+    activePrayersDate = ddmmyy;
+    await fetchPrayersForDate(ddmmyy, session);
+  });
+
+  if (todayBtn) {
+    todayBtn.addEventListener('click', async () => {
+      picker.value = todayIso;
+      activePrayersDate = formatDDMMYY(new Date());
+      await fetchPrayersForDate(activePrayersDate, session);
+    });
+  }
+}
+
+async function fetchPrayersForDate(ddmmyy, session) {
+  const listEl = document.getElementById('prayers-list');
+  const titleEl = document.getElementById('prayers-section-title');
+  if (listEl) listEl.innerHTML = '<p class="prayers-loading">Loading prayers…</p>';
+
+  const todayStr = formatDDMMYY(new Date());
+  if (titleEl) {
+    titleEl.textContent = (ddmmyy === todayStr) ? "Prayer & Gratitude Wall" : `Prayer Wall (${ddmmyy})`;
+  }
+
+  try {
+    const res = await apiGet({ action: 'getPrayers', date: ddmmyy });
+    if (res.success) {
+      prayersCache = res.prayers || [];
+      renderPrayers(session);
+      updatePrayerFormVisibility(session);
+    } else {
+      if (listEl) listEl.innerHTML = '<p class="comments-empty">Could not load prayers for this date.</p>';
+    }
+  } catch (err) {
+    if (listEl) listEl.innerHTML = '<p class="comments-empty">Could not reach the server.</p>';
+  }
+}
+
+function renderPrayers(session) {
+  const listEl = document.getElementById('prayers-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  if (!prayersCache.length) {
+    listEl.innerHTML = '<p class="comments-empty">No prayers shared for this day yet. Be the first to share! 🙏</p>';
+    return;
+  }
+
+  prayersCache.forEach(prayer => {
+    listEl.appendChild(buildPrayerElement(prayer, session));
+  });
+}
+
+function buildPrayerElement(prayer, session) {
+  const isYou = session && prayer.username === session.username;
+  const item = document.createElement('div');
+  item.className = 'prayer-card' + (isYou ? ' is-my-prayer' : '');
+
+  const head = document.createElement('div');
+  head.className = 'prayer-header';
+
+  const authorInfo = document.createElement('div');
+  authorInfo.className = 'prayer-author-info';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'prayer-avatar';
+  avatar.textContent = (prayer.username || '?').charAt(0).toUpperCase();
+  authorInfo.appendChild(avatar);
+
+  const authorName = document.createElement('span');
+  authorName.className = 'prayer-author';
+  authorName.textContent = prayer.username;
+  authorInfo.appendChild(authorName);
+
+  const authorData = currentLeaderboard.find(u => u.username === prayer.username);
+  if (authorData && authorData.levelTitle) {
+    authorInfo.appendChild(createLevelBadgeEl(authorData.levelTitle));
+  }
+
+  if (isYou) {
+    const tag = document.createElement('span');
+    tag.className = 'you-tag';
+    tag.textContent = 'YOU';
+    authorInfo.appendChild(tag);
+  }
+
+  head.appendChild(authorInfo);
+
+  if (prayer.timestamp) {
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'prayer-time';
+    try {
+      const dt = new Date(prayer.timestamp);
+      timeSpan.textContent = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch(e) {}
+    head.appendChild(timeSpan);
+  }
+
+  const text = document.createElement('p');
+  text.className = 'prayer-text';
+  text.textContent = prayer.text;
+
+  const reactionsRow = document.createElement('div');
+  reactionsRow.className = 'prayer-reactions';
+
+  PRAYER_REACTIONS_MAP.forEach(reaction => {
+    const usersWhoReacted = (prayer.reactions && prayer.reactions[reaction.key]) || [];
+    const count = usersWhoReacted.length;
+    const hasReacted = session && usersWhoReacted.includes(session.username);
+
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'prayer-reaction-chip' + (hasReacted ? ' active' : '');
+    chip.innerHTML = `<span>${reaction.icon}</span><span>${count > 0 ? count : ''}</span>`;
+    
+    // Tooltip listing exactly who reacted on hover
+    if (count > 0) {
+      chip.title = `${reaction.label} by: ${usersWhoReacted.join(', ')}`;
+    } else {
+      chip.title = `${reaction.label}`;
+    }
+
+    if (session && !session.isGuest) {
+      chip.addEventListener('click', () => {
+        togglePrayerReaction(prayer.username, reaction.key, session);
+      });
+    } else {
+      chip.disabled = true;
+    }
+
+    reactionsRow.appendChild(chip);
+  });
+
+  item.append(head, text, reactionsRow);
+  return item;
+}
+
+async function togglePrayerReaction(targetUsername, type, session) {
+  if (session && session.isGuest) return;
+  const prayer = prayersCache.find(p => p.username === targetUsername);
+  if (!prayer) return;
+
+  if (!prayer.reactions) prayer.reactions = { pray: [], heart: [], amen: [], strength: [], candle: [] };
+  const targetList = prayer.reactions[type] || [];
+  const idx = targetList.indexOf(session.username);
+
+  // Optimistic UI update
+  PRAYER_REACTIONS_MAP.forEach(r => {
+    if (!prayer.reactions[r.key]) prayer.reactions[r.key] = [];
+    const i = prayer.reactions[r.key].indexOf(session.username);
+    if (i !== -1) prayer.reactions[r.key].splice(i, 1);
+  });
+
+  if (idx === -1) {
+    prayer.reactions[type].push(session.username);
+  }
+  renderPrayers(session);
+
+  try {
+    await apiGet({
+      action: 'reactPrayer',
+      reactorUsername: session.username,
+      password: session.password,
+      targetUsername: targetUsername,
+      type: type,
+      date: activePrayersDate || formatDDMMYY(new Date())
+    });
+  } catch(err) {
+    // silent fail
+  }
+}
+
+function updatePrayerFormVisibility(session) {
+  const form = document.getElementById('prayer-form');
+  const alreadyWrap = document.getElementById('prayer-already-wrap');
+  const alreadyMsg = document.getElementById('prayer-already');
+  const deleteBtn = document.getElementById('delete-today-prayer-btn');
+  if (!form || !alreadyWrap) return;
+
+  const isToday = !activePrayersDate || activePrayersDate === formatDDMMYY(new Date());
+
+  if (!isToday) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = `Viewing prayers from ${activePrayersDate}. You can share prayers for today.`;
+    if (deleteBtn) deleteBtn.hidden = true;
+    return;
+  }
+
+  if (session && session.isGuest) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    if (deleteBtn) deleteBtn.hidden = true;
+    return;
+  }
+
+  const userPrayer = session && prayersCache.find(p => p.username === session.username);
+  const hasPrayed = Boolean(userPrayer);
+  form.hidden = hasPrayed;
+  alreadyWrap.hidden = !hasPrayed;
+
+  if (hasPrayed) {
+    if (alreadyMsg) alreadyMsg.textContent = "You've shared your prayer for today — thank you for blessing the squad!";
+    if (deleteBtn) {
+      deleteBtn.hidden = false;
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = '🗑️ Delete My Prayer';
+      deleteBtn.onclick = () => confirmAndDeletePrayer(session);
+    }
+  }
+}
+
+function wirePrayerForm(session) {
+  const form = document.getElementById('prayer-form');
+  const textarea = document.getElementById('prayer-input');
+  const counterEl = document.getElementById('prayer-char-counter');
+  const feedback = document.getElementById('prayer-feedback');
+  if (!form) return;
+
+  if (textarea && counterEl) {
+    counterEl.textContent = getCharAndWordCount(textarea.value);
+    textarea.addEventListener('input', () => {
+      counterEl.textContent = getCharAndWordCount(textarea.value);
+    });
+  }
+
+  if (session && session.isGuest) {
+    form.hidden = true;
+    return;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (session && session.isGuest) return;
+    if (feedback) feedback.hidden = true;
+    const text = textarea.value.trim();
+    if (!text) return;
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const optimisticPrayer = {
+      username: session.username,
+      text,
+      timestamp: new Date().toISOString(),
+      reactions: { pray: [], heart: [], amen: [], strength: [], candle: [] }
+    };
+    prayersCache.push(optimisticPrayer);
+    renderPrayers(session);
+    textarea.value = '';
+    if (counterEl) counterEl.textContent = getCharAndWordCount('');
+    updatePrayerFormVisibility(session);
+
+    try {
+      const res = await apiGet({
+        action: 'postPrayer',
+        username: session.username,
+        password: session.password,
+        text
+      });
+      if (!res.success) {
+        prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
+        renderPrayers(session);
+        updatePrayerFormVisibility(session);
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.textContent = res.error || 'Something went wrong.';
+          feedback.className = 'form-feedback error';
+        }
+      }
+    } catch(err) {
+      prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
+      renderPrayers(session);
+      updatePrayerFormVisibility(session);
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.textContent = "Couldn't reach server. Please try again.";
+        feedback.className = 'form-feedback error';
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+}
+
+async function confirmAndDeletePrayer(session) {
+  if (session && session.isGuest) return;
+  if (!confirm('Are you sure you want to delete today’s prayer?')) return;
+
+  const prev = [...prayersCache];
+  prayersCache = prayersCache.filter(p => p.username !== session.username);
+  renderPrayers(session);
+  updatePrayerFormVisibility(session);
+
+  try {
+    const res = await apiGet({
+      action: 'deletePrayer',
+      username: session.username,
+      password: session.password
+    });
+    if (!res.success) {
+      prayersCache = prev;
+      renderPrayers(session);
+      updatePrayerFormVisibility(session);
+      alert(res.error || 'Could not delete prayer.');
+    }
+  } catch(err) {
+    prayersCache = prev;
+    renderPrayers(session);
+    updatePrayerFormVisibility(session);
+    alert('Server connection error.');
+  }
+}
+
+// ====== SQUAD NUDGE BANNER & CONTROLLER ======
+
+function initSquadNudgeBanner(session) {
+  const dismissBtn = document.getElementById('dismiss-nudge-btn');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      const banner = document.getElementById('squad-nudge-banner');
+      if (banner) banner.hidden = true;
+    });
+  }
+}
+
+function renderSquadNudgeBanner(nudges, session) {
+  const banner = document.getElementById('squad-nudge-banner');
+  const textEl = document.getElementById('squad-nudge-text');
+  if (!banner || !textEl || !session || session.isGuest) return;
+
+  const myNudges = (nudges || []).filter(n => n.target && n.target.toLowerCase() === session.username.toLowerCase());
+  if (myNudges.length > 0) {
+    const senders = [...new Set(myNudges.map(n => n.sender))];
+    const sendersStr = senders.join(', ');
+    textEl.textContent = `⚡ ${sendersStr} ${senders.length > 1 ? 'have' : 'has'} nudged you to finish today's reading portion!`;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+  }
+}
+
+async function handleNudgeUser(targetUsername, btnEl, session) {
+  if (btnEl.disabled || session.isGuest) return;
+  btnEl.disabled = true;
+  btnEl.classList.add('nudged');
+  btnEl.textContent = '⚡ Nudged!';
+  nudgedTargetsToday.add(targetUsername);
+
+  try {
+    const res = await apiGet({
+      action: 'nudgeUser',
+      senderUsername: session.username,
+      password: session.password,
+      targetUsername: targetUsername
+    });
+    if (!res.success) {
+      btnEl.textContent = '⚡ Nudge';
+      btnEl.disabled = false;
+      btnEl.classList.remove('nudged');
+      nudgedTargetsToday.delete(targetUsername);
+    }
+  } catch (err) {
+    // silent fail
+  }
 }
 
 // ====== SECTION 5: PROGRESS PLAYGROUND ======
@@ -1867,6 +2435,7 @@ function initScriptureReader(session) {
 
   const closeModal = () => {
     if (!modal || !backdrop) return;
+    stopAudioPlayback();
     modal.classList.remove('active');
     backdrop.classList.remove('active');
     setTimeout(() => {
@@ -2155,6 +2724,7 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
         }
       }, 100);
     }
+    updateAudioChapterInfo(portionText);
   } catch (err) {
     contentContainer.innerHTML = `
       <div class="reader-loading-state">
@@ -2370,6 +2940,159 @@ function initScrollTransitions() {
   });
 
   sections.forEach(sec => observer.observe(sec));
+}
+
+// ====== AUDIO BIBLE NARRATOR CONTROLLER ======
+
+let isAudioPlaying = false;
+let audioSpeechSynth = null;
+let currentUtterance = null;
+let currentAudioChapterName = '';
+let audioProgressTimer = null;
+let audioPlaybackSeconds = 0;
+let estimatedAudioDuration = 180;
+
+function initAudioNarrator() {
+  const playBtn = document.getElementById('audio-play-btn');
+  const skipBackBtn = document.getElementById('audio-skip-back-btn');
+  const skipFwdBtn = document.getElementById('audio-skip-fwd-btn');
+  const speedSelect = document.getElementById('audio-speed-select');
+
+  if (!playBtn) return;
+
+  if ('speechSynthesis' in window) {
+    audioSpeechSynth = window.speechSynthesis;
+  }
+
+  playBtn.addEventListener('click', () => {
+    toggleAudioPlayback();
+  });
+
+  if (skipBackBtn) {
+    skipBackBtn.addEventListener('click', () => {
+      seekAudio(-10);
+    });
+  }
+
+  if (skipFwdBtn) {
+    skipFwdBtn.addEventListener('click', () => {
+      seekAudio(10);
+    });
+  }
+
+  if (speedSelect) {
+    speedSelect.addEventListener('change', () => {
+      if (isAudioPlaying) {
+        stopAudioPlayback();
+        toggleAudioPlayback();
+      }
+    });
+  }
+}
+
+function updateAudioChapterInfo(chapterTitle) {
+  const titleEl = document.getElementById('audio-chapter-title');
+  const timeDisplay = document.getElementById('audio-time-display');
+  currentAudioChapterName = chapterTitle;
+  if (titleEl) titleEl.textContent = chapterTitle || 'Audio Narrator';
+  stopAudioPlayback();
+  audioPlaybackSeconds = 0;
+  if (timeDisplay) timeDisplay.textContent = '0:00 / 0:00';
+}
+
+function formatAudioTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function toggleAudioPlayback() {
+  if (isAudioPlaying) {
+    stopAudioPlayback();
+  } else {
+    startAudioPlayback();
+  }
+}
+
+function startAudioPlayback() {
+  const contentEl = document.getElementById('reader-content');
+  if (!contentEl) return;
+  const verses = Array.from(contentEl.querySelectorAll('.verse-text')).map(v => v.textContent.trim()).filter(Boolean);
+  if (!verses.length) {
+    alert("Please wait for Scripture text to load before starting audio narration.");
+    return;
+  }
+
+  const fullText = verses.join('. ');
+  const speedSelect = document.getElementById('audio-speed-select');
+  const rate = speedSelect ? parseFloat(speedSelect.value) || 1.0 : 1.0;
+
+  if (audioSpeechSynth) {
+    audioSpeechSynth.cancel();
+    currentUtterance = new SpeechSynthesisUtterance(fullText);
+    currentUtterance.rate = rate;
+    currentUtterance.pitch = 1.0;
+
+    const voices = audioSpeechSynth.getVoices();
+    const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel')));
+    if (englishVoice) currentUtterance.voice = englishVoice;
+
+    estimatedAudioDuration = Math.max(30, Math.round((verses.length * 4.5) / rate));
+
+    currentUtterance.onstart = () => {
+      isAudioPlaying = true;
+      const icon = document.getElementById('audio-play-icon');
+      if (icon) icon.textContent = '⏸';
+      document.getElementById('audio-wave-anim')?.classList.add('playing');
+      startAudioProgressTimer();
+    };
+
+    currentUtterance.onend = () => {
+      stopAudioPlayback();
+    };
+
+    currentUtterance.onerror = () => {
+      stopAudioPlayback();
+    };
+
+    audioSpeechSynth.speak(currentUtterance);
+  } else {
+    alert("Audio speech synthesis is not supported on this browser.");
+  }
+}
+
+function stopAudioPlayback() {
+  isAudioPlaying = false;
+  if (audioSpeechSynth) {
+    audioSpeechSynth.cancel();
+  }
+  const playIcon = document.getElementById('audio-play-icon');
+  if (playIcon) playIcon.textContent = '▶';
+  document.getElementById('audio-wave-anim')?.classList.remove('playing');
+  if (audioProgressTimer) {
+    clearInterval(audioProgressTimer);
+    audioProgressTimer = null;
+  }
+}
+
+function startAudioProgressTimer() {
+  if (audioProgressTimer) clearInterval(audioProgressTimer);
+  const timeDisplay = document.getElementById('audio-time-display');
+  audioProgressTimer = setInterval(() => {
+    if (!isAudioPlaying) return;
+    audioPlaybackSeconds++;
+    if (timeDisplay) {
+      timeDisplay.textContent = `${formatAudioTime(audioPlaybackSeconds)} / ${formatAudioTime(estimatedAudioDuration)}`;
+    }
+  }, 1000);
+}
+
+function seekAudio(delta) {
+  audioPlaybackSeconds = Math.max(0, audioPlaybackSeconds + delta);
+  const timeDisplay = document.getElementById('audio-time-display');
+  if (timeDisplay) {
+    timeDisplay.textContent = `${formatAudioTime(audioPlaybackSeconds)} / ${formatAudioTime(estimatedAudioDuration)}`;
+  }
 }
 
 // ====== INIT ======

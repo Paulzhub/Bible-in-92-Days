@@ -109,6 +109,13 @@
       <span id="guest-warning-text" class="guest-warning-text">A guest is currently logged in! Don't have too much fun or they may die of envy! ✨</span>
     </div>
 
+    <!-- SQUAD NUDGE BANNER -->
+    <div id="squad-nudge-banner" class="squad-nudge-banner" hidden>
+      <span class="nudge-banner-icon">⚡</span>
+      <span id="squad-nudge-text" class="nudge-banner-text">Someone in the squad nudged you to finish today's reading!</span>
+      <button type="button" id="dismiss-nudge-btn" class="nudge-dismiss-btn" aria-label="Dismiss">&times;</button>
+    </div>
+
     <main>
       <!-- SQUAD FLAME GAUGE (CO-OP GOAL) -->
       <section id="squad-gauge-card" class="card squad-gauge-card">
@@ -271,7 +278,13 @@
 
       <!-- SECTION 4: DAILY COMMENTS -->
       <section id="section-comments" class="card section-comments">
-        <p class="eyebrow">Today's Comments</p>
+        <div class="section-head-row">
+          <p class="eyebrow" id="comments-section-title">Daily Comments</p>
+          <div class="section-date-controls">
+            <input type="date" id="comments-date-picker" class="section-date-picker" title="Browse comments by date">
+            <button type="button" id="comments-today-btn" class="btn btn-secondary btn-xs">Today</button>
+          </div>
+        </div>
 
         <div id="comments-list" class="comments-list">
           <p class="comments-loading">Loading…</p>
@@ -279,19 +292,53 @@
 
         <form id="comment-form" class="comment-form">
           <label class="field">
-            <span>Share your thoughts on today's portion</span>
+            <span id="comment-form-label">Share your thoughts on today's portion</span>
             <textarea id="comment-input" rows="4" maxlength="2500" placeholder="What stood out to you today?" required></textarea>
             <div class="comment-input-meta">
               <span id="comment-char-counter" class="comment-char-counter">0 / 2500 chars (0 words)</span>
             </div>
           </label>
-          <button type="submit" class="btn btn-primary">Post Comment</button>
+          <button type="submit" id="post-comment-btn" class="btn btn-primary">Post Comment</button>
         </form>
         <div id="comment-already-wrap" class="comment-already-wrap" hidden>
           <p id="comment-already" class="comment-already">You've already shared your thoughts for today — see you back here tomorrow!</p>
           <button type="button" id="delete-today-comment-btn" class="btn btn-secondary btn-sm delete-today-comment-btn">🗑️ Delete My Comment</button>
         </div>
         <p id="comment-feedback" class="form-feedback" hidden></p>
+      </section>
+
+      <!-- SECTION 4B: PRAYER & GRATITUDE WALL -->
+      <section id="section-prayers" class="card section-prayers">
+        <div class="section-head-row">
+          <div>
+            <p class="eyebrow" id="prayers-section-title">Prayer & Gratitude Wall</p>
+            <p class="section-subtext">Lift up requests, give thanks, and pray for one another 🙏</p>
+          </div>
+          <div class="section-date-controls">
+            <input type="date" id="prayers-date-picker" class="section-date-picker" title="Browse prayers by date">
+            <button type="button" id="prayers-today-btn" class="btn btn-secondary btn-xs">Today</button>
+          </div>
+        </div>
+
+        <div id="prayers-list" class="prayers-list">
+          <p class="prayers-loading">Loading prayers…</p>
+        </div>
+
+        <form id="prayer-form" class="prayer-form">
+          <label class="field">
+            <span id="prayer-form-label">Share a prayer request or gratitude for today</span>
+            <textarea id="prayer-input" rows="3" maxlength="2500" placeholder="How can the squad pray for you today? Or what are you thankful for?" required></textarea>
+            <div class="prayer-input-meta">
+              <span id="prayer-char-counter" class="prayer-char-counter">0 / 2500 chars (0 words)</span>
+            </div>
+          </label>
+          <button type="submit" id="post-prayer-btn" class="btn btn-primary">Share Prayer</button>
+        </form>
+        <div id="prayer-already-wrap" class="prayer-already-wrap" hidden>
+          <p id="prayer-already" class="prayer-already">You've shared your prayer for today — thank you for blessing the squad!</p>
+          <button type="button" id="delete-today-prayer-btn" class="btn btn-secondary btn-sm delete-today-prayer-btn">🗑️ Delete My Prayer</button>
+        </div>
+        <p id="prayer-feedback" class="form-feedback" hidden></p>
       </section>
 
       <!-- SECTION 5: PROGRESS PLAYGROUND -->
@@ -401,6 +448,34 @@
 
       <!-- CHAPTER QUICK-TABS -->
       <div id="reader-chapter-tabs" class="reader-chapter-tabs"></div>
+
+      <!-- AUDIO BIBLE NARRATOR TOOLBAR -->
+      <div id="reader-audio-bar" class="reader-audio-bar">
+        <div class="audio-left-controls">
+          <button type="button" id="audio-play-btn" class="audio-btn audio-play-btn" title="Play or Pause Audio Narration" aria-label="Play or Pause Audio">
+            <span id="audio-play-icon">▶</span>
+          </button>
+          <button type="button" id="audio-skip-back-btn" class="audio-btn audio-skip-btn" title="Rewind 10 seconds" aria-label="Rewind 10 seconds">↺ 10s</button>
+          <button type="button" id="audio-skip-fwd-btn" class="audio-btn audio-skip-btn" title="Forward 10 seconds" aria-label="Forward 10 seconds">10s ↻</button>
+          <div class="audio-info">
+            <span id="audio-chapter-title" class="audio-chapter-title">Audio Narrator</span>
+            <span id="audio-time-display" class="audio-time-display">0:00 / 0:00</span>
+          </div>
+        </div>
+        <div class="audio-right-controls">
+          <div class="audio-wave" id="audio-wave-anim">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <select id="audio-speed-select" class="audio-speed-select" title="Narration Speed">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+          </select>
+        </div>
+        <audio id="bible-audio-player" preload="none" hidden></audio>
+      </div>
 
       <!-- SCRIPTURE TEXT CONTENT -->
       <div id="reader-content" class="reader-content">
