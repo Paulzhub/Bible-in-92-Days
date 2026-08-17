@@ -47,22 +47,23 @@ function parseDDMMYYToISO(ddmmyyStr) {
   return `${fullYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
 }
 
-async function apiGet(params, { retries = 1, timeoutMs = 12000 } = {}) {
+async function apiGet(params, { retries = 2, timeoutMs = 12000 } = {}) {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  url.searchParams.set('_t', Date.now().toString());
 
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url.toString(), { signal: controller.signal });
+      const res = await fetch(url.toString(), { cache: 'no-store', signal: controller.signal });
       clearTimeout(timer);
       return await res.json();
     } catch (err) {
       clearTimeout(timer);
       lastErr = err;
-      if (attempt < retries) await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
+      if (attempt < retries) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
     }
   }
   throw lastErr;
@@ -186,9 +187,39 @@ function createLevelBadgeEl(levelTitle) {
   return span;
 }
 
-// ====== LOGIN & APP LIFECYCLE ======
+function initBrowserLifecycleHandlers() {
+  // 1. Force full reload if restored from bfcache (Back/Forward Cache or frozen tab restore)
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      window.location.reload();
+      return;
+    }
+    const session = getSession();
+    if (session && (!currentLeaderboard || currentLeaderboard.length === 0)) {
+      loadInitialData(session);
+    }
+  });
+
+  // 2. Track browser restart lifecycle
+  try {
+    const BROWSER_SESSION_KEY = 'bible92_browser_session_live';
+    const isBrowserReopen = !sessionStorage.getItem(BROWSER_SESSION_KEY);
+    sessionStorage.setItem(BROWSER_SESSION_KEY, String(Date.now()));
+
+    if (isBrowserReopen) {
+      const existingSession = localStorage.getItem('bible92_session');
+      if (existingSession) {
+        const navEntry = window.performance?.getEntriesByType?.('navigation')?.[0];
+        if (navEntry && (navEntry.type === 'back_forward' || navEntry.type === 'reload')) {
+          window.location.reload();
+        }
+      }
+    }
+  } catch (e) {}
+}
 
 function initLogin() {
+  initBrowserLifecycleHandlers();
   initPasswordToggle();
   const session = getSession();
   if (session) {
@@ -369,10 +400,38 @@ function showSite(session) {
 }
 
 function startAutoRefresh(session) {
-  setInterval(() => loadUpdates(session), 30000);
+  setInterval(() => {
+    const cur = getSession();
+    if (cur) loadUpdates(cur);
+  }, 30000);
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') loadUpdates(session);
+    if (document.visibilityState === 'visible') {
+      const cur = getSession();
+      if (!cur) return;
+      if (!currentLeaderboard || currentLeaderboard.length === 0 || !currentDayNum) {
+        loadInitialData(cur);
+      } else {
+        loadUpdates(cur);
+      }
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    const cur = getSession();
+    if (!cur) return;
+    if (!currentLeaderboard || currentLeaderboard.length === 0 || !currentDayNum) {
+      loadInitialData(cur);
+    } else {
+      loadUpdates(cur);
+    }
+  });
+
+  window.addEventListener('online', () => {
+    const cur = getSession();
+    if (cur) {
+      loadInitialData(cur);
+    }
   });
 }
 
@@ -641,7 +700,7 @@ function checkMilestoneCelebration(daysCompleted) {
 
 // ====== DATA FETCHING ======
 
-async function loadInitialData(session) {
+async function loadInitialData(session, retryCount = 0) {
   const portionEl = document.getElementById('today-portion');
   const dateEl = document.getElementById('today-date');
   const lbBody = document.getElementById('leaderboard-body');
@@ -653,7 +712,7 @@ async function loadInitialData(session) {
     const res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
     updateGuestBanner(res.activeGuest, session);
 
-    if (res.today.success) {
+    if (res.today && res.today.success) {
       portionEl.textContent = res.today.portion;
       dateEl.textContent = res.today.date;
       currentDayNum = res.today.day;
@@ -661,7 +720,7 @@ async function loadInitialData(session) {
       renderTodayPortionDetail(res.today.portion, res.today.day, session);
     } else {
       portionEl.textContent = "No portion listed for today yet — check back soon.";
-      dateEl.textContent = res.today.date || '';
+      dateEl.textContent = res.today ? (res.today.date || '') : '';
       renderDayCountdown(null);
       renderTodayPortionDetail('', null, session);
     }
@@ -675,14 +734,14 @@ async function loadInitialData(session) {
       renderSquadNudgeBanner(currentNudges, session);
     }
 
-    if (res.leaderboard.success) {
+    if (res.leaderboard && res.leaderboard.success) {
       currentLeaderboard = res.leaderboard.leaderboard;
       renderLeaderboard(currentLeaderboard, session);
       renderPlayground(currentLeaderboard);
       updateHeaderLevel(currentLeaderboard, session);
     } else {
       lbBody.innerHTML = '';
-      lbError.textContent = res.leaderboard.error || 'Could not load the leaderboard.';
+      lbError.textContent = (res.leaderboard && res.leaderboard.error) || 'Could not load the leaderboard.';
       lbError.hidden = false;
     }
 
@@ -711,9 +770,17 @@ async function loadInitialData(session) {
       renderHeatmap(res.history.history);
     }
   } catch (err) {
+    if (retryCount < 3) {
+      console.warn(`Initial data load failed (attempt ${retryCount + 1}), auto-retrying in ${(retryCount + 1) * 1500}ms...`, err);
+      setTimeout(() => {
+        const curSession = getSession();
+        if (curSession) loadInitialData(curSession, retryCount + 1);
+      }, (retryCount + 1) * 1500);
+      return;
+    }
     portionEl.textContent = "Couldn't load today's portion. Check your connection.";
     lbBody.innerHTML = '';
-    lbError.textContent = "Couldn't reach the server.";
+    lbError.textContent = "Couldn't reach the server. Please refresh.";
     lbError.hidden = false;
     if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
     if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
@@ -2986,6 +3053,13 @@ let audioVerseQueue = [];
 let currentAudioVerseIndex = 0;
 let audioAvailableVoices = [];
 
+const NARRATOR_VOICES = [
+  { id: 'us_male', label: 'US (Male)', region: 'US', gender: 'Male', lang: 'en-US', fallbackPitch: 0.92 },
+  { id: 'us_female', label: 'United States (Female)', region: 'US', gender: 'Female', lang: 'en-US', fallbackPitch: 1.05 },
+  { id: 'uk_male', label: 'United Kingdom (Male)', region: 'UK', gender: 'Male', lang: 'en-GB', fallbackPitch: 0.92 },
+  { id: 'uk_female', label: 'United Kingdom (Female)', region: 'UK', gender: 'Female', lang: 'en-GB', fallbackPitch: 1.05 }
+];
+
 function initAudioNarrator() {
   const playBtn = document.getElementById('audio-play-btn');
   const skipBackBtn = document.getElementById('audio-skip-back-btn');
@@ -3005,6 +3079,8 @@ function initAudioNarrator() {
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = refreshVoices;
     }
+  } else {
+    populateAudioVoiceDropdown();
   }
 
   if (playBtn) {
@@ -3035,10 +3111,10 @@ function initAudioNarrator() {
 
   if (voiceSelect) {
     voiceSelect.onchange = () => {
-      const selectedVoiceName = voiceSelect.value;
-      if (selectedVoiceName) {
+      const selectedVoiceId = voiceSelect.value;
+      if (selectedVoiceId) {
         try {
-          localStorage.setItem('bible92_preferred_voice_name', selectedVoiceName);
+          localStorage.setItem('bible92_preferred_voice_id', selectedVoiceId);
         } catch (e) {}
       }
       if (isAudioPlaying) {
@@ -3048,227 +3124,104 @@ function initAudioNarrator() {
   }
 }
 
-function classifyVoice(v) {
-  const name = v.name || '';
-  const lang = (v.lang || '').replace(/_/g, '-');
-  const lowerName = name.toLowerCase();
-  
-  // Detect Accent / Region & Grouping
-  let region = 'Other';
-  let flag = '🌍';
-  let group = '🌍 Other Voices';
-  let priority = 90;
-  
-  if (lang.startsWith('en-US') || lowerName.includes('united states') || lowerName.includes('us english') || lowerName.includes('(us)')) {
-    region = 'US';
-    flag = '🇺🇸';
-    group = '🇺🇸 US English';
-    priority = 10;
-  } else if (lang.startsWith('en-GB') || lowerName.includes('united kingdom') || lowerName.includes('uk english') || lowerName.includes('british') || lowerName.includes('(uk)')) {
-    region = 'UK';
-    flag = '🇬🇧';
-    group = '🇬🇧 UK English';
-    priority = 20;
-  } else if (lang.startsWith('en-AU') || lowerName.includes('australia')) {
-    region = 'AU';
-    flag = '🇦🇺';
-    group = '🇦🇺 Australian English';
-    priority = 30;
-  } else if (lang.startsWith('en-IN') || lang.startsWith('hi') || lowerName.includes('india')) {
-    region = 'IN';
-    flag = '🇮🇳';
-    group = '🇮🇳 Indian English';
-    priority = 40;
-  } else if (lang.startsWith('en-CA') || lowerName.includes('canada')) {
-    region = 'CA';
-    flag = '🇨🇦';
-    group = '🇨🇦 Canadian English';
-    priority = 50;
-  } else if (lang.startsWith('en-IE') || lowerName.includes('ireland')) {
-    region = 'IE';
-    flag = '🇮🇪';
-    group = '🇮🇪 Irish English';
-    priority = 60;
-  } else if (lang.startsWith('en-NZ') || lowerName.includes('new zealand')) {
-    region = 'NZ';
-    flag = '🇳🇿';
-    group = '🇳🇿 New Zealand English';
-    priority = 70;
-  } else if (lang.startsWith('en-ZA') || lowerName.includes('south africa')) {
-    region = 'ZA';
-    flag = '🇿🇦';
-    group = '🇿🇦 South African English';
-    priority = 75;
-  } else if (lang.startsWith('en-NG') || lowerName.includes('nigeria')) {
-    region = 'NG';
-    flag = '🇳🇬';
-    group = '🇳🇬 Nigerian English';
-    priority = 80;
-  } else if (lang.startsWith('en')) {
-    region = 'Global';
-    flag = '🌍';
-    group = '🌍 International English';
-    priority = 85;
+function findMatchingSystemVoice(targetConfig) {
+  if (!audioSpeechSynth) return null;
+  const voices = audioAvailableVoices.length ? audioAvailableVoices : (audioSpeechSynth.getVoices() || []);
+  if (!voices.length) return null;
+
+  const femaleKeywords = /\b(female|woman|girl|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena)\b/i;
+  const maleKeywords = /\b(male|man|boy|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant)\b/i;
+
+  let bestVoice = null;
+  let bestScore = -999;
+
+  for (const v of voices) {
+    const name = (v.name || '').toLowerCase();
+    const lang = (v.lang || '').replace(/_/g, '-').toLowerCase();
+    let score = 0;
+
+    const isTargetUS = targetConfig.region === 'US';
+    const isTargetUK = targetConfig.region === 'UK';
+
+    // 1. Language & Region Matching
+    if (isTargetUS) {
+      if (lang.startsWith('en-us')) score += 50;
+      else if (name.includes('united states') || name.includes('us english') || name.includes('(us)')) score += 45;
+      else if (lang.startsWith('en') && !lang.startsWith('en-gb') && !name.includes('uk') && !name.includes('british')) score += 10;
+      else score -= 40;
+    } else if (isTargetUK) {
+      if (lang.startsWith('en-gb')) score += 50;
+      else if (name.includes('united kingdom') || name.includes('uk english') || name.includes('british') || name.includes('(uk)')) score += 45;
+      else if (lang.startsWith('en') && !lang.startsWith('en-us')) score += 10;
+      else score -= 40;
+    }
+
+    // 2. Gender Matching
+    const isFemale = femaleKeywords.test(name) || (name.includes('female') && !name.includes('male'));
+    const isMale = maleKeywords.test(name) || (name.includes('male') && !name.includes('female'));
+
+    if (targetConfig.gender === 'Female') {
+      if (isFemale) score += 40;
+      else if (isMale) score -= 80;
+    } else if (targetConfig.gender === 'Male') {
+      if (isMale) score += 40;
+      else if (isFemale) score -= 80;
+    }
+
+    // 3. Quality Bonus
+    if (name.includes('natural') || name.includes('neural') || name.includes('online')) score += 15;
+    if (name.includes('google') || name.includes('apple') || name.includes('siri')) score += 10;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestVoice = v;
+    }
   }
 
-  // Detect Gender
-  const femaleKeywords = /\b(female|woman|girl|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|neerja|swara|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena)\b/i;
-  const maleKeywords = /\b(male|man|boy|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|prabhat|madhav|rishi|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant)\b/i;
-
-  let gender = 'Voice';
-  let genderIcon = '🗣️';
-  if (femaleKeywords.test(lowerName)) {
-    gender = 'Female';
-    genderIcon = '👩';
-  } else if (maleKeywords.test(lowerName)) {
-    gender = 'Male';
-    genderIcon = '👨';
+  if (bestScore > 0 && bestVoice) {
+    return bestVoice;
   }
 
-  const isNatural = lowerName.includes('natural') || lowerName.includes('neural') || lowerName.includes('google') || lowerName.includes('premium');
-  
-  // Clean readable name for UI
-  let cleanName = name
-    .replace(/^Google\s+/i, '')
-    .replace(/^Microsoft\s+/i, '')
-    .replace(/\s*Online\s*\(Natural\)/i, ' (Natural)')
-    .replace(/\s*Desktop/i, '')
-    .replace(/\s*-\s*English\s*\([^)]+\)/i, '')
-    .replace(/\s*\([^)]*English[^)]*\)/i, '')
-    .trim();
+  // Fallback to language-matching voice or default
+  const fallback = voices.find(v => (v.lang || '').toLowerCase().startsWith(targetConfig.lang.toLowerCase())) ||
+                 voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) ||
+                 voices[0];
+  return fallback || null;
+}
 
-  if (!cleanName) cleanName = name;
-
-  const label = `${genderIcon} ${cleanName} (${gender}${isNatural ? ' • HD' : ''})`;
-
+function getNarratorVoiceConfig() {
+  const voiceSelect = document.getElementById('audio-voice-select');
+  const selectedId = (voiceSelect && voiceSelect.value) || localStorage.getItem('bible92_preferred_voice_id') || 'us_female';
+  const config = NARRATOR_VOICES.find(v => v.id === selectedId) || NARRATOR_VOICES[1];
+  const matchedVoice = findMatchingSystemVoice(config);
   return {
-    voice: v,
-    name: name,
-    cleanName: cleanName,
-    region: region,
-    group: group,
-    gender: gender,
-    genderIcon: genderIcon,
-    isNatural: isNatural,
-    priority: priority,
-    label: label,
-    isEnglish: lang.startsWith('en') || region !== 'Other'
+    config,
+    voice: matchedVoice
   };
 }
 
 function populateAudioVoiceDropdown() {
   const voiceSelect = document.getElementById('audio-voice-select');
-  if (!voiceSelect || !audioSpeechSynth) return;
+  if (!voiceSelect) return;
 
-  if (!audioAvailableVoices.length) {
-    try {
-      audioAvailableVoices = audioSpeechSynth.getVoices() || [];
-    } catch (e) {}
-  }
-
-  if (!audioAvailableVoices.length) {
-    voiceSelect.innerHTML = '<option value="">Default Voice</option>';
-    return;
-  }
-
-  const classified = audioAvailableVoices.map(classifyVoice);
-  
-  // Prefer English voices if any exist
-  const englishVoices = classified.filter(c => c.isEnglish);
-  const voicesToDisplay = englishVoices.length > 0 ? englishVoices : classified;
-
-  // Group by accent/region
-  const groupMap = new Map();
-  voicesToDisplay.forEach(item => {
-    if (!groupMap.has(item.group)) {
-      groupMap.set(item.group, { priority: item.priority, items: [] });
-    }
-    groupMap.get(item.group).items.push(item);
-  });
-
-  // Sort groups by priority
-  const sortedGroups = Array.from(groupMap.entries()).sort((a, b) => a[1].priority - b[1].priority);
-
-  const prevSelected = voiceSelect.value || localStorage.getItem('bible92_preferred_voice_name') || '';
+  const savedVoiceId = localStorage.getItem('bible92_preferred_voice_id') || 'us_female';
   voiceSelect.innerHTML = '';
 
-  let bestDefaultVoiceName = '';
-
-  sortedGroups.forEach(([groupName, groupData]) => {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = groupName;
-
-    // Sort voices inside group: Natural/HD first, then Female/Male, then alphabetical
-    groupData.items.sort((a, b) => {
-      if (a.isNatural !== b.isNatural) return a.isNatural ? -1 : 1;
-      if (a.gender !== b.gender) {
-        if (a.gender === 'Female') return -1;
-        if (b.gender === 'Female') return 1;
-      }
-      return a.cleanName.localeCompare(b.cleanName);
-    });
-
-    groupData.items.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.name;
-      opt.textContent = c.label;
-      optgroup.appendChild(opt);
-
-      if (!bestDefaultVoiceName) {
-        if (c.isNatural || c.name.includes('Google US English') || c.name.includes('Samantha') || c.name.includes('Jenny') || c.name.includes('Guy')) {
-          bestDefaultVoiceName = c.name;
-        }
-      }
-    });
-
-    voiceSelect.appendChild(optgroup);
+  NARRATOR_VOICES.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = v.label;
+    if (v.id === savedVoiceId) {
+      opt.selected = true;
+    }
+    voiceSelect.appendChild(opt);
   });
 
-  if (!bestDefaultVoiceName && voicesToDisplay.length > 0) {
-    bestDefaultVoiceName = voicesToDisplay[0].name;
-  }
-
-  // Select preferred voice or best natural default
-  const hasPrev = voicesToDisplay.some(v => v.name === prevSelected);
-  if (hasPrev) {
-    voiceSelect.value = prevSelected;
-  } else if (bestDefaultVoiceName) {
-    voiceSelect.value = bestDefaultVoiceName;
-    try {
-      localStorage.setItem('bible92_preferred_voice_name', bestDefaultVoiceName);
-    } catch (e) {}
-  }
+  voiceSelect.value = savedVoiceId;
 }
 
 function getBestVoice() {
-  if (!audioAvailableVoices.length && audioSpeechSynth) {
-    try {
-      audioAvailableVoices = audioSpeechSynth.getVoices() || [];
-    } catch (e) {}
-  }
-  if (!audioAvailableVoices.length) return null;
-
-  const voiceSelect = document.getElementById('audio-voice-select');
-  const preferredName = (voiceSelect && voiceSelect.value) || localStorage.getItem('bible92_preferred_voice_name') || '';
-
-  if (preferredName) {
-    const matched = audioAvailableVoices.find(v => v.name === preferredName);
-    if (matched) return matched;
-  }
-
-  // Fallback to highest quality natural voice
-  const preferred = audioAvailableVoices.find(v =>
-    v.lang && v.lang.startsWith('en') && (
-      v.name.includes('Natural') ||
-      v.name.includes('Google US English') ||
-      v.name.includes('Google UK English Female') ||
-      v.name.includes('Samantha') ||
-      v.name.includes('Daniel') ||
-      v.name.includes('Serena') ||
-      v.name.includes('Ava')
-    )
-  ) || audioAvailableVoices.find(v => v.lang && v.lang.startsWith('en')) || audioAvailableVoices[0];
-  return preferred || null;
+  return getNarratorVoiceConfig().voice;
 }
 
 function playAudioVerseChunk(index) {
@@ -3305,16 +3258,16 @@ function playAudioVerseChunk(index) {
   const speedSelect = document.getElementById('audio-speed-select');
   const rate = speedSelect ? parseFloat(speedSelect.value) || 1.0 : 1.0;
 
+  const { config, voice } = getNarratorVoiceConfig();
+
   const utterance = new SpeechSynthesisUtterance(chunk.text);
   utterance.rate = rate;
-  utterance.pitch = 1.0;
-  const voice = getBestVoice();
+  utterance.lang = config.lang;
   if (voice) {
     utterance.voice = voice;
-    utterance.lang = voice.lang || 'en-US';
-  } else {
-    utterance.lang = 'en-US';
+    utterance.lang = voice.lang || config.lang;
   }
+  utterance.pitch = config.fallbackPitch || 1.0;
 
   // Store global reference to avoid garbage collection bug in Chromium
   window._speechActiveUtterance = utterance;
