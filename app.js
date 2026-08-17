@@ -2822,6 +2822,7 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
       }, 100);
     }
     updateAudioChapterInfo(portionText);
+    audioVerseQueue = prepareAudioVerseQueue();
   } catch (err) {
     contentContainer.innerHTML = `
       <div class="reader-loading-state">
@@ -3224,15 +3225,73 @@ function getBestVoice() {
   return getNarratorVoiceConfig().voice;
 }
 
-function playAudioVerseChunk(index) {
-  if (!audioSpeechSynth) {
-    if ('speechSynthesis' in window) {
-      audioSpeechSynth = window.speechSynthesis;
+function prepareAudioVerseQueue() {
+  const contentEl = document.getElementById('reader-content');
+  if (!contentEl) return [];
+
+  const queue = [];
+  const sections = contentEl.querySelectorAll('.reader-chapter-section');
+
+  if (sections.length > 0) {
+    sections.forEach(section => {
+      const heading = section.querySelector('.reader-chapter-heading');
+      if (heading && heading.textContent.trim()) {
+        queue.push({
+          text: heading.textContent.trim() + '.',
+          element: heading
+        });
+      }
+
+      const rows = section.querySelectorAll('.verse-row');
+      rows.forEach(row => {
+        const verseTextEl = row.querySelector('.verse-text');
+        const text = verseTextEl ? verseTextEl.textContent.trim() : row.textContent.trim();
+        if (text) {
+          queue.push({
+            text: text,
+            element: row
+          });
+        }
+      });
+    });
+  } else {
+    // Fallback if no structured sections
+    const rows = contentEl.querySelectorAll('.verse-row');
+    if (rows.length > 0) {
+      rows.forEach(row => {
+        const verseTextEl = row.querySelector('.verse-text');
+        const text = verseTextEl ? verseTextEl.textContent.trim() : row.textContent.trim();
+        if (text) {
+          queue.push({
+            text: text,
+            element: row
+          });
+        }
+      });
     } else {
-      alert("Audio speech synthesis is not supported on this browser.");
-      return;
+      // General paragraph fallback
+      const paras = contentEl.querySelectorAll('p');
+      paras.forEach(p => {
+        const text = p.textContent.trim();
+        if (text && !p.classList.contains('reader-loading-state')) {
+          queue.push({
+            text: text,
+            element: p
+          });
+        }
+      });
     }
   }
+
+  return queue;
+}
+
+function playAudioVerseChunk(index) {
+  if (!('speechSynthesis' in window)) {
+    alert("Audio speech synthesis is not supported on this browser.");
+    return;
+  }
+  audioSpeechSynth = window.speechSynthesis;
 
   if (index < 0) index = 0;
   if (index >= audioVerseQueue.length) {
@@ -3242,9 +3301,13 @@ function playAudioVerseChunk(index) {
 
   currentAudioVerseIndex = index;
   const chunk = audioVerseQueue[index];
+  if (!chunk) {
+    stopAudioPlayback();
+    return;
+  }
 
   // Highlight active verse in reader UI and scroll gently if out of view
-  document.querySelectorAll('.verse-row.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
+  document.querySelectorAll('.verse-row.speaking-verse, .reader-chapter-heading.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
   if (chunk.element) {
     chunk.element.classList.add('speaking-verse');
     chunk.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -3296,6 +3359,7 @@ function playAudioVerseChunk(index) {
     if (evt && (evt.error === 'canceled' || evt.error === 'interrupted')) {
       return;
     }
+    console.warn('Speech synthesis chunk error:', evt);
     if (isAudioPlaying && currentAudioVerseIndex < audioVerseQueue.length - 1) {
       playAudioVerseChunk(currentAudioVerseIndex + 1);
     } else {
@@ -3333,6 +3397,10 @@ function startAudioPlayback() {
   estimatedAudioDuration = Math.max(30, Math.round((audioVerseQueue.length * 4.5) / rate));
 
   isAudioPlaying = true;
+  const playIcon = document.getElementById('audio-play-icon');
+  if (playIcon) playIcon.textContent = '⏸';
+  document.getElementById('audio-wave-anim')?.classList.add('playing');
+
   playAudioVerseChunk(currentAudioVerseIndex);
 }
 
@@ -3349,7 +3417,7 @@ function stopAudioPlayback() {
   const playIcon = document.getElementById('audio-play-icon');
   if (playIcon) playIcon.textContent = '▶';
   document.getElementById('audio-wave-anim')?.classList.remove('playing');
-  document.querySelectorAll('.verse-row.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
+  document.querySelectorAll('.verse-row.speaking-verse, .reader-chapter-heading.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
 
   if (audioProgressTimer) {
     clearInterval(audioProgressTimer);
