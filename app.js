@@ -74,18 +74,56 @@ function clearSession() {
   localStorage.removeItem('bible92_session');
 }
 
-async function getClientIp() {
+async function getClientGeoInfo() {
+  // Primary fast lookup via ipwho.is (IP + City, Region, Country)
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2200);
+    const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success !== false && data.ip) {
+        const locParts = [data.city, data.region, data.country].filter(Boolean);
+        return {
+          ip: data.ip || '',
+          location: locParts.join(', ') || data.country || 'Unknown'
+        };
+      }
+    }
+  } catch (e) {}
+
+  // Fallback lookup via ipapi.co
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch('https://ipapi.co/json/', { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.ip) {
+        const locParts = [data.city, data.region, data.country_name].filter(Boolean);
+        return {
+          ip: data.ip || '',
+          location: locParts.join(', ') || data.country_name || 'Unknown'
+        };
+      }
+    }
+  } catch (e) {}
+
+  // Fallback lookup via ipify for IP only
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
     const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
     clearTimeout(timer);
     if (res.ok) {
       const data = await res.json();
-      return data.ip || '';
+      return { ip: data.ip || '', location: 'Unknown' };
     }
   } catch (e) {}
-  return '';
+
+  return { ip: '', location: 'Unknown' };
 }
 
 // ====== THEME ======
@@ -143,8 +181,9 @@ function initLogin() {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
 
-    const clientSessionId = 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-    const clientIp = await getClientIp();
+    const isGuest = username.toLowerCase().startsWith('guest');
+    const clientSessionId = (isGuest ? 'g_' : 'u_') + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const geoInfo = await getClientGeoInfo();
     const userAgent = navigator.userAgent || '';
 
     try {
@@ -153,7 +192,8 @@ function initLogin() {
         username,
         password,
         sessionId: clientSessionId,
-        ipAddress: clientIp,
+        ipAddress: geoInfo.ip,
+        location: geoInfo.location,
         userAgent: userAgent
       });
       if (res.success) {
