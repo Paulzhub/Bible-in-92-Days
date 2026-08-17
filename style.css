@@ -2641,15 +2641,62 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   font-variant-numeric: tabular-nums;
 }
 
+.audio-select-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audio-voice-select {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.22rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  max-width: 175px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-voice-select:hover,
+.audio-speed-select:hover {
+  border-color: var(--accent);
+}
+
+.audio-voice-select:focus,
+.audio-speed-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.audio-voice-select optgroup {
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface-1);
+}
+
+.audio-voice-select option {
+  font-weight: 400;
+  color: var(--text);
+  background: var(--surface-1);
+}
+
 .audio-speed-select {
   background: var(--surface-1);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.2rem 0.45rem;
+  padding: 0.22rem 0.45rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   cursor: pointer;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .audio-wave {
@@ -2680,6 +2727,35 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 @keyframes pulseGlow {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(245, 158, 11, 0.4)); }
   50% { transform: scale(1.15); filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.8)); }
+}
+
+@media (max-width: 640px) {
+  .reader-audio-bar {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+  .audio-left-controls {
+    min-width: 100%;
+    justify-content: flex-start;
+  }
+  .audio-right-controls {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--border);
+  }
+  .audio-select-group {
+    flex: 1;
+    justify-content: flex-end;
+  }
+  .audio-voice-select {
+    max-width: 140px;
+    flex: 1;
+    font-size: 0.72rem;
+  }
+  .audio-speed-select {
+    font-size: 0.72rem;
+  }
 }
 
 

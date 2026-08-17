@@ -300,14 +300,35 @@ function initGuestInactivityWatcher(session) {
     window.addEventListener(evt, recordActivity, { passive: true });
   });
 
-  // Check every 10 seconds for 30 minutes inactivity timeout
-  setInterval(() => {
+  let isExpiring = false;
+  setInterval(async () => {
+    if (isExpiring) return;
     const cur = getSession();
     if (!cur) {
+      isExpiring = true;
       alert('Your guest session has expired after 30 minutes of inactivity. Please sign in again.');
-      location.reload();
+      await performLogout(session);
     }
   }, 10000);
+}
+
+async function performLogout(session) {
+  const cur = session || getSession();
+  if (cur) {
+    const payload = {
+      action: 'logout',
+      username: cur.username || '',
+      sessionId: cur.sessionId || '',
+      isGuest: cur.isGuest ? 'true' : 'false'
+    };
+    try {
+      await apiGet(payload);
+    } catch (e) {
+      console.warn('Logout logging network error (safe to proceed):', e);
+    }
+  }
+  clearSession();
+  location.reload();
 }
 
 function showSite(session) {
@@ -317,10 +338,15 @@ function showSite(session) {
   siteEl.classList.add('fade-in', 'site-ease-in');
   document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + (session.isGuest ? ' (Guest)' : '');
 
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    clearSession();
-    location.reload();
-  });
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      logoutBtn.disabled = true;
+      logoutBtn.textContent = 'Signing out…';
+      await performLogout(session);
+    });
+  }
 
   updateGuestBanner(null, session);
   initGuestInactivityWatcher(session);
@@ -2965,17 +2991,19 @@ function initAudioNarrator() {
   const skipBackBtn = document.getElementById('audio-skip-back-btn');
   const skipFwdBtn = document.getElementById('audio-skip-fwd-btn');
   const speedSelect = document.getElementById('audio-speed-select');
+  const voiceSelect = document.getElementById('audio-voice-select');
 
   if ('speechSynthesis' in window) {
     audioSpeechSynth = window.speechSynthesis;
-    const populateVoices = () => {
+    const refreshVoices = () => {
       try {
         audioAvailableVoices = audioSpeechSynth.getVoices() || [];
+        populateAudioVoiceDropdown();
       } catch (e) {}
     };
-    populateVoices();
+    refreshVoices();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = populateVoices;
+      window.speechSynthesis.onvoiceschanged = refreshVoices;
     }
   }
 
@@ -3004,35 +3032,212 @@ function initAudioNarrator() {
       }
     };
   }
+
+  if (voiceSelect) {
+    voiceSelect.onchange = () => {
+      const selectedVoiceName = voiceSelect.value;
+      if (selectedVoiceName) {
+        try {
+          localStorage.setItem('bible92_preferred_voice_name', selectedVoiceName);
+        } catch (e) {}
+      }
+      if (isAudioPlaying) {
+        playAudioVerseChunk(currentAudioVerseIndex);
+      }
+    };
+  }
 }
 
-function prepareAudioVerseQueue() {
-  const contentEl = document.getElementById('reader-content');
-  if (!contentEl) return [];
+function classifyVoice(v) {
+  const name = v.name || '';
+  const lang = (v.lang || '').replace(/_/g, '-');
+  const lowerName = name.toLowerCase();
+  
+  // Detect Accent / Region & Grouping
+  let region = 'Other';
+  let flag = '🌍';
+  let group = '🌍 Other Voices';
+  let priority = 90;
+  
+  if (lang.startsWith('en-US') || lowerName.includes('united states') || lowerName.includes('us english') || lowerName.includes('(us)')) {
+    region = 'US';
+    flag = '🇺🇸';
+    group = '🇺🇸 US English';
+    priority = 10;
+  } else if (lang.startsWith('en-GB') || lowerName.includes('united kingdom') || lowerName.includes('uk english') || lowerName.includes('british') || lowerName.includes('(uk)')) {
+    region = 'UK';
+    flag = '🇬🇧';
+    group = '🇬🇧 UK English';
+    priority = 20;
+  } else if (lang.startsWith('en-AU') || lowerName.includes('australia')) {
+    region = 'AU';
+    flag = '🇦🇺';
+    group = '🇦🇺 Australian English';
+    priority = 30;
+  } else if (lang.startsWith('en-IN') || lang.startsWith('hi') || lowerName.includes('india')) {
+    region = 'IN';
+    flag = '🇮🇳';
+    group = '🇮🇳 Indian English';
+    priority = 40;
+  } else if (lang.startsWith('en-CA') || lowerName.includes('canada')) {
+    region = 'CA';
+    flag = '🇨🇦';
+    group = '🇨🇦 Canadian English';
+    priority = 50;
+  } else if (lang.startsWith('en-IE') || lowerName.includes('ireland')) {
+    region = 'IE';
+    flag = '🇮🇪';
+    group = '🇮🇪 Irish English';
+    priority = 60;
+  } else if (lang.startsWith('en-NZ') || lowerName.includes('new zealand')) {
+    region = 'NZ';
+    flag = '🇳🇿';
+    group = '🇳🇿 New Zealand English';
+    priority = 70;
+  } else if (lang.startsWith('en-ZA') || lowerName.includes('south africa')) {
+    region = 'ZA';
+    flag = '🇿🇦';
+    group = '🇿🇦 South African English';
+    priority = 75;
+  } else if (lang.startsWith('en-NG') || lowerName.includes('nigeria')) {
+    region = 'NG';
+    flag = '🇳🇬';
+    group = '🇳🇬 Nigerian English';
+    priority = 80;
+  } else if (lang.startsWith('en')) {
+    region = 'Global';
+    flag = '🌍';
+    group = '🌍 International English';
+    priority = 85;
+  }
 
-  const rows = Array.from(contentEl.querySelectorAll('.verse-row'));
-  const queue = [];
+  // Detect Gender
+  const femaleKeywords = /\b(female|woman|girl|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|neerja|swara|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena)\b/i;
+  const maleKeywords = /\b(male|man|boy|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|prabhat|madhav|rishi|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant)\b/i;
 
-  rows.forEach((row, idx) => {
-    const numEl = row.querySelector('.verse-num');
-    const textEl = row.querySelector('.verse-text');
-    const text = textEl ? textEl.textContent.trim() : row.textContent.trim();
-    const num = numEl ? numEl.textContent.trim() : String(idx + 1);
+  let gender = 'Voice';
+  let genderIcon = '🗣️';
+  if (femaleKeywords.test(lowerName)) {
+    gender = 'Female';
+    genderIcon = '👩';
+  } else if (maleKeywords.test(lowerName)) {
+    gender = 'Male';
+    genderIcon = '👨';
+  }
 
-    if (text) {
-      const section = row.closest('.reader-chapter-section');
-      const chHeading = section?.querySelector('.reader-chapter-heading')?.textContent || '';
-      queue.push({
-        index: idx,
-        num: num,
-        text: text,
-        chHeading: chHeading,
-        element: row
-      });
+  const isNatural = lowerName.includes('natural') || lowerName.includes('neural') || lowerName.includes('google') || lowerName.includes('premium');
+  
+  // Clean readable name for UI
+  let cleanName = name
+    .replace(/^Google\s+/i, '')
+    .replace(/^Microsoft\s+/i, '')
+    .replace(/\s*Online\s*\(Natural\)/i, ' (Natural)')
+    .replace(/\s*Desktop/i, '')
+    .replace(/\s*-\s*English\s*\([^)]+\)/i, '')
+    .replace(/\s*\([^)]*English[^)]*\)/i, '')
+    .trim();
+
+  if (!cleanName) cleanName = name;
+
+  const label = `${genderIcon} ${cleanName} (${gender}${isNatural ? ' • HD' : ''})`;
+
+  return {
+    voice: v,
+    name: name,
+    cleanName: cleanName,
+    region: region,
+    group: group,
+    gender: gender,
+    genderIcon: genderIcon,
+    isNatural: isNatural,
+    priority: priority,
+    label: label,
+    isEnglish: lang.startsWith('en') || region !== 'Other'
+  };
+}
+
+function populateAudioVoiceDropdown() {
+  const voiceSelect = document.getElementById('audio-voice-select');
+  if (!voiceSelect || !audioSpeechSynth) return;
+
+  if (!audioAvailableVoices.length) {
+    try {
+      audioAvailableVoices = audioSpeechSynth.getVoices() || [];
+    } catch (e) {}
+  }
+
+  if (!audioAvailableVoices.length) {
+    voiceSelect.innerHTML = '<option value="">Default Voice</option>';
+    return;
+  }
+
+  const classified = audioAvailableVoices.map(classifyVoice);
+  
+  // Prefer English voices if any exist
+  const englishVoices = classified.filter(c => c.isEnglish);
+  const voicesToDisplay = englishVoices.length > 0 ? englishVoices : classified;
+
+  // Group by accent/region
+  const groupMap = new Map();
+  voicesToDisplay.forEach(item => {
+    if (!groupMap.has(item.group)) {
+      groupMap.set(item.group, { priority: item.priority, items: [] });
     }
+    groupMap.get(item.group).items.push(item);
   });
 
-  return queue;
+  // Sort groups by priority
+  const sortedGroups = Array.from(groupMap.entries()).sort((a, b) => a[1].priority - b[1].priority);
+
+  const prevSelected = voiceSelect.value || localStorage.getItem('bible92_preferred_voice_name') || '';
+  voiceSelect.innerHTML = '';
+
+  let bestDefaultVoiceName = '';
+
+  sortedGroups.forEach(([groupName, groupData]) => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = groupName;
+
+    // Sort voices inside group: Natural/HD first, then Female/Male, then alphabetical
+    groupData.items.sort((a, b) => {
+      if (a.isNatural !== b.isNatural) return a.isNatural ? -1 : 1;
+      if (a.gender !== b.gender) {
+        if (a.gender === 'Female') return -1;
+        if (b.gender === 'Female') return 1;
+      }
+      return a.cleanName.localeCompare(b.cleanName);
+    });
+
+    groupData.items.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = c.label;
+      optgroup.appendChild(opt);
+
+      if (!bestDefaultVoiceName) {
+        if (c.isNatural || c.name.includes('Google US English') || c.name.includes('Samantha') || c.name.includes('Jenny') || c.name.includes('Guy')) {
+          bestDefaultVoiceName = c.name;
+        }
+      }
+    });
+
+    voiceSelect.appendChild(optgroup);
+  });
+
+  if (!bestDefaultVoiceName && voicesToDisplay.length > 0) {
+    bestDefaultVoiceName = voicesToDisplay[0].name;
+  }
+
+  // Select preferred voice or best natural default
+  const hasPrev = voicesToDisplay.some(v => v.name === prevSelected);
+  if (hasPrev) {
+    voiceSelect.value = prevSelected;
+  } else if (bestDefaultVoiceName) {
+    voiceSelect.value = bestDefaultVoiceName;
+    try {
+      localStorage.setItem('bible92_preferred_voice_name', bestDefaultVoiceName);
+    } catch (e) {}
+  }
 }
 
 function getBestVoice() {
@@ -3043,6 +3248,15 @@ function getBestVoice() {
   }
   if (!audioAvailableVoices.length) return null;
 
+  const voiceSelect = document.getElementById('audio-voice-select');
+  const preferredName = (voiceSelect && voiceSelect.value) || localStorage.getItem('bible92_preferred_voice_name') || '';
+
+  if (preferredName) {
+    const matched = audioAvailableVoices.find(v => v.name === preferredName);
+    if (matched) return matched;
+  }
+
+  // Fallback to highest quality natural voice
   const preferred = audioAvailableVoices.find(v =>
     v.lang && v.lang.startsWith('en') && (
       v.name.includes('Natural') ||
@@ -3094,10 +3308,13 @@ function playAudioVerseChunk(index) {
   const utterance = new SpeechSynthesisUtterance(chunk.text);
   utterance.rate = rate;
   utterance.pitch = 1.0;
-  utterance.lang = 'en-US';
-
   const voice = getBestVoice();
-  if (voice) utterance.voice = voice;
+  if (voice) {
+    utterance.voice = voice;
+    utterance.lang = voice.lang || 'en-US';
+  } else {
+    utterance.lang = 'en-US';
+  }
 
   // Store global reference to avoid garbage collection bug in Chromium
   window._speechActiveUtterance = utterance;

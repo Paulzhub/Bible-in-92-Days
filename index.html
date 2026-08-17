@@ -466,13 +466,18 @@
           <div class="audio-wave" id="audio-wave-anim">
             <span></span><span></span><span></span><span></span>
           </div>
-          <select id="audio-speed-select" class="audio-speed-select" title="Narration Speed">
-            <option value="0.75">0.75x</option>
-            <option value="1" selected>1.0x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2.0x</option>
-          </select>
+          <div class="audio-select-group">
+            <select id="audio-voice-select" class="audio-voice-select" title="Preferred Voice & Accent" aria-label="Select Voice & Accent">
+              <option value="">Loading Voices…</option>
+            </select>
+            <select id="audio-speed-select" class="audio-speed-select" title="Narration Speed" aria-label="Narration Speed">
+              <option value="0.75">0.75x</option>
+              <option value="1" selected>1.0x</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2.0x</option>
+            </select>
+          </div>
         </div>
         <audio id="bible-audio-player" preload="none" hidden></audio>
       </div>
