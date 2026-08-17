@@ -41,17 +41,51 @@ async function apiGet(params, { retries = 1, timeoutMs = 12000 } = {}) {
   throw lastErr;
 }
 
+const GUEST_INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minutes
+
 function getSession() {
   const raw = localStorage.getItem('bible92_session');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    const session = JSON.parse(raw);
+    if (session && session.isGuest) {
+      const now = Date.now();
+      const last = session.lastActivity || session.loginTime || 0;
+      if (now - last > GUEST_INACTIVITY_LIMIT_MS) {
+        clearSession();
+        return null;
+      }
+    }
+    return session;
+  } catch (e) {
+    return null;
+  }
 }
 
 function setSession(session) {
+  if (session && session.isGuest) {
+    session.lastActivity = Date.now();
+    session.loginTime = session.loginTime || Date.now();
+  }
   localStorage.setItem('bible92_session', JSON.stringify(session));
 }
 
 function clearSession() {
   localStorage.removeItem('bible92_session');
+}
+
+async function getClientIp() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2200);
+    const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      return data.ip || '';
+    }
+  } catch (e) {}
+  return '';
 }
 
 // ====== THEME ======
@@ -109,10 +143,28 @@ function initLogin() {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
 
+    const clientSessionId = 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const clientIp = await getClientIp();
+    const userAgent = navigator.userAgent || '';
+
     try {
-      const res = await apiGet({ action: 'login', username, password });
+      const res = await apiGet({
+        action: 'login',
+        username,
+        password,
+        sessionId: clientSessionId,
+        ipAddress: clientIp,
+        userAgent: userAgent
+      });
       if (res.success) {
-        const session = { username: res.username, password, isGuest: !!res.isGuest };
+        const session = {
+          username: res.username,
+          password,
+          isGuest: !!res.isGuest,
+          sessionId: res.sessionId || clientSessionId,
+          lastActivity: Date.now(),
+          loginTime: Date.now()
+        };
         setSession(session);
         showSite(session);
       } else {
@@ -160,6 +212,37 @@ function updateGuestBanner(activeGuest, session) {
   }
 }
 
+function initGuestInactivityWatcher(session) {
+  if (!session || !session.isGuest) return;
+
+  let lastSavedTime = Date.now();
+
+  const recordActivity = () => {
+    const now = Date.now();
+    if (now - lastSavedTime >= 5000) {
+      lastSavedTime = now;
+      const cur = getSession();
+      if (cur && cur.isGuest) {
+        cur.lastActivity = now;
+        localStorage.setItem('bible92_session', JSON.stringify(cur));
+      }
+    }
+  };
+
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+    window.addEventListener(evt, recordActivity, { passive: true });
+  });
+
+  // Check every 10 seconds for 30 minutes inactivity timeout
+  setInterval(() => {
+    const cur = getSession();
+    if (!cur) {
+      alert('Your guest session has expired after 30 minutes of inactivity. Please sign in again.');
+      location.reload();
+    }
+  }, 10000);
+}
+
 function showSite(session) {
   document.getElementById('login-screen').hidden = true;
   const siteEl = document.getElementById('site');
@@ -173,6 +256,7 @@ function showSite(session) {
   });
 
   updateGuestBanner(null, session);
+  initGuestInactivityWatcher(session);
   initMobileMenu();
   initDateDropdown();
   initShareModal();
@@ -251,6 +335,10 @@ function wireUpdateForm(session) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Guest View Only';
     }
+    const dateSelect = document.getElementById('date-select');
+    const statusSelect = document.getElementById('status-select');
+    if (dateSelect) dateSelect.disabled = true;
+    if (statusSelect) statusSelect.disabled = true;
   }
 
   form.addEventListener('submit', async (e) => {
@@ -1884,13 +1972,19 @@ async function openReaderModal({ portion, day, initialChapter }) {
   }
 
   if (markReadBtn) {
-    markReadBtn.disabled = false;
-    if (day && currentDayNum && day === currentDayNum) {
-      markReadBtn.textContent = '✓ Mark Today as Read';
-    } else if (day) {
-      markReadBtn.textContent = `✓ Mark Day ${day} as Read`;
+    const curSession = getSession();
+    if (curSession && curSession.isGuest) {
+      markReadBtn.disabled = true;
+      markReadBtn.textContent = 'Guest View Only';
     } else {
-      markReadBtn.textContent = '✓ Mark Today as Read';
+      markReadBtn.disabled = false;
+      if (day && currentDayNum && day === currentDayNum) {
+        markReadBtn.textContent = '✓ Mark Today as Read';
+      } else if (day) {
+        markReadBtn.textContent = `✓ Mark Day ${day} as Read`;
+      } else {
+        markReadBtn.textContent = '✓ Mark Today as Read';
+      }
     }
   }
 
