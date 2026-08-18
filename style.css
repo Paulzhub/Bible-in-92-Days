@@ -308,6 +308,17 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   font-size: 0.8rem;
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
+  transition: all 0.2s ease;
+}
+
+.btn-share-today:disabled,
+.btn-share-today.disabled-guest {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+  pointer-events: auto !important;
+  filter: grayscale(0.5);
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .form-error {

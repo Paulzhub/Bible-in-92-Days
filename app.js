@@ -299,14 +299,40 @@ function initPasswordToggle() {
   });
 }
 
-function updateGuestBanner(activeGuest, session) {
+function formatGuestNameList(names) {
+  if (!names || names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+function updateGuestBanner(activeGuestsData, session) {
   const banner = document.getElementById('guest-warning-banner');
   const textEl = document.getElementById('guest-warning-text');
   if (!banner || !textEl) return;
 
-  const currentGuest = activeGuest || (session && session.isGuest ? session.username : null);
-  if (currentGuest) {
-    textEl.textContent = `A guest is currently logged in (${currentGuest} is watching)! Don't have too much fun or they may die of envy! ✨`;
+  const guestsSet = new Set();
+  
+  if (Array.isArray(activeGuestsData)) {
+    activeGuestsData.forEach(g => {
+      if (g && typeof g === 'string' && g.trim()) guestsSet.add(g.trim());
+    });
+  } else if (typeof activeGuestsData === 'string' && activeGuestsData.trim()) {
+    guestsSet.add(activeGuestsData.trim());
+  }
+
+  if (session && session.isGuest && session.username) {
+    guestsSet.add(session.username.trim());
+  }
+
+  const activeGuestsList = Array.from(guestsSet);
+
+  if (activeGuestsList.length === 1) {
+    textEl.textContent = `A guest is currently logged in (${activeGuestsList[0]} is watching)! Don't have too much fun or they may die of envy! ✨`;
+    banner.hidden = false;
+  } else if (activeGuestsList.length > 1) {
+    const formattedList = formatGuestNameList(activeGuestsList);
+    textEl.textContent = `Multiple guests are currently logged in (${formattedList} are watching)! Don't have too much fun or they may die of envy! ✨`;
     banner.hidden = false;
   } else {
     banner.hidden = true;
@@ -738,7 +764,7 @@ async function loadInitialData(session, retryCount = 0) {
 
   if (!res) return;
 
-  try { updateGuestBanner(res.activeGuest, session); } catch (e) { console.error(e); }
+  try { updateGuestBanner(res.activeGuests || res.activeGuest, session); } catch (e) { console.error(e); }
 
   try {
     if (res.today && res.today.success) {
@@ -829,7 +855,7 @@ async function loadUpdates(session) {
     const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
     if (!res) return;
 
-    try { updateGuestBanner(res.activeGuest, session); } catch (e) {}
+    try { updateGuestBanner(res.activeGuests || res.activeGuest, session); } catch (e) {}
 
     try {
       if (res.nudges && res.nudges.success) {
@@ -2278,9 +2304,27 @@ function refreshSharePreview() {
 function wireShareTodayButton(session) {
   const btn = document.getElementById('share-progress-btn');
   if (!btn) return;
-  btn.addEventListener('click', () => {
+
+  if (session && session.isGuest) {
+    btn.disabled = true;
+    btn.classList.add('disabled-guest');
+    btn.setAttribute('aria-disabled', 'true');
+    btn.setAttribute('title', 'Guest users cannot share progress cards.');
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    return;
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('disabled-guest');
+  btn.removeAttribute('aria-disabled');
+  btn.removeAttribute('title');
+  btn.onclick = () => {
+    if (session && session.isGuest) return;
     openShareModal(session);
-  });
+  };
 }
 
 function initShareModal() {
@@ -2347,6 +2391,7 @@ function initShareModal() {
 }
 
 async function openShareModal(session) {
+  if (session && session.isGuest) return;
   activeShareSession = session;
   const modal = document.getElementById('share-modal');
   const previewImg = document.getElementById('share-card-preview');
