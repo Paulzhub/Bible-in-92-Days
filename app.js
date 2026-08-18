@@ -998,13 +998,17 @@ function renderLeaderboard(rows, session) {
       nameRow.appendChild(nudgeBtn);
     }
 
-    // Nudge counter indicator on leaderboard
-    const nudgesReceived = currentNudges.filter(n => n.target && n.target.toLowerCase() === row.username.toLowerCase()).length;
+    // Nudge counter indicator on leaderboard with hover tooltip
+    const matchingNudges = currentNudges.filter(n => n.target && n.target.toLowerCase() === row.username.toLowerCase());
+    const nudgesReceived = matchingNudges.length;
     if (nudgesReceived > 0 && !row.readToday) {
+      const senders = [...new Set(matchingNudges.map(n => n.sender).filter(Boolean))];
+      const sendersStr = senders.length > 0 ? senders.join(', ') : 'Squad members';
       const nudgeTag = document.createElement('span');
       nudgeTag.className = 'nudge-tag';
-      nudgeTag.textContent = `⚡ ${nudgesReceived}x`;
-      nudgeTag.title = `Received ${nudgesReceived} encouragement nudge(s) today`;
+      nudgeTag.setAttribute('tabindex', '0');
+      nudgeTag.innerHTML = `⚡ ${nudgesReceived}x<span class="nudge-hover-tooltip">Nudged by: ${sendersStr}</span>`;
+      nudgeTag.title = `Nudged by: ${sendersStr}`;
       nameRow.appendChild(nudgeTag);
     }
 
@@ -3041,6 +3045,7 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
         if (targetEl) {
           targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        playAudioFromChapter(ch.bookId, ch.chapter);
       });
       tabsContainer.appendChild(tab);
     });
@@ -3137,31 +3142,30 @@ function initReaderScrollSpy(contentEl, tabsContainer) {
     });
   };
 
-  let isScrollDebouncing = false;
-  const onScroll = () => {
-    if (isScrollDebouncing) return;
-    isScrollDebouncing = true;
-    requestAnimationFrame(() => {
-      isScrollDebouncing = false;
-      const scrollPos = contentEl.scrollTop + 80;
-      let currentActiveId = sections[0].id;
-      for (let i = 0; i < sections.length; i++) {
-        const sec = sections[i];
-        if (sec.offsetTop <= scrollPos) {
-          currentActiveId = sec.id;
-        } else {
-          break;
-        }
+  const checkScrollPosition = () => {
+    const containerRect = contentEl.getBoundingClientRect();
+    let currentActiveId = sections[0].id;
+
+    for (let i = 0; i < sections.length; i++) {
+      const sec = sections[i];
+      const secRect = sec.getBoundingClientRect();
+      const relativeTop = secRect.top - containerRect.top;
+      // Immediately activate chapter as soon as its top boundary reaches visible reader area
+      if (relativeTop <= 90) {
+        currentActiveId = sec.id;
+      } else {
+        break;
       }
-      updateActiveTab(currentActiveId);
-    });
+    }
+    updateActiveTab(currentActiveId);
   };
 
   if (contentEl._scrollSpyHandler) {
     contentEl.removeEventListener('scroll', contentEl._scrollSpyHandler);
   }
-  contentEl._scrollSpyHandler = onScroll;
-  contentEl.addEventListener('scroll', onScroll, { passive: true });
+  contentEl._scrollSpyHandler = checkScrollPosition;
+  contentEl.addEventListener('scroll', checkScrollPosition, { passive: true });
+  checkScrollPosition();
 }
 
 function renderTodayPortionDetail(portionText, dayNum, session) {
@@ -3625,6 +3629,107 @@ function prepareAudioVerseQueue() {
   return queue;
 }
 
+function playAudioFromChapter(bookId, chapter) {
+  if (!audioVerseQueue || audioVerseQueue.length === 0) {
+    audioVerseQueue = prepareAudioVerseQueue();
+  }
+  if (!audioVerseQueue || audioVerseQueue.length === 0) return;
+
+  const targetSectionId = `reader-ch-${bookId}-${chapter}`;
+  const sectionEl = document.getElementById(targetSectionId);
+
+  let targetIdx = 0;
+  if (sectionEl) {
+    const foundIdx = audioVerseQueue.findIndex(chunk => 
+      chunk.element && (chunk.element === sectionEl || sectionEl.contains(chunk.element))
+    );
+    if (foundIdx !== -1) {
+      targetIdx = foundIdx;
+    }
+  }
+
+  currentAudioVerseIndex = targetIdx;
+  isAudioPlaying = true;
+  playAudioVerseChunk(targetIdx);
+}
+
+let silentAudioEl = null;
+let audioWakeLock = null;
+
+function playSilentBackgroundAudioTrack() {
+  try {
+    if (!silentAudioEl) {
+      silentAudioEl = document.getElementById('bible-audio-player');
+      if (!silentAudioEl) {
+        silentAudioEl = document.createElement('audio');
+        silentAudioEl.id = 'bible-audio-player';
+        silentAudioEl.hidden = true;
+        document.body.appendChild(silentAudioEl);
+      }
+      silentAudioEl.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      silentAudioEl.loop = true;
+    }
+    const p = silentAudioEl.play();
+    if (p !== undefined) {
+      p.catch(() => {});
+    }
+  } catch (e) {}
+}
+
+function pauseSilentBackgroundAudioTrack() {
+  try {
+    if (silentAudioEl) {
+      silentAudioEl.pause();
+    }
+  } catch (e) {}
+}
+
+async function requestAudioWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      if (!audioWakeLock) {
+        audioWakeLock = await navigator.wakeLock.request('screen');
+        audioWakeLock.addEventListener('release', () => {
+          audioWakeLock = null;
+        });
+      }
+    } catch (err) {}
+  }
+}
+
+function releaseAudioWakeLock() {
+  if (audioWakeLock) {
+    try {
+      audioWakeLock.release();
+    } catch (e) {}
+    audioWakeLock = null;
+  }
+}
+
+function updateAudioMediaSession(chunkText) {
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: chunkText ? chunkText.substring(0, 45) + '…' : (currentAudioChapterName || "Scripture Audio Narrator"),
+        artist: "Project Bible 92",
+        album: "The Youth Gathering 2026"
+      });
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (!isAudioPlaying) startAudioPlayback();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (isAudioPlaying) stopAudioPlayback();
+      });
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        seekAudioVerse(-1);
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        seekAudioVerse(1);
+      });
+    } catch (e) {}
+  }
+}
+
 function playAudioVerseChunk(index) {
   if (!('speechSynthesis' in window)) {
     alert("Audio speech synthesis is not supported on this browser.");
@@ -3682,6 +3787,9 @@ function playAudioVerseChunk(index) {
     document.getElementById('audio-wave-anim')?.classList.add('playing');
     startAudioProgressTimer();
     startAudioKeepAlive();
+    playSilentBackgroundAudioTrack();
+    requestAudioWakeLock();
+    updateAudioMediaSession(chunk.text);
   };
 
   utterance.onend = () => {
@@ -3740,11 +3848,16 @@ function startAudioPlayback() {
   if (playIcon) playIcon.textContent = '⏸';
   document.getElementById('audio-wave-anim')?.classList.add('playing');
 
+  playSilentBackgroundAudioTrack();
+  requestAudioWakeLock();
   playAudioVerseChunk(currentAudioVerseIndex);
 }
 
 function stopAudioPlayback() {
   isAudioPlaying = false;
+  pauseSilentBackgroundAudioTrack();
+  releaseAudioWakeLock();
+
   if (audioSpeechSynth) {
     try {
       audioSpeechSynth.cancel();
@@ -3803,8 +3916,22 @@ function startAudioKeepAlive() {
     if (audioSpeechSynth.speaking && audioSpeechSynth.paused) {
       audioSpeechSynth.resume();
     }
-  }, 8000);
+  }, 5000);
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (isAudioPlaying && audioSpeechSynth) {
+    try {
+      if (audioSpeechSynth.paused) {
+        audioSpeechSynth.resume();
+      }
+      playSilentBackgroundAudioTrack();
+      if (document.visibilityState === 'visible') {
+        requestAudioWakeLock();
+      }
+    } catch (e) {}
+  }
+});
 
 function updateAudioChapterInfo(chapterTitle) {
   const titleEl = document.getElementById('audio-chapter-title');

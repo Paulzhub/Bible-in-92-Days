@@ -2396,18 +2396,68 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .nudge-tag {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
   font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.15rem 0.4rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   color: #f59e0b;
   margin-left: 0.35rem;
+  cursor: pointer;
   animation: pulseGlow 2.5s infinite;
+}
+
+.nudge-hover-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #1E2140;
+  color: #F6EFE1;
+  border: 1px solid var(--accent);
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 100;
+}
+
+[data-theme="light"] .nudge-hover-tooltip {
+  background: #ffffff;
+  color: #14162B;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+.nudge-hover-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #1E2140 transparent transparent transparent;
+}
+
+[data-theme="light"] .nudge-hover-tooltip::after {
+  border-color: #ffffff transparent transparent transparent;
+}
+
+.nudge-tag:hover .nudge-hover-tooltip,
+.nudge-tag:focus .nudge-hover-tooltip,
+.nudge-tag:active .nudge-hover-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .nudge-toast {
@@ -2700,13 +2750,13 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .audio-voice-select {
-  background: var(--surface-1);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.22rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   max-width: 175px;
   cursor: pointer;
   outline: none;
@@ -2714,6 +2764,12 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+[data-theme="light"] .audio-voice-select {
+  background: #ffffff;
+  color: #14162B;
+  border-color: rgba(20, 22, 43, 0.25);
 }
 
 .audio-voice-select:hover,
@@ -2724,31 +2780,59 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .audio-voice-select:focus,
 .audio-speed-select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
 }
 
 .audio-voice-select optgroup {
   font-weight: 700;
   color: var(--accent);
-  background: var(--surface-1);
+  background: #1E2140;
+}
+
+[data-theme="light"] .audio-voice-select optgroup {
+  background: #ffffff;
+  color: #D9922B;
 }
 
 .audio-voice-select option {
-  font-weight: 400;
-  color: var(--text);
-  background: var(--surface-1);
+  font-weight: 500;
+  color: #F6EFE1;
+  background: #1E2140;
+}
+
+[data-theme="light"] .audio-voice-select option {
+  color: #14162B;
+  background: #ffffff;
 }
 
 .audio-speed-select {
-  background: var(--surface-1);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.22rem 0.45rem;
+  padding: 0.25rem 0.48rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="light"] .audio-speed-select {
+  background: #ffffff;
+  color: #14162B;
+  border-color: rgba(20, 22, 43, 0.25);
+}
+
+.audio-speed-select option {
+  font-weight: 500;
+  color: #F6EFE1;
+  background: #1E2140;
+}
+
+[data-theme="light"] .audio-speed-select option {
+  color: #14162B;
+  background: #ffffff;
 }
 
 .audio-wave {
