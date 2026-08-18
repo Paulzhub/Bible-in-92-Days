@@ -239,8 +239,10 @@ function initLogin() {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
 
-    const isGuest = username.toLowerCase().startsWith('guest');
-    const clientSessionId = (isGuest ? 'g_' : 'u_') + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const uLow = username.toLowerCase();
+    const isGuest = uLow.includes('guest') || uLow.startsWith('guest');
+    const isAdmin = uLow === 'admin';
+    const clientSessionId = (isAdmin ? 'a_' : (isGuest ? 'g_' : 'u_')) + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     const geoInfo = await getClientGeoInfo();
     const userAgent = navigator.userAgent || '';
 
@@ -259,6 +261,7 @@ function initLogin() {
           username: res.username,
           password,
           isGuest: !!res.isGuest,
+          isAdmin: !!res.isAdmin,
           sessionId: res.sessionId || clientSessionId,
           lastActivity: Date.now(),
           loginTime: Date.now()
@@ -367,7 +370,9 @@ function showSite(session) {
   const siteEl = document.getElementById('site');
   siteEl.hidden = false;
   siteEl.classList.add('fade-in', 'site-ease-in');
-  document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + (session.isGuest ? ' (Guest)' : '');
+  
+  const userGreetingSuffix = session.isAdmin ? ' (🛡️ Admin)' : (session.isGuest ? ' (Guest)' : '');
+  document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + userGreetingSuffix;
 
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
@@ -486,11 +491,11 @@ function wireUpdateForm(session) {
   const feedback = document.getElementById('update-feedback');
   if (!form) return;
 
-  if (session && session.isGuest) {
+  if (session && (session.isGuest || session.isAdmin)) {
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Guest View Only';
+      submitBtn.textContent = session.isAdmin ? 'Admin Mode (Non-Reader)' : 'Guest View Only';
     }
     const dateSelect = document.getElementById('date-select');
     const statusSelect = document.getElementById('status-select');
@@ -500,9 +505,9 @@ function wireUpdateForm(session) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (session && session.isGuest) {
+    if (session && (session.isGuest || session.isAdmin)) {
       feedback.hidden = false;
-      feedback.textContent = 'Guest users are in read-only mode.';
+      feedback.textContent = session.isAdmin ? 'Admin account is not on the reading roster.' : 'Guest users are in read-only mode.';
       feedback.className = 'form-feedback error';
       return;
     }
@@ -1203,12 +1208,18 @@ function getCharAndWordCount(text) {
   return `${chars} / 2500 chars (${words} words)`;
 }
 
-async function confirmAndDeleteComment(session) {
+async function confirmAndDeleteComment(session, targetUsername, targetDate) {
   if (!session || session.isGuest) return;
-  const confirmed = window.confirm('Are you sure you want to delete your comment for today?');
+  const target = targetUsername || session.username;
+  const isOther = target.toLowerCase() !== session.username.toLowerCase();
+  const promptMsg = isOther
+    ? `Are you sure you want to delete ${target}'s comment as Admin?`
+    : 'Are you sure you want to delete your comment?';
+  const confirmed = window.confirm(promptMsg);
   if (!confirmed) return;
 
-  const deleteBtns = document.querySelectorAll('.comment-delete-btn, .delete-today-comment-btn');
+  const itemEl = document.querySelector(`.comment-item[data-username="${CSS.escape(target)}"]`);
+  const deleteBtns = itemEl ? itemEl.querySelectorAll('.comment-delete-btn') : document.querySelectorAll('.comment-delete-btn, .delete-today-comment-btn');
   deleteBtns.forEach(b => {
     b.disabled = true;
     b.textContent = 'Deleting…';
@@ -1221,13 +1232,14 @@ async function confirmAndDeleteComment(session) {
     const res = await apiGet({
       action: 'deleteComment',
       username: session.username,
-      password: session.password
+      password: session.password,
+      targetUsername: target,
+      date: targetDate || activeCommentsDate || formatDDMMYY(new Date())
     });
 
     if (res && res.success) {
-      commentsCache = commentsCache.filter(c => c.username !== session.username);
+      commentsCache = commentsCache.filter(c => c.username !== target);
       
-      const itemEl = document.querySelector(`.comment-item[data-username="${CSS.escape(session.username)}"]`);
       if (itemEl) {
         itemEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
         itemEl.style.opacity = '0';
@@ -1236,7 +1248,7 @@ async function confirmAndDeleteComment(session) {
           itemEl.remove();
           const listEl = document.getElementById('comments-list');
           if (listEl && listEl.querySelectorAll('.comment-item').length === 0) {
-            listEl.innerHTML = '<p class="comments-empty">No comments yet today — be the first to share!</p>';
+            listEl.innerHTML = '<p class="comments-empty">No comments yet for this day — be the first to share!</p>';
           }
         }, 250);
       }
@@ -1246,7 +1258,7 @@ async function confirmAndDeleteComment(session) {
       if (feedback) {
         feedback.hidden = false;
         feedback.className = 'form-feedback success';
-        feedback.textContent = 'Your comment has been deleted.';
+        feedback.textContent = isOther ? `Deleted ${target}'s comment.` : 'Your comment has been deleted.';
         setTimeout(() => {
           feedback.hidden = true;
         }, 3500);
@@ -1302,14 +1314,15 @@ function buildCommentElement(comment, session) {
   }
   head.appendChild(author);
 
-  if (isYou && (!session || !session.isGuest)) {
+  const canDelete = (isYou || (session && session.isAdmin)) && (!session || !session.isGuest);
+  if (canDelete) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'comment-delete-btn';
     deleteBtn.innerHTML = '🗑️ Delete';
-    deleteBtn.title = 'Delete your comment';
+    deleteBtn.title = isYou ? 'Delete your comment' : `Delete ${comment.username}'s comment (Admin)`;
     deleteBtn.addEventListener('click', () => {
-      confirmAndDeleteComment(session);
+      confirmAndDeleteComment(session, comment.username, activeCommentsDate);
     });
     head.appendChild(deleteBtn);
   }
@@ -1595,8 +1608,11 @@ function renderPrayers(session) {
 
 function buildPrayerElement(prayer, session) {
   const isYou = session && prayer.username === session.username;
+  const canModerate = (isYou || (session && session.isAdmin)) && (!session || !session.isGuest);
+
   const item = document.createElement('div');
   item.className = 'prayer-card' + (isYou ? ' is-my-prayer' : '');
+  item.dataset.username = prayer.username;
 
   const head = document.createElement('div');
   head.className = 'prayer-header';
@@ -1628,6 +1644,9 @@ function buildPrayerElement(prayer, session) {
 
   head.appendChild(authorInfo);
 
+  const headRight = document.createElement('div');
+  headRight.className = 'prayer-head-right';
+
   if (prayer.timestamp) {
     const timeSpan = document.createElement('span');
     timeSpan.className = 'prayer-time';
@@ -1635,8 +1654,36 @@ function buildPrayerElement(prayer, session) {
       const dt = new Date(prayer.timestamp);
       timeSpan.textContent = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch(e) {}
-    head.appendChild(timeSpan);
+    headRight.appendChild(timeSpan);
   }
+
+  if (canModerate) {
+    const actionsGroup = document.createElement('div');
+    actionsGroup.className = 'prayer-actions-group';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'prayer-edit-btn';
+    editBtn.innerHTML = '✏️ Edit';
+    editBtn.title = isYou ? 'Edit your prayer' : `Edit ${prayer.username}'s prayer (Admin)`;
+    editBtn.addEventListener('click', () => {
+      startEditingPrayer(item, prayer, session);
+    });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'prayer-delete-btn';
+    deleteBtn.innerHTML = '🗑️ Delete';
+    deleteBtn.title = isYou ? 'Delete your prayer' : `Delete ${prayer.username}'s prayer (Admin)`;
+    deleteBtn.addEventListener('click', () => {
+      confirmAndDeletePrayer(session, prayer.username, activePrayersDate);
+    });
+
+    actionsGroup.append(editBtn, deleteBtn);
+    headRight.appendChild(actionsGroup);
+  }
+
+  head.appendChild(headRight);
 
   const text = document.createElement('p');
   text.className = 'prayer-text';
@@ -1677,161 +1724,114 @@ function buildPrayerElement(prayer, session) {
   return item;
 }
 
-async function togglePrayerReaction(targetUsername, type, session) {
-  if (session && session.isGuest) return;
-  const prayer = prayersCache.find(p => p.username === targetUsername);
-  if (!prayer) return;
+function startEditingPrayer(cardEl, prayer, session) {
+  const existingEditBox = cardEl.querySelector('.prayer-edit-box');
+  if (existingEditBox) return;
 
-  if (!prayer.reactions) prayer.reactions = { pray: [], heart: [], amen: [], strength: [], candle: [] };
-  const targetList = prayer.reactions[type] || [];
-  const idx = targetList.indexOf(session.username);
+  const textEl = cardEl.querySelector('.prayer-text');
+  const reactionsEl = cardEl.querySelector('.prayer-reactions');
+  const actionsGroup = cardEl.querySelector('.prayer-actions-group');
+  if (!textEl) return;
 
-  // Optimistic UI update
-  PRAYER_REACTIONS_MAP.forEach(r => {
-    if (!prayer.reactions[r.key]) prayer.reactions[r.key] = [];
-    const i = prayer.reactions[r.key].indexOf(session.username);
-    if (i !== -1) prayer.reactions[r.key].splice(i, 1);
+  textEl.hidden = true;
+  if (reactionsEl) reactionsEl.hidden = true;
+  if (actionsGroup) actionsGroup.hidden = true;
+
+  const editBox = document.createElement('div');
+  editBox.className = 'prayer-edit-box';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'prayer-edit-textarea';
+  textarea.value = prayer.text;
+  textarea.maxLength = 2500;
+  textarea.rows = 4;
+
+  const footer = document.createElement('div');
+  footer.className = 'prayer-edit-footer';
+
+  const counter = document.createElement('span');
+  counter.className = 'prayer-edit-counter';
+  counter.textContent = getCharAndWordCount(textarea.value);
+
+  textarea.addEventListener('input', () => {
+    counter.textContent = getCharAndWordCount(textarea.value);
   });
 
-  if (idx === -1) {
-    prayer.reactions[type].push(session.username);
-  }
-  renderPrayers(session);
+  const btns = document.createElement('div');
+  btns.className = 'prayer-edit-btns';
 
-  try {
-    await apiGet({
-      action: 'reactPrayer',
-      reactorUsername: session.username,
-      password: session.password,
-      targetUsername: targetUsername,
-      type: type,
-      date: activePrayersDate || formatDDMMYY(new Date())
-    });
-  } catch(err) {
-    // silent fail
-  }
-}
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'prayer-edit-cancel-btn';
+  cancelBtn.textContent = '✖ Cancel';
+  cancelBtn.addEventListener('click', () => {
+    editBox.remove();
+    textEl.hidden = false;
+    if (reactionsEl) reactionsEl.hidden = false;
+    if (actionsGroup) actionsGroup.hidden = false;
+  });
 
-function updatePrayerFormVisibility(session) {
-  const form = document.getElementById('prayer-form');
-  const alreadyWrap = document.getElementById('prayer-already-wrap');
-  const alreadyMsg = document.getElementById('prayer-already');
-  const deleteBtn = document.getElementById('delete-today-prayer-btn');
-  if (!form || !alreadyWrap) return;
-
-  const isToday = !activePrayersDate || activePrayersDate === formatDDMMYY(new Date());
-
-  if (!isToday) {
-    form.hidden = true;
-    alreadyWrap.hidden = false;
-    if (alreadyMsg) alreadyMsg.textContent = `Viewing prayers from ${activePrayersDate}. You can share prayers for today.`;
-    if (deleteBtn) deleteBtn.hidden = true;
-    return;
-  }
-
-  if (session && session.isGuest) {
-    form.hidden = true;
-    alreadyWrap.hidden = false;
-    if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and enjoy!';
-    if (deleteBtn) deleteBtn.hidden = true;
-    return;
-  }
-
-  const userPrayer = session && prayersCache.find(p => p.username === session.username);
-  const hasPrayed = Boolean(userPrayer);
-  form.hidden = hasPrayed;
-  alreadyWrap.hidden = !hasPrayed;
-
-  if (hasPrayed) {
-    if (alreadyMsg) alreadyMsg.textContent = "You've shared your prayer for today — thank you for blessing the squad!";
-    if (deleteBtn) {
-      deleteBtn.hidden = false;
-      deleteBtn.disabled = false;
-      deleteBtn.textContent = '🗑️ Delete My Prayer';
-      deleteBtn.onclick = () => confirmAndDeletePrayer(session);
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'prayer-edit-save-btn';
+  saveBtn.textContent = '💾 Save Changes';
+  saveBtn.addEventListener('click', async () => {
+    const newText = textarea.value.trim();
+    if (!newText) {
+      alert('Prayer text cannot be empty.');
+      return;
     }
-  }
-}
 
-function wirePrayerForm(session) {
-  const form = document.getElementById('prayer-form');
-  const textarea = document.getElementById('prayer-input');
-  const counterEl = document.getElementById('prayer-char-counter');
-  const feedback = document.getElementById('prayer-feedback');
-  if (!form) return;
-
-  if (textarea && counterEl) {
-    counterEl.textContent = getCharAndWordCount(textarea.value);
-    textarea.addEventListener('input', () => {
-      counterEl.textContent = getCharAndWordCount(textarea.value);
-    });
-  }
-
-  if (session && session.isGuest) {
-    form.hidden = true;
-    return;
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (session && session.isGuest) return;
-    if (feedback) feedback.hidden = true;
-    const text = textarea.value.trim();
-    if (!text) return;
-
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) submitBtn.disabled = true;
-
-    const optimisticPrayer = {
-      username: session.username,
-      text,
-      timestamp: new Date().toISOString(),
-      reactions: { pray: [], heart: [], amen: [], strength: [], candle: [] }
-    };
-    prayersCache.push(optimisticPrayer);
-    renderPrayers(session);
-    textarea.value = '';
-    if (counterEl) counterEl.textContent = getCharAndWordCount('');
-    updatePrayerFormVisibility(session);
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
 
     try {
       const res = await apiGet({
-        action: 'postPrayer',
+        action: 'editPrayer',
         username: session.username,
         password: session.password,
-        text
+        targetUsername: prayer.username,
+        date: activePrayersDate || formatDDMMYY(new Date()),
+        text: newText
       });
-      if (!res.success) {
-        prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
+
+      if (res && res.success) {
+        prayer.text = newText;
         renderPrayers(session);
-        updatePrayerFormVisibility(session);
-        if (feedback) {
-          feedback.hidden = false;
-          feedback.textContent = res.error || 'Something went wrong.';
-          feedback.className = 'form-feedback error';
-        }
+      } else {
+        alert(res?.error || 'Failed to update prayer.');
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Changes';
       }
     } catch(err) {
-      prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
-      renderPrayers(session);
-      updatePrayerFormVisibility(session);
-      if (feedback) {
-        feedback.hidden = false;
-        feedback.textContent = "Couldn't reach server. Please try again.";
-        feedback.className = 'form-feedback error';
-      }
-    } finally {
-      if (submitBtn) submitBtn.disabled = false;
+      alert('Server connection error. Please try again.');
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      saveBtn.textContent = '💾 Save Changes';
     }
   });
+
+  btns.append(cancelBtn, saveBtn);
+  footer.append(counter, btns);
+  editBox.append(textarea, footer);
+
+  cardEl.insertBefore(editBox, reactionsEl);
+  textarea.focus();
 }
 
-async function confirmAndDeletePrayer(session) {
+async function confirmAndDeletePrayer(session, targetUsername, targetDate) {
   if (session && session.isGuest) return;
-  if (!confirm('Are you sure you want to delete today’s prayer?')) return;
+  const target = targetUsername || session.username;
+  const isOther = target.toLowerCase() !== session.username.toLowerCase();
+  const promptMsg = isOther
+    ? `Are you sure you want to delete ${target}'s prayer as Admin?`
+    : 'Are you sure you want to delete today’s prayer?';
+  if (!confirm(promptMsg)) return;
 
   const prev = [...prayersCache];
-  prayersCache = prayersCache.filter(p => p.username !== session.username);
+  prayersCache = prayersCache.filter(p => p.username !== target);
   renderPrayers(session);
   updatePrayerFormVisibility(session);
 
@@ -1839,7 +1839,9 @@ async function confirmAndDeletePrayer(session) {
     const res = await apiGet({
       action: 'deletePrayer',
       username: session.username,
-      password: session.password
+      password: session.password,
+      targetUsername: target,
+      date: targetDate || activePrayersDate || formatDDMMYY(new Date())
     });
     if (!res.success) {
       prayersCache = prev;
