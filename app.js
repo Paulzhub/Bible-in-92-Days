@@ -47,7 +47,7 @@ function parseDDMMYYToISO(ddmmyyStr) {
   return `${fullYear}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
 }
 
-async function apiGet(params, { retries = 2, timeoutMs = 12000 } = {}) {
+async function apiGet(params, { retries = 2, timeoutMs = 30000 } = {}) {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   url.searchParams.set('_t', Date.now().toString());
@@ -63,7 +63,7 @@ async function apiGet(params, { retries = 2, timeoutMs = 12000 } = {}) {
     } catch (err) {
       clearTimeout(timer);
       lastErr = err;
-      if (attempt < retries) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+      if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
     }
   }
   throw lastErr;
@@ -713,74 +713,9 @@ async function loadInitialData(session, retryCount = 0) {
   const commentsListEl = document.getElementById('comments-list');
   const prayersListEl = document.getElementById('prayers-list');
 
+  let res;
   try {
-    const res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
-    updateGuestBanner(res.activeGuest, session);
-
-    if (res.today && res.today.success) {
-      portionEl.textContent = res.today.portion;
-      dateEl.textContent = res.today.date;
-      currentDayNum = res.today.day;
-      renderDayCountdown(res.today.day);
-      renderTodayPortionDetail(res.today.portion, res.today.day, session);
-    } else {
-      portionEl.textContent = "No portion listed for today yet — check back soon.";
-      dateEl.textContent = res.today ? (res.today.date || '') : '';
-      renderDayCountdown(null);
-      renderTodayPortionDetail('', null, session);
-    }
-
-    if (res.allPortions && res.allPortions.success) {
-      renderReadingSidebar(res.allPortions.portions);
-    }
-
-    if (res.nudges && res.nudges.success) {
-      currentNudges = res.nudges.nudges || [];
-      if (session && !session.isGuest) {
-        nudgedTargetsToday = new Set(
-          currentNudges
-            .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
-            .map(n => n.target)
-        );
-      }
-      renderSquadNudgeBanner(currentNudges, session);
-    }
-
-    if (res.leaderboard && res.leaderboard.success) {
-      currentLeaderboard = res.leaderboard.leaderboard;
-      renderLeaderboard(currentLeaderboard, session);
-      renderPlayground(currentLeaderboard);
-      updateHeaderLevel(currentLeaderboard, session);
-    } else {
-      lbBody.innerHTML = '';
-      lbError.textContent = (res.leaderboard && res.leaderboard.error) || 'Could not load the leaderboard.';
-      lbError.hidden = false;
-    }
-
-    if (res.recap && res.recap.success) {
-      currentWeeklyRecap = res.recap;
-      renderWeeklyRecap(res.recap);
-    }
-
-    if (res.comments && res.comments.success) {
-      commentsCache = res.comments.comments;
-      renderComments(session);
-      updateCommentFormVisibility(session);
-    } else {
-      if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
-    }
-
-    if (res.prayers && res.prayers.success) {
-      prayersCache = res.prayers.prayers;
-      renderPrayers(session);
-      updatePrayerFormVisibility(session);
-    } else {
-      if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Could not load prayers.</p>';
-    }
-
-    if (res.history && res.history.success) {
-      renderHeatmap(res.history.history);
-    }
+    res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
   } catch (err) {
     if (retryCount < 3) {
       console.warn(`Initial data load failed (attempt ${retryCount + 1}), auto-retrying in ${(retryCount + 1) * 1500}ms...`, err);
@@ -790,20 +725,43 @@ async function loadInitialData(session, retryCount = 0) {
       }, (retryCount + 1) * 1500);
       return;
     }
-    portionEl.textContent = "Couldn't load today's portion. Check your connection.";
-    lbBody.innerHTML = '';
-    lbError.textContent = "Couldn't reach the server. Please refresh.";
-    lbError.hidden = false;
+    if (portionEl) portionEl.textContent = "Couldn't load today's portion. Check your connection.";
+    if (lbBody) lbBody.innerHTML = '';
+    if (lbError) {
+      lbError.textContent = "Couldn't reach the server. Please refresh.";
+      lbError.hidden = false;
+    }
     if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
     if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
+    return;
   }
-}
 
-async function loadUpdates(session) {
+  if (!res) return;
+
+  try { updateGuestBanner(res.activeGuest, session); } catch (e) { console.error(e); }
+
   try {
-    const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
-    updateGuestBanner(res.activeGuest, session);
+    if (res.today && res.today.success) {
+      if (portionEl) portionEl.textContent = res.today.portion;
+      if (dateEl) dateEl.textContent = res.today.date;
+      currentDayNum = res.today.day;
+      renderDayCountdown(res.today.day);
+      renderTodayPortionDetail(res.today.portion, res.today.day, session);
+    } else {
+      if (portionEl) portionEl.textContent = "No portion listed for today yet — check back soon.";
+      if (dateEl) dateEl.textContent = res.today ? (res.today.date || '') : '';
+      renderDayCountdown(null);
+      renderTodayPortionDetail('', null, session);
+    }
+  } catch (e) { console.error('Error rendering today portion:', e); }
 
+  try {
+    if (res.allPortions && res.allPortions.success) {
+      renderReadingSidebar(res.allPortions.portions);
+    }
+  } catch (e) { console.error('Error rendering reading sidebar:', e); }
+
+  try {
     if (res.nudges && res.nudges.success) {
       currentNudges = res.nudges.nudges || [];
       if (session && !session.isGuest) {
@@ -815,33 +773,118 @@ async function loadUpdates(session) {
       }
       renderSquadNudgeBanner(currentNudges, session);
     }
+  } catch (e) { console.error('Error rendering squad nudges:', e); }
 
-    if (res.leaderboard.success) {
-      currentLeaderboard = res.leaderboard.leaderboard;
+  try {
+    if (res.leaderboard && res.leaderboard.success) {
+      currentLeaderboard = res.leaderboard.leaderboard || [];
       renderLeaderboard(currentLeaderboard, session);
       renderPlayground(currentLeaderboard);
       updateHeaderLevel(currentLeaderboard, session);
+    } else {
+      if (lbBody) lbBody.innerHTML = '';
+      if (lbError) {
+        lbError.textContent = (res.leaderboard && res.leaderboard.error) || 'Could not load the leaderboard.';
+        lbError.hidden = false;
+      }
     }
+  } catch (e) { console.error('Error rendering leaderboard:', e); }
+
+  try {
     if (res.recap && res.recap.success) {
       currentWeeklyRecap = res.recap;
       renderWeeklyRecap(res.recap);
     }
-    const todayStr = formatDDMMYY(new Date());
-    const isViewingTodayComments = !activeCommentsDate || activeCommentsDate === todayStr;
-    if (res.comments && res.comments.success && isViewingTodayComments) {
-      commentsCache = res.comments.comments;
+  } catch (e) { console.error('Error rendering weekly recap:', e); }
+
+  try {
+    if (res.comments && res.comments.success) {
+      commentsCache = res.comments.comments || [];
       renderComments(session);
       updateCommentFormVisibility(session);
+    } else {
+      if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
     }
-    const isViewingTodayPrayers = !activePrayersDate || activePrayersDate === todayStr;
-    if (res.prayers && res.prayers.success && isViewingTodayPrayers) {
-      prayersCache = res.prayers.prayers;
+  } catch (e) { console.error('Error rendering comments:', e); }
+
+  try {
+    if (res.prayers && res.prayers.success) {
+      prayersCache = res.prayers.prayers || [];
       renderPrayers(session);
       updatePrayerFormVisibility(session);
+    } else {
+      if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Could not load prayers.</p>';
     }
+  } catch (e) { console.error('Error rendering prayers:', e); }
+
+  try {
     if (res.history && res.history.success) {
-      renderHeatmap(res.history.history);
+      renderHeatmap(res.history.history || []);
     }
+  } catch (e) { console.error('Error rendering heatmap:', e); }
+}
+
+async function loadUpdates(session) {
+  try {
+    const res = await apiGet({ action: 'getUpdates', username: session.username, password: session.password });
+    if (!res) return;
+
+    try { updateGuestBanner(res.activeGuest, session); } catch (e) {}
+
+    try {
+      if (res.nudges && res.nudges.success) {
+        currentNudges = res.nudges.nudges || [];
+        if (session && !session.isGuest) {
+          nudgedTargetsToday = new Set(
+            currentNudges
+              .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
+              .map(n => n.target)
+          );
+        }
+        renderSquadNudgeBanner(currentNudges, session);
+      }
+    } catch (e) {}
+
+    try {
+      if (res.leaderboard && res.leaderboard.success) {
+        currentLeaderboard = res.leaderboard.leaderboard || [];
+        renderLeaderboard(currentLeaderboard, session);
+        renderPlayground(currentLeaderboard);
+        updateHeaderLevel(currentLeaderboard, session);
+      }
+    } catch (e) {}
+
+    try {
+      if (res.recap && res.recap.success) {
+        currentWeeklyRecap = res.recap;
+        renderWeeklyRecap(res.recap);
+      }
+    } catch (e) {}
+
+    const todayStr = formatDDMMYY(new Date());
+    const isViewingTodayComments = !activeCommentsDate || activeCommentsDate === todayStr;
+    try {
+      if (res.comments && res.comments.success && isViewingTodayComments) {
+        commentsCache = res.comments.comments || [];
+        renderComments(session);
+        updateCommentFormVisibility(session);
+      }
+    } catch (e) {}
+
+    const isViewingTodayPrayers = !activePrayersDate || activePrayersDate === todayStr;
+    try {
+      if (res.prayers && res.prayers.success && isViewingTodayPrayers) {
+        prayersCache = res.prayers.prayers || [];
+        renderPrayers(session);
+        updatePrayerFormVisibility(session);
+      }
+    } catch (e) {}
+
+    try {
+      if (res.history && res.history.success) {
+        renderHeatmap(res.history.history || []);
+      }
+    } catch (e) {}
   } catch (err) {
     // silent fail during auto-refresh
   }
@@ -1356,6 +1399,14 @@ function updateCommentFormVisibility(session) {
     return;
   }
 
+  if (session && session.isAdmin) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = '🛡️ Admin Mode — You can moderate and delete squad comments directly on each comment card.';
+    if (deleteTodayBtn) deleteTodayBtn.hidden = true;
+    return;
+  }
+
   const userComment = session && commentsCache.find(c => c.username === session.username);
   const hasCommented = Boolean(userComment);
   form.hidden = hasCommented;
@@ -1855,6 +1906,135 @@ async function confirmAndDeletePrayer(session, targetUsername, targetDate) {
     updatePrayerFormVisibility(session);
     alert('Server connection error.');
   }
+}
+
+function updatePrayerFormVisibility(session) {
+  const form = document.getElementById('prayer-form');
+  const alreadyWrap = document.getElementById('prayer-already-wrap');
+  const alreadyMsg = document.getElementById('prayer-already');
+  const deleteTodayBtn = document.getElementById('delete-today-prayer-btn');
+  if (!form || !alreadyWrap) return;
+
+  if (session && session.isGuest) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and pray for the squad! 🙏';
+    if (deleteTodayBtn) deleteTodayBtn.hidden = true;
+    return;
+  }
+
+  if (session && session.isAdmin) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    if (alreadyMsg) alreadyMsg.textContent = '🛡️ Admin Mode — You can moderate, edit, and delete squad prayers directly on each prayer card.';
+    if (deleteTodayBtn) deleteTodayBtn.hidden = true;
+    return;
+  }
+
+  const userPrayer = session && prayersCache.find(p => p.username && p.username.toLowerCase() === session.username.toLowerCase());
+  const hasPrayed = Boolean(userPrayer);
+  form.hidden = hasPrayed;
+  alreadyWrap.hidden = !hasPrayed;
+
+  if (hasPrayed) {
+    if (alreadyMsg) alreadyMsg.textContent = "You've shared your prayer for today — thank you for blessing the squad!";
+    if (deleteTodayBtn) {
+      deleteTodayBtn.hidden = false;
+      deleteTodayBtn.disabled = false;
+      deleteTodayBtn.textContent = '🗑️ Delete My Prayer';
+      deleteTodayBtn.onclick = () => {
+        confirmAndDeletePrayer(session);
+      };
+    }
+  }
+}
+
+function wirePrayerForm(session) {
+  const form = document.getElementById('prayer-form');
+  const alreadyWrap = document.getElementById('prayer-already-wrap');
+  const feedback = document.getElementById('prayer-feedback');
+  const textarea = document.getElementById('prayer-input');
+  const counterEl = document.getElementById('prayer-char-counter');
+  if (!form || !alreadyWrap) return;
+
+  if (textarea && counterEl) {
+    counterEl.textContent = getCharAndWordCount(textarea.value);
+    textarea.addEventListener('input', () => {
+      counterEl.textContent = getCharAndWordCount(textarea.value);
+    });
+  }
+
+  if (session && (session.isGuest || session.isAdmin)) {
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    return;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (session && (session.isGuest || session.isAdmin)) return;
+    if (feedback) feedback.hidden = true;
+    const text = textarea.value.trim();
+    if (!text) return;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const optimisticPrayer = {
+      username: session.username,
+      text,
+      timestamp: new Date().toISOString(),
+      reactions: { pray: [], heart: [], amen: [], strength: [], candle: [] }
+    };
+    prayersCache.push(optimisticPrayer);
+    const listEl = document.getElementById('prayers-list');
+    if (listEl) {
+      listEl.appendChild(buildPrayerElement(optimisticPrayer, session));
+      listEl.querySelectorAll('.comments-empty, .prayers-loading').forEach(el => el.remove());
+    }
+    textarea.value = '';
+    if (counterEl) counterEl.textContent = getCharAndWordCount('');
+    form.hidden = true;
+    alreadyWrap.hidden = false;
+    updatePrayerFormVisibility(session);
+
+    try {
+      const res = await apiGet({
+        action: 'postPrayer',
+        username: session.username,
+        password: session.password,
+        text
+      });
+      if (!res.success) {
+        prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
+        renderPrayers(session);
+        form.hidden = false;
+        alreadyWrap.hidden = true;
+        textarea.value = text;
+        if (counterEl) counterEl.textContent = getCharAndWordCount(text);
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.textContent = res.error || 'Something went wrong.';
+          feedback.className = 'form-feedback error';
+        }
+        updatePrayerFormVisibility(session);
+      }
+    } catch (err) {
+      prayersCache = prayersCache.filter(p => p !== optimisticPrayer);
+      renderPrayers(session);
+      form.hidden = false;
+      alreadyWrap.hidden = true;
+      textarea.value = text;
+      if (counterEl) counterEl.textContent = getCharAndWordCount(text);
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.textContent = "Couldn't reach the server. Try again.";
+        feedback.className = 'form-feedback error';
+      }
+      updatePrayerFormVisibility(session);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
 }
 
 // ====== SQUAD NUDGE BANNER & CONTROLLER ======
