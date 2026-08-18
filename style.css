@@ -2373,19 +2373,26 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   cursor: pointer;
   transition: all 0.2s ease;
   margin-left: 0.4rem;
+  user-select: none;
 }
 
-.nudge-btn:hover {
+.nudge-btn:hover:not(:disabled) {
   background: #f59e0b;
   color: #ffffff;
   transform: scale(1.05);
 }
 
-.nudge-btn.nudged {
+.nudge-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.nudge-btn.nudged,
+.nudge-btn:disabled {
   background: rgba(16, 185, 129, 0.15);
   border-color: rgba(16, 185, 129, 0.35);
   color: #10b981;
   cursor: default;
+  transform: none;
 }
 
 .nudge-tag {
@@ -2400,6 +2407,35 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   border: 1px solid rgba(245, 158, 11, 0.3);
   color: #f59e0b;
   margin-left: 0.35rem;
+  animation: pulseGlow 2.5s infinite;
+}
+
+.nudge-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface-1);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245, 158, 11, 0.25);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nudge-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
 }
 
 .freezes-left-badge {
@@ -2573,15 +2609,17 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .audio-left-controls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   flex: 1;
-  min-width: 240px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .audio-right-controls {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .audio-btn {
@@ -2595,6 +2633,8 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .audio-play-btn {
@@ -2604,6 +2644,7 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   color: #ffffff;
   border: none;
   font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 .audio-play-btn:hover {
@@ -2612,9 +2653,11 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .audio-skip-btn {
-  padding: 0.25rem 0.55rem;
-  font-size: 0.72rem;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.7rem;
   font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .audio-skip-btn:hover {
@@ -2626,19 +2669,28 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  margin-left: 0.35rem;
+  margin-left: 0.25rem;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .audio-chapter-title {
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .audio-time-display {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .audio-select-group {
@@ -2731,12 +2783,26 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 
 @media (max-width: 640px) {
   .reader-audio-bar {
-    padding: 0.5rem 0.75rem;
-    gap: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    gap: 0.45rem;
   }
   .audio-left-controls {
-    min-width: 100%;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: nowrap;
     justify-content: flex-start;
+    gap: 0.3rem;
+  }
+  .audio-play-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .audio-skip-btn {
+    padding: 0.18rem 0.38rem;
+    font-size: 0.65rem;
+    flex-shrink: 0;
   }
   .audio-right-controls {
     width: 100%;
@@ -2749,12 +2815,12 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
     justify-content: flex-end;
   }
   .audio-voice-select {
-    max-width: 140px;
+    max-width: 130px;
     flex: 1;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
   .audio-speed-select {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
 }
 

@@ -731,6 +731,13 @@ async function loadInitialData(session, retryCount = 0) {
 
     if (res.nudges && res.nudges.success) {
       currentNudges = res.nudges.nudges || [];
+      if (session && !session.isGuest) {
+        nudgedTargetsToday = new Set(
+          currentNudges
+            .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
+            .map(n => n.target)
+        );
+      }
       renderSquadNudgeBanner(currentNudges, session);
     }
 
@@ -794,6 +801,13 @@ async function loadUpdates(session) {
 
     if (res.nudges && res.nudges.success) {
       currentNudges = res.nudges.nudges || [];
+      if (session && !session.isGuest) {
+        nudgedTargetsToday = new Set(
+          currentNudges
+            .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
+            .map(n => n.target)
+        );
+      }
       renderSquadNudgeBanner(currentNudges, session);
     }
 
@@ -967,16 +981,16 @@ function renderLeaderboard(rows, session) {
     }
 
     // Squad Nudge / Encouragement Ping Action
-    if (!row.readToday && !isYou && (!session || !session.isGuest)) {
+    if (!row.readToday && !isYou && session && !session.isGuest) {
       const nudgeBtn = document.createElement('button');
       nudgeBtn.type = 'button';
       const isAlreadyNudged = nudgedTargetsToday.has(row.username);
       nudgeBtn.className = 'nudge-btn' + (isAlreadyNudged ? ' nudged' : '');
       nudgeBtn.textContent = isAlreadyNudged ? '⚡ Nudged!' : '⚡ Nudge';
-      nudgeBtn.disabled = isAlreadyNudged || !meHasReadToday;
-      nudgeBtn.title = meHasReadToday
-        ? (isAlreadyNudged ? `You nudged ${row.username} today!` : `Send ${row.username} an encouragement nudge!`)
-        : `Finish today's reading to unlock sending nudges!`;
+      nudgeBtn.disabled = isAlreadyNudged;
+      nudgeBtn.title = isAlreadyNudged
+        ? `You nudged ${row.username} today!`
+        : `Send ${row.username} an encouragement nudge!`;
       nudgeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         handleNudgeUser(row.username, nudgeBtn, session);
@@ -1865,28 +1879,70 @@ function renderSquadNudgeBanner(nudges, session) {
   }
 }
 
+let nudgeToastTimer = null;
+function showNudgeToast(msg, isError = false) {
+  const toast = document.getElementById('nudge-toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.style.borderColor = isError ? 'var(--bad)' : 'var(--accent)';
+  toast.hidden = false;
+  toast.classList.add('visible');
+
+  if (nudgeToastTimer) clearTimeout(nudgeToastTimer);
+  nudgeToastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => {
+      toast.hidden = true;
+    }, 300);
+  }, 3200);
+}
+
 async function handleNudgeUser(targetUsername, btnEl, session) {
-  if (btnEl.disabled || session.isGuest) return;
+  const curSession = session || getSession();
+  if (!curSession || curSession.isGuest) {
+    if (curSession && curSession.isGuest) {
+      showNudgeToast('Guest users cannot send nudges.', true);
+    }
+    return;
+  }
+  if (btnEl.disabled || btnEl.classList.contains('nudged')) return;
+
   btnEl.disabled = true;
   btnEl.classList.add('nudged');
   btnEl.textContent = '⚡ Nudged!';
   nudgedTargetsToday.add(targetUsername);
 
+  // Optimistically record nudge in local state
+  currentNudges.push({
+    sender: curSession.username,
+    target: targetUsername
+  });
+
+  showNudgeToast(`⚡ Sent encouragement nudge to ${targetUsername}!`);
+
   try {
     const res = await apiGet({
       action: 'nudgeUser',
-      senderUsername: session.username,
-      password: session.password,
+      senderUsername: curSession.username,
+      password: curSession.password,
       targetUsername: targetUsername
     });
-    if (!res.success) {
+    if (!res || !res.success) {
       btnEl.textContent = '⚡ Nudge';
       btnEl.disabled = false;
       btnEl.classList.remove('nudged');
       nudgedTargetsToday.delete(targetUsername);
+      currentNudges = currentNudges.filter(n => !(n.sender === curSession.username && n.target === targetUsername));
+      if (res && res.error) {
+        showNudgeToast(`Couldn't send nudge: ${res.error}`, true);
+      }
     }
   } catch (err) {
-    // silent fail
+    btnEl.textContent = '⚡ Nudge';
+    btnEl.disabled = false;
+    btnEl.classList.remove('nudged');
+    nudgedTargetsToday.delete(targetUsername);
+    showNudgeToast('Connection issue while sending nudge. Please retry.', true);
   }
 }
 
@@ -2371,37 +2427,249 @@ const BIBLE_BOOKS = [
   { id: 66, name: 'Revelation', abbr: 'Rev', aliases: ['revelation', 'revelations', 'rev', 'rv'] }
 ];
 
-const CURATED_KEY_VERSES = {
-  1: { text: "In the beginning God created the heavens and the earth.", ref: "Genesis 1:1" },
-  2: { text: "I will make you into a great nation, and I will bless you; I will make your name great, and you will be a blessing.", ref: "Genesis 12:2" },
-  3: { text: "You intended to harm me, but God intended it for good to accomplish what is now being done.", ref: "Genesis 50:20" },
-  4: { text: "God said to Moses, 'I AM WHO I AM.' This is what you are to say: 'I AM has sent me to you.'", ref: "Exodus 3:14" },
-  5: { text: "The Lord will fight for you; you need only to be still.", ref: "Exodus 14:14" },
-  6: { text: "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you.", ref: "Numbers 6:24–25" },
-  7: { text: "Love the Lord your God with all your heart and with all your soul and with all your strength.", ref: "Deuteronomy 6:5" },
-  8: { text: "Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", ref: "Joshua 1:9" },
-  9: { text: "Where you go I will go, and where you stay I will stay. Your people will be my people and your God my God.", ref: "Ruth 1:16" },
-  10: { text: "People look at the outward appearance, but the Lord looks at the heart.", ref: "1 Samuel 16:7" },
-  15: { text: "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.", ref: "Proverbs 3:5–6" },
-  20: { text: "The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters.", ref: "Psalm 23:1–2" },
-  25: { text: "For to us a child is born, to us a son is given... And he will be called Wonderful Counselor, Mighty God, Everlasting Father, Prince of Peace.", ref: "Isaiah 9:6" },
-  30: { text: "Those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary.", ref: "Isaiah 40:31" },
-  35: { text: "'For I know the plans I have for you,' declares the Lord, 'plans to prosper you and not to harm you, plans to give you hope and a future.'", ref: "Jeremiah 29:11" },
-  40: { text: "The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness.", ref: "Lamentations 3:22–23" },
-  45: { text: "Seek first his kingdom and his righteousness, and all these things will be given to you as well.", ref: "Matthew 6:33" },
-  50: { text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
-  55: { text: "For even the Son of Man did not come to be served, but to serve, and to give his life as a ransom for many.", ref: "Mark 10:45" },
-  60: { text: "For the Son of Man came to seek and to save the lost.", ref: "Luke 19:10" },
-  69: { text: "He is not here; he has risen! Remember how he told you, while he was still with you in Galilee.", ref: "Luke 24:6" },
-  70: { text: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", ref: "John 3:16" },
-  71: { text: "Believe in the Lord Jesus, and you will be saved—you and your household.", ref: "Acts 16:31" },
-  73: { text: "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.", ref: "Romans 8:28" },
-  74: { text: "Love is patient, love is kind. It does not envy, it does not boast, it is not proud... Love never fails.", ref: "1 Corinthians 13:4,8" },
-  76: { text: "For it is by grace you have been saved, through faith—and this is not from yourselves, it is the gift of God.", ref: "Ephesians 2:8" },
-  77: { text: "I can do all this through him who gives me strength.", ref: "Philippians 4:13" },
-  80: { text: "Now faith is confidence in what we hope for and assurance about what we do not see.", ref: "Hebrews 11:1" },
-  83: { text: "He will wipe every tear from their eyes. There will be no more death or mourning or crying or pain, for the old order of things has passed away.", ref: "Revelation 21:4" }
-};
+const SCRIPTURE_PORTION_KEY_VERSES = [
+  // Genesis
+  { bookId: 1, chapter: 1, text: "In the beginning God created the heavens and the earth.", ref: "Genesis 1:1" },
+  { bookId: 1, chapter: 12, text: "I will make you into a great nation, and I will bless you; I will make your name great, and you will be a blessing.", ref: "Genesis 12:2" },
+  { bookId: 1, chapter: 28, text: "I am with you and will watch over you wherever you go, and I will bring you back to this land.", ref: "Genesis 28:15" },
+  { bookId: 1, chapter: 50, text: "You intended to harm me, but God intended it for good to accomplish what is now being done, the saving of many lives.", ref: "Genesis 50:20" },
+
+  // Exodus
+  { bookId: 2, chapter: 3, text: "God said to Moses, 'I AM WHO I AM.' This is what you are to say: 'I AM has sent me to you.'", ref: "Exodus 3:14" },
+  { bookId: 2, chapter: 14, text: "The Lord will fight for you; you need only to be still.", ref: "Exodus 14:14" },
+  { bookId: 2, chapter: 20, text: "You shall have no other gods before me.", ref: "Exodus 20:3" },
+  { bookId: 2, chapter: 33, text: "The Lord replied, 'My Presence will go with you, and I will give you rest.'", ref: "Exodus 33:14" },
+
+  // Leviticus
+  { bookId: 3, chapter: 11, text: "I am the Lord your God; consecrate yourselves and be holy, because I am holy.", ref: "Leviticus 11:44" },
+  { bookId: 3, chapter: 19, text: "Love your neighbor as yourself. I am the Lord.", ref: "Leviticus 19:18" },
+
+  // Numbers
+  { bookId: 4, chapter: 6, text: "The Lord bless you and keep you; the Lord make his face shine on you and be gracious to you; the Lord turn his face toward you and give you peace.", ref: "Numbers 6:24–26" },
+  { bookId: 4, chapter: 23, text: "God is not human, that he should lie, not a human being, that he should change his mind. Does he speak and then not act?", ref: "Numbers 23:19" },
+
+  // Deuteronomy
+  { bookId: 5, chapter: 6, text: "Love the Lord your God with all your heart and with all your soul and with all your strength.", ref: "Deuteronomy 6:5" },
+  { bookId: 5, chapter: 10, text: "What does the Lord your God ask of you but to fear the Lord your God, to walk in obedience to him, to love him, to serve the Lord your God with all your heart and with all your soul.", ref: "Deuteronomy 10:12" },
+  { bookId: 5, chapter: 31, text: "Be strong and courageous. Do not be afraid or terrified because of them, for the Lord your God goes with you; he will never leave you nor forsake you.", ref: "Deuteronomy 31:6" },
+
+  // Joshua
+  { bookId: 6, chapter: 1, text: "Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.", ref: "Joshua 1:9" },
+  { bookId: 6, chapter: 24, text: "As for me and my household, we will serve the Lord.", ref: "Joshua 24:15" },
+
+  // Judges
+  { bookId: 7, chapter: 5, text: "May all who love you be like the sun when it rises in its strength.", ref: "Judges 5:31" },
+  { bookId: 7, chapter: 6, text: "The angel of the Lord appeared to Gideon and said, 'The Lord is with you, mighty warrior.'", ref: "Judges 6:12" },
+
+  // Ruth
+  { bookId: 8, chapter: 1, text: "Where you go I will go, and where you stay I will stay. Your people will be my people and your God my God.", ref: "Ruth 1:16" },
+
+  // 1 Samuel
+  { bookId: 9, chapter: 12, text: "Be sure to fear the Lord and serve him faithfully with all your heart; consider what great things he has done for you.", ref: "1 Samuel 12:24" },
+  { bookId: 9, chapter: 16, text: "The Lord does not look at the things people look at. People look at the outward appearance, but the Lord looks at the heart.", ref: "1 Samuel 16:7" },
+
+  // 2 Samuel
+  { bookId: 10, chapter: 7, text: "How great you are, Sovereign Lord! There is no one like you, and there is no God but you.", ref: "2 Samuel 7:22" },
+  { bookId: 10, chapter: 22, text: "My God is my rock, in whom I take refuge, my shield and the horn of my salvation.", ref: "2 Samuel 22:3" },
+
+  // 1 Kings
+  { bookId: 11, chapter: 3, text: "Give your servant a discerning heart to govern your people and to distinguish between right and wrong.", ref: "1 Kings 3:9" },
+  { bookId: 11, chapter: 8, text: "Praise be to the Lord, who has given rest to his people Israel just as he promised. Not one word has failed of all the good promises he gave.", ref: "1 Kings 8:56" },
+  { bookId: 11, chapter: 18, text: "When all the people saw this, they fell prostrate and cried, 'The Lord—he is God! The Lord—he is God!'", ref: "1 Kings 18:39" },
+
+  // 2 Kings
+  { bookId: 12, chapter: 6, text: "'Don't be afraid,' the prophet answered. 'Those who are with us are more than those who are with them.'", ref: "2 Kings 6:16" },
+  { bookId: 12, chapter: 19, text: "Now, Lord our God, deliver us from his hand, so that all the kingdoms of the earth may know that you alone, Lord, are God.", ref: "2 Kings 19:19" },
+
+  // 1 Chronicles
+  { bookId: 13, chapter: 16, text: "Look to the Lord and his strength; seek his face always.", ref: "1 Chronicles 16:11" },
+  { bookId: 13, chapter: 29, text: "Yours, Lord, is the greatness and the power and the glory and the majesty and the splendor, for everything in heaven and earth is yours.", ref: "1 Chronicles 29:11" },
+
+  // 2 Chronicles
+  { bookId: 14, chapter: 7, text: "If my people, who are called by my name, will humble themselves and pray and seek my face and turn from their wicked ways, then I will hear from heaven, and I will forgive their sin and will heal their land.", ref: "2 Chronicles 7:14" },
+  { bookId: 14, chapter: 20, text: "We do not know what to do, but our eyes are on you.", ref: "2 Chronicles 20:12" },
+
+  // Ezra
+  { bookId: 15, chapter: 7, text: "For Ezra had devoted himself to the study and observance of the Law of the Lord, and to teaching its decrees and laws in Israel.", ref: "Ezra 7:10" },
+
+  // Nehemiah
+  { bookId: 16, chapter: 8, text: "Do not grieve, for the joy of the Lord is your strength.", ref: "Nehemiah 8:10" },
+
+  // Esther
+  { bookId: 17, chapter: 4, text: "And who knows but that you have come to your royal position for such a time as this?", ref: "Esther 4:14" },
+
+  // Job
+  { bookId: 18, chapter: 19, text: "I know that my redeemer lives, and that in the end he will stand on the earth.", ref: "Job 19:25" },
+  { bookId: 18, chapter: 42, text: "I know that you can do all things; no purpose of yours can be thwarted.", ref: "Job 42:2" },
+
+  // Psalms
+  { bookId: 19, chapter: 1, text: "Blessed is the one whose delight is in the law of the Lord, and who meditates on his law day and night.", ref: "Psalm 1:1–2" },
+  { bookId: 19, chapter: 23, text: "The Lord is my shepherd, I lack nothing. He makes me lie down in green pastures, he leads me beside quiet waters.", ref: "Psalm 23:1–2" },
+  { bookId: 19, chapter: 27, text: "The Lord is my light and my salvation—whom shall I fear? The Lord is the stronghold of my life—of whom shall I be afraid?", ref: "Psalm 27:1" },
+  { bookId: 19, chapter: 46, text: "God is our refuge and strength, an ever-present help in trouble.", ref: "Psalm 46:1" },
+  { bookId: 19, chapter: 51, text: "Create in me a pure heart, O God, and renew a steadfast spirit within me.", ref: "Psalm 51:10" },
+  { bookId: 19, chapter: 91, text: "Whoever dwells in the shelter of the Most High will rest in the shadow of the Almighty.", ref: "Psalm 91:1" },
+  { bookId: 19, chapter: 103, text: "Praise the Lord, my soul; all my inmost being, praise his holy name. Praise the Lord, my soul, and forget not all his benefits.", ref: "Psalm 103:1–2" },
+  { bookId: 19, chapter: 119, text: "Your word is a lamp to my feet and a light to my path.", ref: "Psalm 119:105" },
+  { bookId: 19, chapter: 121, text: "I lift up my eyes to the mountains—where does my help come from? My help comes from the Lord, the Maker of heaven and earth.", ref: "Psalm 121:1–2" },
+  { bookId: 19, chapter: 139, text: "I praise you because I am fearfully and wonderfully made; your works are wonderful, I know that full well.", ref: "Psalm 139:14" },
+
+  // Proverbs
+  { bookId: 20, chapter: 3, text: "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.", ref: "Proverbs 3:5–6" },
+  { bookId: 20, chapter: 4, text: "Above all else, guard your heart, for everything you do flows from it.", ref: "Proverbs 4:23" },
+  { bookId: 20, chapter: 16, text: "Commit to the Lord whatever you do, and he will establish your plans.", ref: "Proverbs 16:3" },
+  { bookId: 20, chapter: 18, text: "The name of the Lord is a fortified tower; the righteous run to it and are safe.", ref: "Proverbs 18:10" },
+  { bookId: 20, chapter: 31, text: "Charm is deceptive, and beauty is fleeting; but a woman who fears the Lord is to be praised.", ref: "Proverbs 31:30" },
+
+  // Ecclesiastes
+  { bookId: 21, chapter: 3, text: "He has made everything beautiful in its time. He has also set eternity in the human heart.", ref: "Ecclesiastes 3:11" },
+  { bookId: 21, chapter: 12, text: "Fear God and keep his commandments, for this is the duty of all mankind.", ref: "Ecclesiastes 12:13" },
+
+  // Song of Songs
+  { bookId: 22, chapter: 8, text: "Many waters cannot quench love; rivers cannot sweep it away.", ref: "Song of Songs 8:7" },
+
+  // Isaiah
+  { bookId: 23, chapter: 9, text: "For to us a child is born, to us a son is given, and the government will be on his shoulders. And he will be called Wonderful Counselor, Mighty God, Everlasting Father, Prince of Peace.", ref: "Isaiah 9:6" },
+  { bookId: 23, chapter: 26, text: "You will keep in perfect peace those whose minds are steadfast, because they trust in you.", ref: "Isaiah 26:3" },
+  { bookId: 23, chapter: 40, text: "Those who hope in the Lord will renew their strength. They will soar on wings like eagles; they will run and not grow weary, they will walk and not be faint.", ref: "Isaiah 40:31" },
+  { bookId: 23, chapter: 41, text: "So do not fear, for I am with you; do not be dismayed, for I am your God. I will strengthen you and help you; I will uphold you with my righteous right hand.", ref: "Isaiah 41:10" },
+  { bookId: 23, chapter: 43, text: "Do not fear, for I have redeemed you; I have summoned you by name; you are mine.", ref: "Isaiah 43:1" },
+  { bookId: 23, chapter: 53, text: "He was pierced for our transgressions, he was crushed for our iniquities; the punishment that brought us peace was on him, and by his wounds we are healed.", ref: "Isaiah 53:5" },
+  { bookId: 23, chapter: 55, text: "Seek the Lord while he may be found; call on him while he is near.", ref: "Isaiah 55:6" },
+
+  // Jeremiah
+  { bookId: 24, chapter: 1, text: "Before I formed you in the womb I knew you, before you were born I set you apart.", ref: "Jeremiah 1:5" },
+  { bookId: 24, chapter: 17, text: "Blessed is the one who trusts in the Lord, whose confidence is in him.", ref: "Jeremiah 17:7" },
+  { bookId: 24, chapter: 29, text: "'For I know the plans I have for you,' declares the Lord, 'plans to prosper you and not to harm you, plans to give you hope and a future.'", ref: "Jeremiah 29:11" },
+  { bookId: 24, chapter: 33, text: "Call to me and I will answer you and tell you great and unsearchable things you do not know.", ref: "Jeremiah 33:3" },
+
+  // Lamentations
+  { bookId: 25, chapter: 3, text: "Because of the Lord's great love we are not consumed, for his compassions never fail. They are new every morning; great is your faithfulness.", ref: "Lamentations 3:22–23" },
+
+  // Ezekiel
+  { bookId: 26, chapter: 11, text: "I will give them an undivided heart and put a new spirit in them; I will remove from them their heart of stone and give them a heart of flesh.", ref: "Ezekiel 11:19" },
+  { bookId: 26, chapter: 36, text: "I will give you a new heart and put a new spirit in you; I will remove from you your heart of stone and give you a heart of flesh.", ref: "Ezekiel 36:26" },
+  { bookId: 26, chapter: 37, text: "This is what the Sovereign Lord says: Come, breath, from the four winds and breathe into these slain, that they may live.", ref: "Ezekiel 37:9" },
+
+  // Daniel
+  { bookId: 27, chapter: 3, text: "If we are thrown into the blazing furnace, the God we serve is able to deliver us from it.", ref: "Daniel 3:17" },
+  { bookId: 27, chapter: 6, text: "He rescues and he saves; he performs signs and wonders in the heavens and on the earth. He has rescued Daniel from the power of the lions.", ref: "Daniel 6:27" },
+  { bookId: 27, chapter: 12, text: "Those who are wise will shine like the brightness of the heavens, and those who lead many to righteousness, like the stars for ever and ever.", ref: "Daniel 12:3" },
+
+  // Minor Prophets
+  { bookId: 28, chapter: 6, text: "For I desire mercy, not sacrifice, and acknowledgment of God rather than burnt offerings.", ref: "Hosea 6:6" },
+  { bookId: 29, chapter: 2, text: "And afterward, I will pour out my Spirit on all people. Your sons and daughters will prophesy, your old men will dream dreams, your young men will see visions.", ref: "Joel 2:28" },
+  { bookId: 30, chapter: 5, text: "Let justice roll on like a river, righteousness like a never-failing stream!", ref: "Amos 5:24" },
+  { bookId: 31, chapter: 1, text: "Deliverers will go up on Mount Zion to govern... And the kingdom will be the Lord's.", ref: "Obadiah 1:21" },
+  { bookId: 32, chapter: 2, text: "What I have vowed I will make good. I will say, 'Salvation comes from the Lord.'", ref: "Jonah 2:9" },
+  { bookId: 33, chapter: 6, text: "He has shown you, O mortal, what is good. And what does the Lord require of you? To act justly and to love mercy and to walk humbly with your God.", ref: "Micah 6:8" },
+  { bookId: 34, chapter: 1, text: "The Lord is good, a refuge in times of trouble. He cares for those who trust in him.", ref: "Nahum 1:7" },
+  { bookId: 35, chapter: 3, text: "Though the fig tree does not bud and there are no grapes on the vines... yet I will rejoice in the Lord, I will be joyful in God my Savior.", ref: "Habakkuk 3:17–18" },
+  { bookId: 36, chapter: 3, text: "The Lord your God is with you, the Mighty Warrior who saves. He will take great delight in you; in his love he will no longer rebuke you, but will rejoice over you with singing.", ref: "Zephaniah 3:17" },
+  { bookId: 37, chapter: 2, text: "'The glory of this present house will be greater than the glory of the former house,' says the Lord Almighty. 'And in this place I will grant peace.'", ref: "Haggai 2:9" },
+  { bookId: 38, chapter: 4, text: "'Not by might nor by power, but by my Spirit,' says the Lord Almighty.", ref: "Zechariah 4:6" },
+  { bookId: 39, chapter: 3, text: "Bring the whole tithe into the storehouse... and see if I will not throw open the floodgates of heaven and pour out so much blessing that there will not be room enough to store it.", ref: "Malachi 3:10" },
+
+  // Gospels
+  { bookId: 40, chapter: 5, text: "Blessed are the pure in heart, for they will see God. Blessed are the peacemakers, for they will be called children of God.", ref: "Matthew 5:8–9" },
+  { bookId: 40, chapter: 6, text: "Seek first his kingdom and his righteousness, and all these things will be given to you as well.", ref: "Matthew 6:33" },
+  { bookId: 40, chapter: 7, text: "Ask and it will be given to you; seek and you will find; knock and the door will be opened to you.", ref: "Matthew 7:7" },
+  { bookId: 40, chapter: 11, text: "Come to me, all you who are weary and burdened, and I will give you rest.", ref: "Matthew 11:28" },
+  { bookId: 40, chapter: 22, text: "'Love the Lord your God with all your heart and with all your soul and with all your mind.' This is the first and greatest commandment.", ref: "Matthew 22:37–38" },
+  { bookId: 40, chapter: 28, text: "Therefore go and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit.", ref: "Matthew 28:19" },
+
+  { bookId: 41, chapter: 8, text: "What good is it for someone to gain the whole world, yet forfeit their soul?", ref: "Mark 8:36" },
+  { bookId: 41, chapter: 10, text: "For even the Son of Man did not come to be served, but to serve, and to give his life as a ransom for many.", ref: "Mark 10:45" },
+  { bookId: 41, chapter: 11, text: "Whatever you ask for in prayer, believe that you have received it, and it will be yours.", ref: "Mark 11:24" },
+
+  { bookId: 42, chapter: 1, text: "For no word from God will ever fail.", ref: "Luke 1:37" },
+  { bookId: 42, chapter: 2, text: "Glory to God in the highest heaven, and on earth peace to those on whom his favor rests.", ref: "Luke 2:14" },
+  { bookId: 42, chapter: 9, text: "Whoever wants to be my disciple must deny themselves and take up their cross daily and follow me.", ref: "Luke 9:23" },
+  { bookId: 42, chapter: 12, text: "Do not be afraid, little flock, for your Father has been pleased to give you the kingdom.", ref: "Luke 12:32" },
+  { bookId: 42, chapter: 19, text: "For the Son of Man came to seek and to save the lost.", ref: "Luke 19:10" },
+  { bookId: 42, chapter: 24, text: "He is not here; he has risen! Remember how he told you, while he was still with you in Galilee.", ref: "Luke 24:6" },
+
+  { bookId: 43, chapter: 1, text: "In the beginning was the Word, and the Word was with God, and the Word was God.", ref: "John 1:1" },
+  { bookId: 43, chapter: 3, text: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.", ref: "John 3:16" },
+  { bookId: 43, chapter: 8, text: "Jesus spoke to the people, 'I am the light of the world. Whoever follows me will never walk in darkness, but will have the light of life.'", ref: "John 8:12" },
+  { bookId: 43, chapter: 10, text: "I have come that they may have life, and have it to the full. I am the good shepherd.", ref: "John 10:10–11" },
+  { bookId: 43, chapter: 11, text: "Jesus said to her, 'I am the resurrection and the life. The one who believes in me will live, even though they die.'", ref: "John 11:25" },
+  { bookId: 43, chapter: 14, text: "Jesus answered, 'I am the way and the truth and the life. No one comes to the Father except through me.'", ref: "John 14:6" },
+  { bookId: 43, chapter: 15, text: "I am the vine; you are the branches. If you remain in me and I in you, you will bear much fruit; apart from me you can do nothing.", ref: "John 15:5" },
+  { bookId: 43, chapter: 16, text: "In this world you will have trouble. But take heart! I have overcome the world.", ref: "John 16:33" },
+
+  // Acts
+  { bookId: 44, chapter: 1, text: "You will receive power when the Holy Spirit comes on you; and you will be my witnesses in Jerusalem, and in all Judea and Samaria, and to the ends of the earth.", ref: "Acts 1:8" },
+  { bookId: 44, chapter: 2, text: "They devoted themselves to the apostles' teaching and to fellowship, to the breaking of bread and to prayer.", ref: "Acts 2:42" },
+  { bookId: 44, chapter: 4, text: "Salvation is found in no one else, for there is no other name under heaven given to mankind by which we must be saved.", ref: "Acts 4:12" },
+  { bookId: 44, chapter: 16, text: "They replied, 'Believe in the Lord Jesus, and you will be saved—you and your household.'", ref: "Acts 16:31" },
+  { bookId: 44, chapter: 20, text: "I consider my life worth nothing to me; my only aim is to finish the race and complete the task the Lord Jesus has given me.", ref: "Acts 20:24" },
+
+  // Romans
+  { bookId: 45, chapter: 1, text: "For I am not ashamed of the gospel, because it is the power of God that brings salvation to everyone who believes.", ref: "Romans 1:16" },
+  { bookId: 45, chapter: 5, text: "God demonstrates his own love for us in this: While we were still sinners, Christ died for us.", ref: "Romans 5:8" },
+  { bookId: 45, chapter: 6, text: "For the wages of sin is death, but the gift of God is eternal life in Christ Jesus our Lord.", ref: "Romans 6:23" },
+  { bookId: 45, chapter: 8, text: "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.", ref: "Romans 8:28" },
+  { bookId: 45, chapter: 10, text: "If you declare with your mouth, 'Jesus is Lord,' and believe in your heart that God raised him from the dead, you will be saved.", ref: "Romans 10:9" },
+  { bookId: 45, chapter: 12, text: "Do not conform to the pattern of this world, but be transformed by the renewing of your mind. Then you will be able to test and approve what God's will is.", ref: "Romans 12:2" },
+
+  // 1 & 2 Corinthians
+  { bookId: 46, chapter: 1, text: "For the message of the cross is foolishness to those who are perishing, but to us who are being saved it is the power of God.", ref: "1 Corinthians 1:18" },
+  { bookId: 46, chapter: 10, text: "No temptation has overtaken you except what is common to mankind. And God is faithful; he will not let you be tempted beyond what you can bear.", ref: "1 Corinthians 10:13" },
+  { bookId: 46, chapter: 13, text: "Love is patient, love is kind. It does not envy, it does not boast, it is not proud... And now these three remain: faith, hope and love. But the greatest of these is love.", ref: "1 Corinthians 13:4,13" },
+  { bookId: 46, chapter: 15, text: "Where, O death, is your victory? Where, O death, is your sting? But thanks be to God! He gives us the victory through our Lord Jesus Christ.", ref: "1 Corinthians 15:55,57" },
+  { bookId: 47, chapter: 4, text: "For our light and momentary troubles are achieving for us an eternal glory that far outweighs them all.", ref: "2 Corinthians 4:17" },
+  { bookId: 47, chapter: 5, text: "Therefore, if anyone is in Christ, the new creation has come: The old has gone, the new is here!", ref: "2 Corinthians 5:17" },
+  { bookId: 47, chapter: 12, text: "He said to me, 'My grace is sufficient for you, for my power is made perfect in weakness.'", ref: "2 Corinthians 12:9" },
+
+  // Galatians & Ephesians
+  { bookId: 48, chapter: 2, text: "I have been crucified with Christ and I no longer live, but Christ lives in me. The life I now live in the body, I live by faith in the Son of God.", ref: "Galatians 2:20" },
+  { bookId: 48, chapter: 5, text: "The fruit of the Spirit is love, joy, peace, forbearance, kindness, goodness, faithfulness, gentleness and self-control.", ref: "Galatians 5:22–23" },
+  { bookId: 49, chapter: 2, text: "For it is by grace you have been saved, through faith—and this is not from yourselves, it is the gift of God—not by works, so that no one can boast.", ref: "Ephesians 2:8–9" },
+  { bookId: 49, chapter: 3, text: "Now to him who is able to do immeasurably more than all we ask or imagine, according to his power that is at work within us.", ref: "Ephesians 3:20" },
+  { bookId: 49, chapter: 6, text: "Put on the full armor of God, so that you can take your stand against the devil's schemes.", ref: "Ephesians 6:11" },
+
+  // Philippians & Colossians
+  { bookId: 50, chapter: 1, text: "Being confident of this, that he who began a good work in you will carry it on to completion until the day of Christ Jesus.", ref: "Philippians 1:6" },
+  { bookId: 50, chapter: 4, text: "I can do all this through him who gives me strength.", ref: "Philippians 4:13" },
+  { bookId: 51, chapter: 3, text: "Whatever you do, work at it with all your heart, as working for the Lord, not for human masters.", ref: "Colossians 3:23" },
+
+  // 1 & 2 Thessalonians
+  { bookId: 52, chapter: 5, text: "Rejoice always, pray continually, give thanks in all circumstances; for this is God's will for you in Christ Jesus.", ref: "1 Thessalonians 5:16–18" },
+  { bookId: 53, chapter: 3, text: "The Lord is faithful, and he will strengthen you and protect you from the evil one.", ref: "2 Thessalonians 3:3" },
+
+  // 1 & 2 Timothy, Titus, Philemon
+  { bookId: 54, chapter: 4, text: "Don't let anyone look down on you because you are young, but set an example for the believers in speech, in conduct, in love, in faith and in purity.", ref: "1 Timothy 4:12" },
+  { bookId: 54, chapter: 6, text: "Fight the good fight of the faith. Take hold of the eternal life to which you were called.", ref: "1 Timothy 6:12" },
+  { bookId: 55, chapter: 1, text: "For the Spirit God gave us does not make us timid, but gives us power, love and self-discipline.", ref: "2 Timothy 1:7" },
+  { bookId: 55, chapter: 3, text: "All Scripture is God-breathed and is useful for teaching, rebuking, correcting and training in righteousness.", ref: "2 Timothy 3:16" },
+  { bookId: 56, chapter: 2, text: "For the grace of God has appeared that offers salvation to all people.", ref: "Titus 2:11" },
+  { bookId: 57, chapter: 1, text: "Your love has given me great joy and encouragement, because you, brother, have refreshed the hearts of the Lord's people.", ref: "Philemon 1:7" },
+
+  // Hebrews & James
+  { bookId: 58, chapter: 4, text: "Let us then approach God's throne of grace with confidence, so that we may receive mercy and find grace to help us in our time of need.", ref: "Hebrews 4:16" },
+  { bookId: 58, chapter: 11, text: "Now faith is confidence in what we hope for and assurance about what we do not see.", ref: "Hebrews 11:1" },
+  { bookId: 58, chapter: 12, text: "Let us run with perseverance the race marked out for us, fixing our eyes on Jesus, the pioneer and perfecter of faith.", ref: "Hebrews 12:1–2" },
+  { bookId: 58, chapter: 13, text: "Jesus Christ is the same yesterday and today and forever.", ref: "Hebrews 13:8" },
+  { bookId: 59, chapter: 1, text: "Do not merely listen to the word, and so deceive yourselves. Do what it says.", ref: "James 1:22" },
+  { bookId: 59, chapter: 4, text: "Come near to God and he will come near to you.", ref: "James 4:8" },
+
+  // Peter, John, Jude
+  { bookId: 60, chapter: 1, text: "Praise be to the God and Father of our Lord Jesus Christ! In his great mercy he has given us new birth into a living hope through the resurrection of Jesus Christ.", ref: "1 Peter 1:3" },
+  { bookId: 60, chapter: 5, text: "Cast all your anxiety on him because he cares for you.", ref: "1 Peter 5:7" },
+  { bookId: 61, chapter: 3, text: "The Lord is not slow in keeping his promise, as some understand slowness. Instead he is patient with you, not wanting anyone to perish.", ref: "2 Peter 3:9" },
+  { bookId: 62, chapter: 1, text: "If we confess our sins, he is faithful and just and will forgive us our sins and purify us from all unrighteousness.", ref: "1 John 1:9" },
+  { bookId: 62, chapter: 4, text: "We love because he first loved us.", ref: "1 John 4:19" },
+  { bookId: 63, chapter: 1, text: "And this is love: that we walk in obedience to his commands.", ref: "2 John 1:6" },
+  { bookId: 64, chapter: 1, text: "I have no greater joy than to hear that my children are walking in the truth.", ref: "3 John 1:4" },
+  { bookId: 65, chapter: 1, text: "To him who is able to keep you from stumbling and to present you before his glorious presence without fault and with great joy—to the only God our Savior be glory!", ref: "Jude 1:24–25" },
+
+  // Revelation
+  { bookId: 66, chapter: 1, text: "'I am the Alpha and the Omega,' says the Lord God, 'who is, and who was, and who is to come, the Almighty.'", ref: "Revelation 1:8" },
+  { bookId: 66, chapter: 3, text: "Here I am! I stand at the door and knock. If anyone hears my voice and opens the door, I will come in and eat with that person, and they with me.", ref: "Revelation 3:20" },
+  { bookId: 66, chapter: 21, text: "He will wipe every tear from their eyes. There will be no more death or mourning or crying or pain, for the old order of things has passed away.", ref: "Revelation 21:4" },
+  { bookId: 66, chapter: 22, text: "'Look, I am coming soon! My reward is with me, and I will give to each person according to what they have done.'", ref: "Revelation 22:12" }
+];
 
 function findBibleBook(name) {
   if (!name) return null;
@@ -2453,9 +2721,6 @@ function parsePassage(portionText) {
 }
 
 function getKeyVerseForPortion(portionText, dayNum) {
-  if (dayNum && CURATED_KEY_VERSES[dayNum]) {
-    return CURATED_KEY_VERSES[dayNum];
-  }
   const parsed = parsePassage(portionText);
   if (parsed.isCatchUp) {
     return {
@@ -2463,14 +2728,32 @@ function getKeyVerseForPortion(portionText, dayNum) {
       ref: "Psalm 46:10"
     };
   }
-  if (parsed.chapters.length > 0) {
+
+  if (parsed.chapters && parsed.chapters.length > 0) {
+    // 1. Look for exact matches where both bookId and chapter fall within this portion's chapters
+    const matched = SCRIPTURE_PORTION_KEY_VERSES.filter(kv => 
+      parsed.chapters.some(ch => ch.bookId === kv.bookId && ch.chapter === kv.chapter)
+    );
+
+    if (matched.length > 0) {
+      return matched[0];
+    }
+
+    // 2. Secondary fallback: Match any curated key verse from one of the books in this portion
+    const bookMatched = SCRIPTURE_PORTION_KEY_VERSES.filter(kv =>
+      parsed.chapters.some(ch => ch.bookId === kv.bookId)
+    );
+    if (bookMatched.length > 0) {
+      return bookMatched[0];
+    }
+
     const first = parsed.chapters[0];
-    const last = parsed.chapters[parsed.chapters.length - 1];
     return {
-      text: `Daily reading from ${first.bookName} chapter ${first.chapter} through ${last.bookName} chapter ${last.chapter}.`,
+      text: `Let the word of Christ dwell in you richly, teaching and admonishing one another in all wisdom.`,
       ref: `${first.bookName} ${first.chapter}`
     };
   }
+
   return {
     text: "Your word is a lamp to my feet and a light to my path.",
     ref: "Psalm 119:105"
@@ -2813,6 +3096,10 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
       contentContainer.appendChild(chSection);
     });
 
+    if (tabsContainer) {
+      initReaderScrollSpy(contentContainer, tabsContainer);
+    }
+
     if (targetChapterObj) {
       setTimeout(() => {
         const targetEl = document.getElementById(`reader-ch-${targetChapterObj.bookId}-${targetChapterObj.chapter}`);
@@ -2831,6 +3118,50 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
       </div>
     `;
   }
+}
+
+function initReaderScrollSpy(contentEl, tabsContainer) {
+  if (!contentEl || !tabsContainer) return;
+  const sections = Array.from(contentEl.querySelectorAll('.reader-chapter-section'));
+  if (sections.length === 0) return;
+
+  const updateActiveTab = (activeId) => {
+    tabsContainer.querySelectorAll('.reader-tab-btn').forEach(btn => {
+      const isTarget = btn.dataset.targetId === activeId;
+      if (btn.classList.contains('active') !== isTarget) {
+        btn.classList.toggle('active', isTarget);
+        if (isTarget) {
+          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }
+    });
+  };
+
+  let isScrollDebouncing = false;
+  const onScroll = () => {
+    if (isScrollDebouncing) return;
+    isScrollDebouncing = true;
+    requestAnimationFrame(() => {
+      isScrollDebouncing = false;
+      const scrollPos = contentEl.scrollTop + 80;
+      let currentActiveId = sections[0].id;
+      for (let i = 0; i < sections.length; i++) {
+        const sec = sections[i];
+        if (sec.offsetTop <= scrollPos) {
+          currentActiveId = sec.id;
+        } else {
+          break;
+        }
+      }
+      updateActiveTab(currentActiveId);
+    });
+  };
+
+  if (contentEl._scrollSpyHandler) {
+    contentEl.removeEventListener('scroll', contentEl._scrollSpyHandler);
+  }
+  contentEl._scrollSpyHandler = onScroll;
+  contentEl.addEventListener('scroll', onScroll, { passive: true });
 }
 
 function renderTodayPortionDetail(portionText, dayNum, session) {
@@ -3102,8 +3433,16 @@ function initAudioNarrator() {
     };
   }
 
+  const savedSpeed = localStorage.getItem('bible92_preferred_audio_speed');
+  if (savedSpeed && speedSelect) {
+    speedSelect.value = savedSpeed;
+  }
+
   if (speedSelect) {
     speedSelect.onchange = () => {
+      try {
+        localStorage.setItem('bible92_preferred_audio_speed', speedSelect.value);
+      } catch (e) {}
       if (isAudioPlaying) {
         playAudioVerseChunk(currentAudioVerseIndex);
       }
