@@ -61,7 +61,7 @@ and real-time gamified progress tracking.
 
 * ROLE-BASED ACCESS & GUEST MODE:
   - 13 Youth Members (Normal): Full logging, commenting, praying, and sharing
-  - 4 Guest Accounts (Guest1, Guest2, Lizzy's Guest, Lamplighters Guest):
+  - 5 Guest Accounts (Guest1, Guest2, Lizzy's Guest, Lamplighters Guest, Rinrin):
     - Read-only exploration of readings, leaderboards, comments, and prayers
     - 5-Device Concurrency Limit per guest account
     - 30-Minute Inactivity Auto-Expiration

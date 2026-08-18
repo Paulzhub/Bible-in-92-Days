@@ -240,7 +240,7 @@ function initLogin() {
     submitBtn.textContent = 'Signing in…';
 
     const uLow = username.toLowerCase();
-    const isGuest = uLow.includes('guest') || uLow.startsWith('guest');
+    const isGuest = uLow.includes('guest') || uLow.startsWith('guest') || uLow === 'rinrin' || uLow === 'rin-chan';
     const isAdmin = uLow === 'admin';
     const clientSessionId = (isAdmin ? 'a_' : (isGuest ? 'g_' : 'u_')) + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     const geoInfo = await getClientGeoInfo();

@@ -72,7 +72,7 @@ Built with a fast, zero-dependency frontend architecture and a Google Apps Scrip
 
 ### 🛡️ 7. Role-Based Access, Guest Mode & Auditing
 - **13 Registered Youth Members (`Normal`)**: Full reading logging, reflections, prayers, streaks, nudges, and card sharing.
-- **4 Dedicated Guest Accounts (`Guest1`, `Guest2`, `Lizzy's Guest`, `Lamplighters Guest`)**:
+- **5 Dedicated Guest Accounts (`Guest1`, `Guest2`, `Lizzy's Guest`, `Lamplighters Guest`, `Rinrin`)**:
   - Read-only exploration of all readings, leaderboards, comments, and prayers.
   - **5-Device Concurrency Limit**: Maximum 5 simultaneous devices per guest account.
   - **30-Minute Inactivity Auto-Expiration**: Inactive sessions automatically expire.
