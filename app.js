@@ -356,7 +356,7 @@ function initGuestInactivityWatcher(session) {
     }
   };
 
-  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+  ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
     window.addEventListener(evt, recordActivity, { passive: true });
   });
 
@@ -1383,8 +1383,20 @@ function buildCommentElement(comment, session) {
   }
   head.appendChild(author);
 
-  const canDelete = (isYou || (session && session.isAdmin)) && (!session || !session.isGuest);
-  if (canDelete) {
+  const canModerate = (isYou || (session && session.isAdmin)) && (!session || !session.isGuest);
+  if (canModerate) {
+    const actionsGroup = document.createElement('div');
+    actionsGroup.className = 'comment-actions-group';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'comment-edit-btn';
+    editBtn.innerHTML = '✏️ Edit';
+    editBtn.title = isYou ? 'Edit your comment' : `Edit ${comment.username}'s comment (Admin)`;
+    editBtn.addEventListener('click', () => {
+      startEditingComment(item, comment, session);
+    });
+
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'comment-delete-btn';
@@ -1393,7 +1405,9 @@ function buildCommentElement(comment, session) {
     deleteBtn.addEventListener('click', () => {
       confirmAndDeleteComment(session, comment.username, activeCommentsDate);
     });
-    head.appendChild(deleteBtn);
+
+    actionsGroup.append(editBtn, deleteBtn);
+    head.appendChild(actionsGroup);
   }
 
   const text = document.createElement('p');
@@ -1410,10 +1424,130 @@ function buildCommentElement(comment, session) {
   return item;
 }
 
+function startEditingComment(cardEl, comment, session) {
+  const existingEditBox = cardEl.querySelector('.comment-edit-box');
+  if (existingEditBox) return;
+
+  const textEl = cardEl.querySelector('.comment-text');
+  const actionsBar = cardEl.querySelector('.comment-actions-bar');
+  const actionsGroup = cardEl.querySelector('.comment-actions-group');
+  if (!textEl) return;
+
+  textEl.hidden = true;
+  if (actionsBar) actionsBar.hidden = true;
+  if (actionsGroup) actionsGroup.hidden = true;
+
+  const editBox = document.createElement('div');
+  editBox.className = 'comment-edit-box';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'comment-edit-textarea';
+  textarea.value = comment.text;
+  textarea.maxLength = 2500;
+  textarea.rows = 4;
+
+  const footer = document.createElement('div');
+  footer.className = 'comment-edit-footer';
+
+  const counter = document.createElement('span');
+  counter.className = 'comment-edit-counter';
+  counter.textContent = getCharAndWordCount(textarea.value);
+
+  textarea.addEventListener('input', () => {
+    counter.textContent = getCharAndWordCount(textarea.value);
+  });
+
+  const btns = document.createElement('div');
+  btns.className = 'comment-edit-btns';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'comment-edit-cancel-btn';
+  cancelBtn.textContent = '✖ Cancel';
+  cancelBtn.addEventListener('click', () => {
+    editBox.remove();
+    textEl.hidden = false;
+    if (actionsBar) actionsBar.hidden = false;
+    if (actionsGroup) actionsGroup.hidden = false;
+  });
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'comment-edit-save-btn';
+  saveBtn.textContent = '💾 Save Changes';
+  saveBtn.addEventListener('click', async () => {
+    const newText = textarea.value.trim();
+    if (!newText) {
+      alert('Comment text cannot be empty.');
+      return;
+    }
+    if (newText === comment.text) {
+      editBox.remove();
+      textEl.hidden = false;
+      if (actionsBar) actionsBar.hidden = false;
+      if (actionsGroup) actionsGroup.hidden = false;
+      return;
+    }
+
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const res = await apiGet({
+        action: 'editComment',
+        username: session.username,
+        password: session.password,
+        targetUsername: comment.username,
+        text: newText,
+        date: activeCommentsDate || formatDDMMYY(new Date())
+      });
+
+      if (res && res.success) {
+        comment.text = newText;
+        textEl.textContent = newText;
+        const cached = commentsCache.find(c => c.username === comment.username);
+        if (cached) cached.text = newText;
+
+        editBox.remove();
+        textEl.hidden = false;
+        if (actionsBar) actionsBar.hidden = false;
+        if (actionsGroup) actionsGroup.hidden = false;
+
+        const feedback = document.getElementById('comment-feedback');
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.className = 'form-feedback success';
+          feedback.textContent = 'Comment updated successfully!';
+          setTimeout(() => { feedback.hidden = true; }, 3500);
+        }
+      } else {
+        alert(res?.error || 'Failed to save comment edits.');
+        saveBtn.disabled = false;
+        cancelBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Changes';
+      }
+    } catch (err) {
+      alert("Couldn't reach server. Please try again.");
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      saveBtn.textContent = '💾 Save Changes';
+    }
+  });
+
+  btns.append(cancelBtn, saveBtn);
+  footer.append(counter, btns);
+  editBox.append(textarea, footer);
+
+  textEl.after(editBox);
+  textarea.focus();
+}
+
 function updateCommentFormVisibility(session) {
   const form = document.getElementById('comment-form');
   const alreadyWrap = document.getElementById('comment-already-wrap');
   const alreadyMsg = document.getElementById('comment-already');
+  const editTodayBtn = document.getElementById('edit-today-comment-btn');
   const deleteTodayBtn = document.getElementById('delete-today-comment-btn');
   if (!form || !alreadyWrap) return;
 
@@ -1421,6 +1555,7 @@ function updateCommentFormVisibility(session) {
     form.hidden = true;
     alreadyWrap.hidden = false;
     if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and enjoy!';
+    if (editTodayBtn) editTodayBtn.hidden = true;
     if (deleteTodayBtn) deleteTodayBtn.hidden = true;
     return;
   }
@@ -1428,7 +1563,8 @@ function updateCommentFormVisibility(session) {
   if (session && session.isAdmin) {
     form.hidden = true;
     alreadyWrap.hidden = false;
-    if (alreadyMsg) alreadyMsg.textContent = '🛡️ Admin Mode — You can moderate and delete squad comments directly on each comment card.';
+    if (alreadyMsg) alreadyMsg.textContent = '🛡️ Admin Mode — You can moderate, edit, and delete squad comments directly on each comment card.';
+    if (editTodayBtn) editTodayBtn.hidden = true;
     if (deleteTodayBtn) deleteTodayBtn.hidden = true;
     return;
   }
@@ -1440,6 +1576,17 @@ function updateCommentFormVisibility(session) {
 
   if (hasCommented) {
     if (alreadyMsg) alreadyMsg.textContent = "You've shared your thoughts for today — see you back here tomorrow!";
+    if (editTodayBtn) {
+      editTodayBtn.hidden = false;
+      editTodayBtn.disabled = false;
+      editTodayBtn.onclick = () => {
+        const cardEl = document.querySelector(`.comment-item[data-username="${CSS.escape(session.username)}"]`);
+        if (cardEl && userComment) {
+          startEditingComment(cardEl, userComment, session);
+          cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+    }
     if (deleteTodayBtn) {
       deleteTodayBtn.hidden = false;
       deleteTodayBtn.disabled = false;
@@ -1938,6 +2085,7 @@ function updatePrayerFormVisibility(session) {
   const form = document.getElementById('prayer-form');
   const alreadyWrap = document.getElementById('prayer-already-wrap');
   const alreadyMsg = document.getElementById('prayer-already');
+  const editTodayBtn = document.getElementById('edit-today-prayer-btn');
   const deleteTodayBtn = document.getElementById('delete-today-prayer-btn');
   if (!form || !alreadyWrap) return;
 
@@ -1945,6 +2093,7 @@ function updatePrayerFormVisibility(session) {
     form.hidden = true;
     alreadyWrap.hidden = false;
     if (alreadyMsg) alreadyMsg.textContent = 'Guests are in read-only mode — explore and pray for the squad! 🙏';
+    if (editTodayBtn) editTodayBtn.hidden = true;
     if (deleteTodayBtn) deleteTodayBtn.hidden = true;
     return;
   }
@@ -1953,6 +2102,7 @@ function updatePrayerFormVisibility(session) {
     form.hidden = true;
     alreadyWrap.hidden = false;
     if (alreadyMsg) alreadyMsg.textContent = '🛡️ Admin Mode — You can moderate, edit, and delete squad prayers directly on each prayer card.';
+    if (editTodayBtn) editTodayBtn.hidden = true;
     if (deleteTodayBtn) deleteTodayBtn.hidden = true;
     return;
   }
@@ -1964,6 +2114,17 @@ function updatePrayerFormVisibility(session) {
 
   if (hasPrayed) {
     if (alreadyMsg) alreadyMsg.textContent = "You've shared your prayer for today — thank you for blessing the squad!";
+    if (editTodayBtn) {
+      editTodayBtn.hidden = false;
+      editTodayBtn.disabled = false;
+      editTodayBtn.onclick = () => {
+        const cardEl = document.querySelector(`.prayer-card[data-username="${CSS.escape(session.username)}"]`);
+        if (cardEl && userPrayer) {
+          startEditingPrayer(cardEl, userPrayer, session);
+          cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+    }
     if (deleteTodayBtn) {
       deleteTodayBtn.hidden = false;
       deleteTodayBtn.disabled = false;
@@ -3590,13 +3751,12 @@ function initScrollTransitions() {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         entry.target.classList.add('is-visible');
-      } else {
-        entry.target.classList.remove('is-visible');
+        observer.unobserve(entry.target);
       }
     });
   }, {
-    threshold: 0.08,
-    rootMargin: '0px 0px -40px 0px'
+    threshold: 0.06,
+    rootMargin: '0px 0px -30px 0px'
   });
 
   sections.forEach(sec => observer.observe(sec));
@@ -3867,12 +4027,22 @@ function playAudioFromChapter(bookId, chapter) {
 
   let targetIdx = 0;
   if (sectionEl) {
+    const headingEl = sectionEl.querySelector('.reader-chapter-heading');
     const foundIdx = audioVerseQueue.findIndex(chunk => 
-      chunk.element && (chunk.element === sectionEl || sectionEl.contains(chunk.element))
+      chunk.element && (chunk.element === headingEl || chunk.element === sectionEl || sectionEl.contains(chunk.element))
     );
     if (foundIdx !== -1) {
       targetIdx = foundIdx;
     }
+  }
+
+  if (currentUtterance) {
+    currentUtterance.onstart = null;
+    currentUtterance.onend = null;
+    currentUtterance.onerror = null;
+  }
+  if (audioSpeechSynth) {
+    try { audioSpeechSynth.cancel(); } catch (e) {}
   }
 
   currentAudioVerseIndex = targetIdx;
@@ -3977,6 +4147,13 @@ function playAudioVerseChunk(index) {
     return;
   }
 
+  // Nullify old utterance handlers BEFORE cancel to prevent race condition skips
+  if (currentUtterance) {
+    currentUtterance.onstart = null;
+    currentUtterance.onend = null;
+    currentUtterance.onerror = null;
+  }
+
   // Highlight active verse in reader UI and scroll gently if out of view
   document.querySelectorAll('.verse-row.speaking-verse, .reader-chapter-heading.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
   if (chunk.element) {
@@ -4021,8 +4198,9 @@ function playAudioVerseChunk(index) {
 
   utterance.onend = () => {
     if (!isAudioPlaying) return;
-    if (currentAudioVerseIndex < audioVerseQueue.length - 1) {
-      playAudioVerseChunk(currentAudioVerseIndex + 1);
+    if (window._speechActiveUtterance !== utterance) return;
+    if (index < audioVerseQueue.length - 1) {
+      playAudioVerseChunk(index + 1);
     } else {
       stopAudioPlayback();
     }
@@ -4033,9 +4211,10 @@ function playAudioVerseChunk(index) {
     if (evt && (evt.error === 'canceled' || evt.error === 'interrupted')) {
       return;
     }
+    if (window._speechActiveUtterance !== utterance) return;
     console.warn('Speech synthesis chunk error:', evt);
-    if (isAudioPlaying && currentAudioVerseIndex < audioVerseQueue.length - 1) {
-      playAudioVerseChunk(currentAudioVerseIndex + 1);
+    if (isAudioPlaying && index < audioVerseQueue.length - 1) {
+      playAudioVerseChunk(index + 1);
     } else {
       stopAudioPlayback();
     }
