@@ -48,7 +48,9 @@ Built with a fast, zero-dependency frontend architecture and a Google Apps Scrip
   2. Earliest daily submission timestamp (tie-breaker for same day completion).
   3. Active streak length.
   4. Alphabetical tie-breaker.
-- **Streak Freeze System**: 1 Streak Freeze token earned every 5 days (up to a max of 3), automatically protecting streaks against missed days with status badges (`🛡️ 1/3`, `🛡️ Used`).
+- **Streak Freeze System**: 1 Streak Freeze token earned every 5 days (strictly capped at a maximum of 3), automatically protecting streaks against missed days with status badges (`🧊 X left`, max 3).
+- **Weekly Recap Stats**: Isolated weekly digest featuring Group Completion Rate, Most Consistent Reader(s), Top Weekly Streak, and Days Read This Week with an interactive week selector.
+- **All Time Stats**: Dedicated cumulative milestones section tracking Overall Group Completion %, All-Time Top Reader(s), Top Active Streak, and Total Days Read Together.
 - **XP Tier Levels**: Automatic progression from `Disciple I` to `Disciple X` and `Finisher 🏆`.
 - **92-Day Visual Heatmap**: Interactive calendar grid mapping completed vs. pending reading days.
 - **Squad Flame Gauge**: Real-time 13-member co-op completion bar with Squad Heatwave alerts when all members finish on the same day.

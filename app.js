@@ -843,7 +843,9 @@ async function loadInitialData(session, retryCount = 0) {
       currentWeeklyRecap = res.recap;
       renderWeeklyRecap(res.recap);
     }
-  } catch (e) { console.error('Error rendering weekly recap:', e); }
+    const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
+    renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
+  } catch (e) { console.error('Error rendering weekly recap or all-time stats:', e); }
 
   try {
     if (res.comments && res.comments.success) {
@@ -909,6 +911,8 @@ async function loadUpdates(session) {
         currentWeeklyRecap = res.recap;
         renderWeeklyRecap(res.recap);
       }
+      const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
+      renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
     } catch (e) {}
 
     const todayStr = formatDDMMYY(new Date());
@@ -1069,12 +1073,13 @@ function renderLeaderboard(rows, session) {
       nameRow.appendChild(achSpan);
     });
 
-    // Available Streak Freezes Counter
+    // Available Streak Freezes Counter (max 3)
     if (row.freezesAvailable !== undefined && row.freezesAvailable > 0) {
+      const displayFreezes = Math.min(3, row.freezesAvailable);
       const freezeSpan = document.createElement('span');
       freezeSpan.className = 'freezes-left-badge';
-      freezeSpan.textContent = `🧊 ${row.freezesAvailable} left`;
-      freezeSpan.title = `${row.freezesAvailable} streak freeze(s) available`;
+      freezeSpan.textContent = `🧊 ${displayFreezes} left`;
+      freezeSpan.title = `${displayFreezes} streak freeze(s) available (max 3)`;
       nameRow.appendChild(freezeSpan);
     }
 
@@ -1157,7 +1162,12 @@ function renderWeeklyRecap(recap) {
       const selectedWeek = parseInt(e.target.value, 10);
       try {
         const res = await apiGet({ action: 'getWeeklyRecap', weekNum: selectedWeek });
-        if (res.success) renderWeeklyRecap(res);
+        if (res.success) {
+          renderWeeklyRecap(res);
+          if (res.allTimeStats) {
+            renderAllTimeStats(res.allTimeStats);
+          }
+        }
       } catch (err) {
         // silent fail
       }
@@ -1168,17 +1178,99 @@ function renderWeeklyRecap(recap) {
   document.getElementById('recap-pct').textContent = `${recap.stats.weeklyCompletionPct}%`;
   
   const topReaders = (recap.stats.topReaders || []).slice(0, 3);
-  const topReadersText = topReaders.length > 0
-    ? topReaders.join(', ')
-    : 'None yet';
+  let topReadersText = 'None yet';
+  if (topReaders.length > 0) {
+    const maxReads = recap.stats.maxWeeklyReads !== undefined ? recap.stats.maxWeeklyReads : null;
+    const totalWeekDays = (recap.endDayNum - recap.startDayNum + 1);
+    topReadersText = maxReads !== null
+      ? `${topReaders.join(', ')} (${maxReads}/${totalWeekDays}d)`
+      : topReaders.join(', ');
+  }
   document.getElementById('recap-top-reader').textContent = topReadersText;
 
-  const topStreakText = recap.stats.topStreakHolder && recap.stats.topStreakHolder.streak > 0
-    ? `${recap.stats.topStreakHolder.username} (${recap.stats.topStreakHolder.streak}d)`
-    : '0 days';
-  document.getElementById('recap-top-streak').textContent = topStreakText;
+  // Top Weekly Streak within this week
+  let topWeeklyStreakText = '—';
+  if (recap.stats.topWeeklyStreak) {
+    const stk = recap.stats.topWeeklyStreak.streak || 0;
+    const holders = (recap.stats.topWeeklyStreak.holders || []).slice(0, 3);
+    if (stk > 0 && holders.length > 0) {
+      topWeeklyStreakText = `${holders.join(', ')} (${stk}d)`;
+    }
+  } else if (recap.stats.topStreakHolder && recap.stats.topStreakHolder.streak > 0) {
+    topWeeklyStreakText = `${recap.stats.topStreakHolder.username} (${recap.stats.topStreakHolder.streak}d)`;
+  }
+  document.getElementById('recap-top-streak').textContent = topWeeklyStreakText;
 
-  document.getElementById('recap-total-days').textContent = recap.stats.totalGroupDaysCompleted;
+  // Days Read This Week (strictly for this week)
+  const actualReads = recap.stats.totalActualReadings !== undefined
+    ? recap.stats.totalActualReadings
+    : (recap.stats.daysReadThisWeek !== undefined ? recap.stats.daysReadThisWeek : 0);
+  const possibleReads = recap.stats.totalPossibleReadings || 0;
+  document.getElementById('recap-total-days').textContent = possibleReads > 0
+    ? `${actualReads} / ${possibleReads}`
+    : `${actualReads}`;
+}
+
+// ====== SECTION 3B: ALL TIME STATS ======
+
+function renderAllTimeStats(allTimeStats, leaderboard) {
+  if (!allTimeStats) {
+    if (leaderboard && leaderboard.length > 0) {
+      let totalDays = 0;
+      let maxDays = 0;
+      let maxStreak = 0;
+      leaderboard.forEach(u => {
+        const d = u.daysCompleted || 0;
+        const s = u.streak || 0;
+        totalDays += d;
+        if (d > maxDays) maxDays = d;
+        if (s > maxStreak) maxStreak = s;
+      });
+      const topReaders = leaderboard.filter(u => u.daysCompleted === maxDays).map(u => u.username).slice(0, 3);
+      const topStreakers = leaderboard.filter(u => u.streak === maxStreak && maxStreak > 0).map(u => u.username).slice(0, 3);
+      const curDay = (typeof currentTodayPortion !== 'undefined' && currentTodayPortion && currentTodayPortion.dayNumber) ? currentTodayPortion.dayNumber : 25;
+      const totalPossible = curDay * leaderboard.length;
+      const pct = totalPossible > 0 ? Math.round((totalDays / totalPossible) * 100) : 0;
+      allTimeStats = {
+        completionPct: pct,
+        totalGroupDaysCompleted: totalDays,
+        topReaders: topReaders,
+        maxDays: maxDays,
+        topStreakHolders: topStreakers,
+        topStreak: maxStreak
+      };
+    } else {
+      return;
+    }
+  }
+
+  const pctEl = document.getElementById('alltime-pct');
+  if (pctEl) pctEl.textContent = `${allTimeStats.completionPct}%`;
+
+  const topReaderEl = document.getElementById('alltime-top-reader');
+  if (topReaderEl) {
+    const readers = (allTimeStats.topReaders || []).slice(0, 3);
+    const maxDaysVal = allTimeStats.maxDays || allTimeStats.maxAllTimeDays || 0;
+    topReaderEl.textContent = readers.length > 0
+      ? (maxDaysVal > 0 ? `${readers.join(', ')} (${maxDaysVal}d)` : readers.join(', '))
+      : '—';
+  }
+
+  const topStreakEl = document.getElementById('alltime-top-streak');
+  if (topStreakEl) {
+    const holders = (allTimeStats.topStreakHolders || []).slice(0, 3);
+    const streakVal = allTimeStats.topStreak !== undefined ? allTimeStats.topStreak : 0;
+    topStreakEl.textContent = streakVal > 0 && holders.length > 0
+      ? `${holders.join(', ')} (${streakVal}d)`
+      : (allTimeStats.topStreakHolder && allTimeStats.topStreakHolder.streak > 0
+        ? `${allTimeStats.topStreakHolder.username} (${allTimeStats.topStreakHolder.streak}d)`
+        : '0 days');
+  }
+
+  const totalDaysEl = document.getElementById('alltime-total-days');
+  if (totalDaysEl) {
+    totalDaysEl.textContent = allTimeStats.totalGroupDaysCompleted || 0;
+  }
 }
 
 // ====== SECTION 4: COMMENTS ======
