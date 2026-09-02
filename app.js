@@ -32,6 +32,27 @@ function formatISODate(date) {
   return `${y}-${m}-${d}`;
 }
 
+function getPersistedNudgedTargets(todayStr, username) {
+  if (!todayStr || !username) return new Set();
+  try {
+    const raw = localStorage.getItem(`bible92_nudged_${todayStr}_${username.toLowerCase()}`);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.map(t => String(t).toLowerCase()) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function persistNudgedTarget(todayStr, username, target) {
+  if (!todayStr || !username || !target) return;
+  try {
+    const set = getPersistedNudgedTargets(todayStr, username);
+    set.add(target.toLowerCase());
+    localStorage.setItem(`bible92_nudged_${todayStr}_${username.toLowerCase()}`, JSON.stringify([...set]));
+  } catch (e) {}
+}
+
 function parseISODateToDDMMYY(isoStr) {
   if (!isoStr) return '';
   const parts = isoStr.split('-');
@@ -791,11 +812,12 @@ async function loadInitialData(session, retryCount = 0) {
     if (res.nudges && res.nudges.success) {
       currentNudges = res.nudges.nudges || [];
       if (session && !session.isGuest) {
-        nudgedTargetsToday = new Set(
-          currentNudges
-            .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
-            .map(n => n.target)
-        );
+        const todayStr = formatDDMMYY(new Date());
+        const serverTargets = currentNudges
+          .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
+          .map(n => n.target ? n.target.toLowerCase() : '');
+        const localTargets = getPersistedNudgedTargets(todayStr, session.username);
+        nudgedTargetsToday = new Set([...serverTargets, ...localTargets].filter(Boolean));
       }
       renderSquadNudgeBanner(currentNudges, session);
     }
@@ -861,11 +883,13 @@ async function loadUpdates(session) {
       if (res.nudges && res.nudges.success) {
         currentNudges = res.nudges.nudges || [];
         if (session && !session.isGuest) {
-          nudgedTargetsToday = new Set(
-            currentNudges
-              .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
-              .map(n => n.target)
-          );
+          const todayStr = formatDDMMYY(new Date());
+          const serverTargets = currentNudges
+            .filter(n => n.sender && n.sender.toLowerCase() === session.username.toLowerCase())
+            .map(n => n.target ? n.target.toLowerCase() : '');
+          const localTargets = getPersistedNudgedTargets(todayStr, session.username);
+          // Merge without wiping recently sent local nudges
+          nudgedTargetsToday = new Set([...nudgedTargetsToday, ...serverTargets, ...localTargets].filter(Boolean));
         }
         renderSquadNudgeBanner(currentNudges, session);
       }
@@ -1050,7 +1074,7 @@ function renderLeaderboard(rows, session) {
       const freezeSpan = document.createElement('span');
       freezeSpan.className = 'freezes-left-badge';
       freezeSpan.textContent = `🧊 ${row.freezesAvailable} left`;
-      freezeSpan.title = `${row.freezesAvailable} of ${row.maxFreezes || 3} streak freeze(s) available`;
+      freezeSpan.title = `${row.freezesAvailable} streak freeze(s) available`;
       nameRow.appendChild(freezeSpan);
     }
 
@@ -1058,7 +1082,7 @@ function renderLeaderboard(rows, session) {
     if (!row.readToday && !isYou && session && !session.isGuest) {
       const nudgeBtn = document.createElement('button');
       nudgeBtn.type = 'button';
-      const isAlreadyNudged = nudgedTargetsToday.has(row.username);
+      const isAlreadyNudged = nudgedTargetsToday.has(row.username ? row.username.toLowerCase() : '');
       nudgeBtn.className = 'nudge-btn' + (isAlreadyNudged ? ' nudged' : '');
       nudgeBtn.textContent = isAlreadyNudged ? '⚡ Nudged!' : '⚡ Nudge';
       nudgeBtn.disabled = isAlreadyNudged;
@@ -2280,10 +2304,14 @@ async function handleNudgeUser(targetUsername, btnEl, session) {
   }
   if (btnEl.disabled || btnEl.classList.contains('nudged')) return;
 
+  const targetLower = String(targetUsername).toLowerCase();
   btnEl.disabled = true;
   btnEl.classList.add('nudged');
   btnEl.textContent = '⚡ Nudged!';
-  nudgedTargetsToday.add(targetUsername);
+  nudgedTargetsToday.add(targetLower);
+
+  const todayStr = formatDDMMYY(new Date());
+  persistNudgedTarget(todayStr, curSession.username, targetLower);
 
   // Optimistically record nudge in local state
   currentNudges.push({
@@ -2300,22 +2328,17 @@ async function handleNudgeUser(targetUsername, btnEl, session) {
       password: curSession.password,
       targetUsername: targetUsername
     });
-    if (!res || !res.success) {
+    if (res && !res.success && res.error && !res.error.toLowerCase().includes('already')) {
+      // Only revert if server explicitly rejected with non-duplicate error
       btnEl.textContent = '⚡ Nudge';
       btnEl.disabled = false;
       btnEl.classList.remove('nudged');
-      nudgedTargetsToday.delete(targetUsername);
-      currentNudges = currentNudges.filter(n => !(n.sender === curSession.username && n.target === targetUsername));
-      if (res && res.error) {
-        showNudgeToast(`Couldn't send nudge: ${res.error}`, true);
-      }
+      nudgedTargetsToday.delete(targetLower);
+      showNudgeToast(`Couldn't send nudge: ${res.error}`, true);
     }
   } catch (err) {
-    btnEl.textContent = '⚡ Nudge';
-    btnEl.disabled = false;
-    btnEl.classList.remove('nudged');
-    nudgedTargetsToday.delete(targetUsername);
-    showNudgeToast('Connection issue while sending nudge. Please retry.', true);
+    // Keep button disabled/nudged locally even on network retry/timeout
+    console.warn('Nudge request network notice:', err);
   }
 }
 
@@ -3430,8 +3453,10 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
         tabsContainer.querySelectorAll('.reader-tab-btn').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         const targetEl = document.getElementById(tab.dataset.targetId);
-        if (targetEl) {
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (targetEl && contentContainer) {
+          const containerRect = contentContainer.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          contentContainer.scrollTop += (targetRect.top - containerRect.top);
         }
         playAudioFromChapter(ch.bookId, ch.chapter);
       });
@@ -3496,8 +3521,10 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
     if (targetChapterObj) {
       setTimeout(() => {
         const targetEl = document.getElementById(`reader-ch-${targetChapterObj.bookId}-${targetChapterObj.chapter}`);
-        if (targetEl) {
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (targetEl && contentContainer) {
+          const containerRect = contentContainer.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          contentContainer.scrollTop += (targetRect.top - containerRect.top);
         }
       }, 100);
     }
@@ -4158,7 +4185,17 @@ function playAudioVerseChunk(index) {
   document.querySelectorAll('.verse-row.speaking-verse, .reader-chapter-heading.speaking-verse').forEach(el => el.classList.remove('speaking-verse'));
   if (chunk.element) {
     chunk.element.classList.add('speaking-verse');
-    chunk.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const contentEl = document.getElementById('reader-content');
+    if (contentEl) {
+      const cRect = contentEl.getBoundingClientRect();
+      const eRect = chunk.element.getBoundingClientRect();
+      const isVisible = (eRect.top >= cRect.top + 10 && eRect.bottom <= cRect.bottom - 10);
+      if (!isVisible) {
+        chunk.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } else {
+      chunk.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   // Clean cancel without firing rogue error cascades
