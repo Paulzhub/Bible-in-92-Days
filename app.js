@@ -3776,11 +3776,115 @@ function initReadingSidebar() {
   if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
   if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
+  const searchClearBtn = document.getElementById('sidebar-search-clear');
+  const onSearchChange = (val) => {
+    const q = val || '';
+    if (searchClearBtn) {
+      searchClearBtn.hidden = !q.trim();
+    }
+    filterSidebarPortions(q);
+  };
+
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      filterSidebarPortions(e.target.value.trim().toLowerCase());
+      onSearchChange(e.target.value);
     });
   }
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      onSearchChange('');
+    });
+  }
+}
+
+function buildScheduleItemSearchIndex(item) {
+  const dNum = item.day !== undefined && item.day !== null ? String(item.day).trim() : '';
+  const portionStr = item.portion ? String(item.portion).trim() : '';
+  const dateStr = item.date ? String(item.date).trim() : '';
+
+  let chaptersList = [];
+  try {
+    const parsed = parsePassage(portionStr);
+    if (parsed && parsed.chapters && Array.isArray(parsed.chapters)) {
+      parsed.chapters.forEach(c => {
+        if (c.abbr) {
+          chaptersList.push(c.abbr.toLowerCase());
+          chaptersList.push(`${c.abbr.toLowerCase()} ${c.chapter}`);
+          chaptersList.push(`${c.abbr.toLowerCase()}${c.chapter}`);
+        }
+        if (c.book) {
+          chaptersList.push(c.book.toLowerCase());
+          chaptersList.push(`${c.book.toLowerCase()} ${c.chapter}`);
+        }
+      });
+    }
+  } catch (e) {}
+
+  const normPortion = portionStr.toLowerCase().replace(/[\u2013\u2014\u2212]/g, '-');
+  const normDate = dateStr.toLowerCase().replace(/[\u2013\u2014\u2212]/g, '-');
+  const compactPortion = normPortion.replace(/\s*([-\:\/\&])\s*/g, '$1');
+
+  return {
+    dayNum: Number(dNum),
+    dayStr: dNum,
+    portion: normPortion,
+    compactPortion: compactPortion,
+    date: normDate,
+    chapters: chaptersList
+  };
+}
+
+function matchesScheduleQuery(idx, rawQuery) {
+  if (!rawQuery) return true;
+  let q = rawQuery.trim().toLowerCase().replace(/[\u2013\u2014\u2212]/g, '-');
+  if (!q) return true;
+
+  // 1. Explicit day query: "day 1", "day 05", "d1", "d 5", "#25"
+  const dayMatch = q.match(/^(?:day|d|#)\s*(\d+)$/);
+  if (dayMatch) {
+    const targetDay = parseInt(dayMatch[1], 10);
+    return idx.dayNum === targetDay;
+  }
+
+  // 2. Compact query (remove spaces around hyphens/colons, e.g. "1 - 3" -> "1-3")
+  const qCompact = q.replace(/\s*([-\:\/\&])\s*/g, '$1');
+
+  // 3. Exact substring match in portion, compact portion, or date (handles partial symbols, letters, digits)
+  if (idx.portion.includes(q) || idx.compactPortion.includes(qCompact) || idx.date.includes(q)) {
+    return true;
+  }
+
+  // 4. Exact day number match
+  if (idx.dayStr === q) {
+    return true;
+  }
+
+  // 5. Check if query matches any chapter abbreviations/variations
+  if (idx.chapters.some(c => c.includes(q) || c.includes(qCompact))) {
+    return true;
+  }
+
+  // 6. Multi-token match: e.g. "1 Cor 15", "Aug 10", "Gen 1"
+  const qSpaced = qCompact.replace(/([a-z])([0-9])/g, '$1 $2').replace(/([0-9])([a-z])/g, '$1 $2');
+  const tokens = qSpaced.split(/\s+/).filter(Boolean);
+
+  if (tokens.length > 1) {
+    // Check if all tokens match within portion + chapters
+    const portionAndChapters = [idx.portion, idx.compactPortion, ...idx.chapters].join(' ');
+    const allPortion = tokens.every(tok => portionAndChapters.includes(tok));
+    if (allPortion) return true;
+
+    // Check if all tokens match within date
+    const allDate = tokens.every(tok => idx.date.includes(tok));
+    if (allDate) return true;
+  }
+
+  return false;
 }
 
 function renderReadingSidebar(portions) {
@@ -3790,24 +3894,36 @@ function renderReadingSidebar(portions) {
 
 function filterSidebarPortions(query) {
   const listEl = document.getElementById('sidebar-portions-list');
+  const countEl = document.getElementById('sidebar-search-count');
   if (!listEl) return;
   listEl.innerHTML = '';
 
   if (!allPortionsCache.length) {
     listEl.innerHTML = '<p class="sidebar-loading">No reading schedule available.</p>';
+    if (countEl) countEl.hidden = true;
     return;
   }
 
+  const qTrimmed = (query || '').trim();
   const filtered = allPortionsCache.filter(item => {
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return String(item.day).includes(q) ||
-           (item.portion && item.portion.toLowerCase().includes(q)) ||
-           (item.date && item.date.toLowerCase().includes(q));
+    if (!qTrimmed) return true;
+    const indexItem = buildScheduleItemSearchIndex(item);
+    return matchesScheduleQuery(indexItem, qTrimmed);
   });
 
+  if (countEl) {
+    if (qTrimmed) {
+      countEl.textContent = filtered.length === 1 
+        ? `1 matching portion found` 
+        : `${filtered.length} of ${allPortionsCache.length} portions match`;
+      countEl.hidden = false;
+    } else {
+      countEl.hidden = true;
+    }
+  }
+
   if (!filtered.length) {
-    listEl.innerHTML = '<p class="sidebar-loading">No matching portions found.</p>';
+    listEl.innerHTML = `<p class="sidebar-loading">No matching portions found for &ldquo;${escapeHtml(qTrimmed)}&rdquo;.</p>`;
     return;
   }
 

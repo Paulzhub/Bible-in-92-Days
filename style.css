@@ -2106,21 +2106,73 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .sidebar-search-wrap {
   padding: 0.85rem 1.25rem;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sidebar-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.sidebar-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  font-size: 0.85rem;
+  opacity: 0.65;
+  pointer-events: none;
 }
 
 .sidebar-search-input {
   width: 100%;
   font-family: var(--font-body);
   font-size: 0.88rem;
-  padding: 0.55rem 0.85rem;
+  padding: 0.55rem 2.2rem 0.55rem 2.2rem;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sidebar-search-input:focus {
-  outline: 2px solid var(--accent);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(224, 169, 109, 0.2);
+}
+
+.sidebar-search-clear {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-subtle);
+  font-size: 1.15rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.sidebar-search-clear:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-search-count {
+  font-size: 0.76rem;
+  color: var(--accent);
+  padding: 0 0.5rem;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.02em;
 }
 
 .sidebar-portions-list {
