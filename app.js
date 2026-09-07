@@ -609,7 +609,28 @@ function renderDayCountdown(day) {
   barEl.style.width = Math.min(100, (day / TOTAL_CHALLENGE_DAYS) * 100) + '%';
 }
 
-// ====== SQUAD FLAME GAUGE & CELEBRATION FX ======
+// ====== SQUAD FLAME GAUGE & MULTI-TIER CELEBRATION FX ======
+
+const SQUAD_CELEBRATION_TIERS = [
+  { count: 13, name: 'SQUAD HEATWAVE (13/13)', big: true, emojis: ['🔥', '👑', '🏆', '✨', '⚡'], colors: ['#FFD700', '#FFA500', '#FF4500', '#FFF8DC'], haptic: [50, 80, 50, 80, 100] },
+  { count: 10, name: 'Double Digits (10+)', big: true, emojis: ['🔥', '⚡', '✨', '🙌'], colors: ['#E8A93B', '#6FAE8C', '#5B8DEF', '#FFD700'], haptic: [40, 60, 40] },
+  { count: 5,  name: 'Squad On Fire (5+)', big: false, emojis: ['🔥', '✨', '⚡'], colors: ['#E8A93B', '#E4685D', '#6FAE8C'], haptic: [30, 50, 30] },
+  { count: 3,  name: 'Momentum (3+)', big: false, emojis: ['✨', '⚡', '📖'], colors: ['#5B8DEF', '#6FAE8C', '#E8A93B'], haptic: [30, 30] },
+  { count: 2,  name: 'Spark (2+)', big: false, emojis: ['✨', '🌱'], colors: ['#6FAE8C', '#5B8DEF'], haptic: [25] }
+];
+
+function checkSquadMilestoneCelebration(readCount) {
+  const todayStr = formatDDMMYY(new Date());
+  SQUAD_CELEBRATION_TIERS.forEach(tier => {
+    if (readCount >= tier.count) {
+      const key = `bible92_squad_tier_${tier.count}_${todayStr}`;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        celebrateTier(tier);
+      }
+    }
+  });
+}
 
 function renderSquadGauge(rows) {
   const card = document.getElementById('squad-gauge-card');
@@ -634,6 +655,87 @@ function renderSquadGauge(rows) {
     card.classList.remove('heatwave-active');
     badge.hidden = true;
   }
+
+  // Trigger celebration tiers for 2, 3, 5, 10, 13 members reading on the same day
+  if (readCount >= 2) {
+    checkSquadMilestoneCelebration(readCount);
+  }
+}
+
+function celebrateTier(tier) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  if ('vibrate' in navigator && tier.haptic) {
+    try { navigator.vibrate(tier.haptic); } catch (e) {}
+  }
+
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const count = tier.big ? 150 : 70;
+  const emojis = tier.emojis;
+  const colors = tier.colors;
+  const particles = [];
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * (tier.big ? 450 : 220),
+      y: canvas.height * 0.4 + (Math.random() - 0.5) * 120,
+      vx: (Math.random() - 0.5) * (tier.big ? 16 : 10),
+      vy: -(Math.random() * (tier.big ? 18 : 12) + 4),
+      rot: Math.random() * 360,
+      vRot: (Math.random() - 0.5) * 12,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      emoji: Math.random() > 0.3 ? emojis[Math.floor(Math.random() * emojis.length)] : null,
+      size: Math.random() * 14 + 12,
+      opacity: 1
+    });
+  }
+
+  let startTime = null;
+  const duration = tier.big ? 3500 : 2200;
+
+  function animate(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = timestamp - startTime;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.38; // gravity
+      p.rot += p.vRot;
+      p.opacity = Math.max(0, 1 - progress / duration);
+
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rot * Math.PI) / 180);
+
+      if (p.emoji) {
+        ctx.font = `${p.size * 1.5}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.emoji, 0, 0);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      }
+      ctx.restore();
+    });
+
+    if (progress < duration) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  requestAnimationFrame(animate);
 }
 
 function celebrate(big) {
@@ -732,6 +834,14 @@ function computeAchievements(row) {
   if (row.usedStreakFreeze) {
     badges.push({ type: 'freeze', icon: '🧊', label: 'Streak Preserved' });
   }
+
+  // Scholar Crown badge if user correctly answered today's Daily Bible Bite Quiz
+  const todayStr = formatDDMMYY(new Date());
+  const quizKey = `bible92_quiz_correct_${todayStr}_${(row.username || '').toLowerCase()}`;
+  if (localStorage.getItem(quizKey) === '1') {
+    badges.push({ type: 'scholar', icon: '📜', label: 'Scholar (Quiz Solved)' });
+  }
+
   return badges;
 }
 
@@ -1007,7 +1117,34 @@ function badgeFor(daysCompleted) {
   return null;
 }
 
+let activeLeaderboardFilter = 'days';
+let isLeaderboardFilterTabsInitialized = false;
+
+function initLeaderboardFilterTabs() {
+  if (isLeaderboardFilterTabsInitialized) return;
+  const tabButtons = document.querySelectorAll('.lb-filter-btn');
+  if (!tabButtons.length) return;
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filter = btn.dataset.filter || 'days';
+      activeLeaderboardFilter = filter;
+      tabButtons.forEach(b => {
+        const isSelected = b === btn;
+        b.classList.toggle('active', isSelected);
+        b.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      });
+      const curSession = getSession();
+      if (currentLeaderboard && currentLeaderboard.length > 0) {
+        renderLeaderboard(currentLeaderboard, curSession);
+      }
+    });
+  });
+  isLeaderboardFilterTabsInitialized = true;
+}
+
 function renderLeaderboard(rows, session) {
+  initLeaderboardFilterTabs();
   renderSquadGauge(rows);
   const body = document.getElementById('leaderboard-body');
   document.getElementById('leaderboard-error').hidden = true;
@@ -1016,7 +1153,40 @@ function renderLeaderboard(rows, session) {
   const me = rows.find(r => session && r.username === session.username);
   const meHasReadToday = me && me.readToday;
 
-  rows.forEach((row) => {
+  // Clone rows for filter-specific sorting
+  const sortedRows = [...rows];
+  if (activeLeaderboardFilter === 'streak') {
+    sortedRows.sort((a, b) => {
+      const sA = Math.min(a.streak || 0, a.daysCompleted || 0);
+      const sB = Math.min(b.streak || 0, b.daysCompleted || 0);
+      if (sB !== sA) return sB - sA;
+      if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+      return (a.username || '').localeCompare(b.username || '');
+    });
+  } else if (activeLeaderboardFilter === 'level') {
+    sortedRows.sort((a, b) => {
+      const lA = a.levelNum || 1;
+      const lB = b.levelNum || 1;
+      if (lB !== lA) return lB - lA;
+      if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+      return (a.username || '').localeCompare(b.username || '');
+    });
+  } else {
+    // Standard all-time days rank
+    sortedRows.sort((a, b) => {
+      if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+      if (a.lastReadTimestamp > 0 && b.lastReadTimestamp > 0) {
+        if (a.lastReadTimestamp !== b.lastReadTimestamp) return a.lastReadTimestamp - b.lastReadTimestamp;
+      } else if (a.lastReadTimestamp > 0) return -1;
+      else if (b.lastReadTimestamp > 0) return 1;
+      const sA = a.streak || 0;
+      const sB = b.streak || 0;
+      if (sB !== sA) return sB - sA;
+      return (a.username || '').localeCompare(b.username || '');
+    });
+  }
+
+  sortedRows.forEach((row, index) => {
     const tr = document.createElement('tr');
     const isYou = session && row.username === session.username;
     if (isYou) {
@@ -1024,13 +1194,14 @@ function renderLeaderboard(rows, session) {
       checkMilestoneCelebration(row.daysCompleted);
     }
 
+    const rankNum = index + 1;
     const rankTd = document.createElement('td');
     rankTd.className = 'rank-cell';
     let rankBadge = '';
-    if (row.rank === 1) rankBadge = ' 🏆';
-    else if (row.rank === 2) rankBadge = ' 🥈';
-    else if (row.rank === 3) rankBadge = ' 🥉';
-    rankTd.textContent = `${row.rank}${rankBadge}`;
+    if (rankNum === 1) rankBadge = ' 🏆';
+    else if (rankNum === 2) rankBadge = ' 🥈';
+    else if (rankNum === 3) rankBadge = ' 🥉';
+    rankTd.textContent = `${rankNum}${rankBadge}`;
 
     const readerTd = document.createElement('td');
     readerTd.className = 'reader-cell' + (isYou ? ' is-you' : '');
@@ -1209,6 +1380,88 @@ function renderWeeklyRecap(recap) {
   document.getElementById('recap-total-days').textContent = possibleReads > 0
     ? `${actualReads} / ${possibleReads}`
     : `${actualReads}`;
+
+  // Render the communal 13x7 Squad Reading Heatmap Matrix
+  renderSquadMatrix(recap);
+}
+
+function renderSquadMatrix(recap) {
+  const thead = document.getElementById('squad-matrix-thead');
+  const tbody = document.getElementById('squad-matrix-tbody');
+  if (!thead || !tbody) return;
+
+  const weekDays = (recap && recap.stats && recap.stats.weekDays) || [];
+  const squadMatrix = (recap && recap.stats && recap.stats.squadMatrix) || [];
+
+  if (!squadMatrix.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="squad-matrix-loading">No squad matrix data for this week yet.</td></tr>';
+    return;
+  }
+
+  // Render Table Header with dynamic Days (e.g., D1, D2, ... or Day 1, Day 2)
+  thead.innerHTML = '';
+  const headTr = document.createElement('tr');
+  const youthTh = document.createElement('th');
+  youthTh.textContent = 'Youth';
+  headTr.appendChild(youthTh);
+
+  const numCols = weekDays.length > 0 ? weekDays.length : 7;
+  for (let c = 0; c < numCols; c++) {
+    const dayTh = document.createElement('th');
+    const dayInfo = weekDays[c];
+    if (dayInfo) {
+      dayTh.textContent = `D${dayInfo.day}`;
+      dayTh.title = `Day ${dayInfo.day}: ${dayInfo.date}`;
+    } else {
+      dayTh.textContent = `D${c + 1}`;
+    }
+    headTr.appendChild(dayTh);
+  }
+
+  const totalTh = document.createElement('th');
+  totalTh.textContent = 'Total';
+  headTr.appendChild(totalTh);
+  thead.appendChild(headTr);
+
+  // Render Table Body for each member
+  tbody.innerHTML = '';
+  squadMatrix.forEach(member => {
+    const tr = document.createElement('tr');
+    const curSession = getSession();
+    if (curSession && member.username.toLowerCase() === curSession.username.toLowerCase()) {
+      tr.classList.add('is-you');
+    }
+
+    const nameTd = document.createElement('td');
+    nameTd.className = 'matrix-user-name';
+    nameTd.textContent = member.username;
+    tr.appendChild(nameTd);
+
+    (member.days || []).forEach(dayObj => {
+      const dayTd = document.createElement('td');
+      const cellSpan = document.createElement('span');
+      cellSpan.className = 'squad-matrix-cell';
+
+      if (dayObj.read) {
+        cellSpan.classList.add('read');
+        cellSpan.textContent = '✓';
+        cellSpan.title = `${member.username} read Day ${dayObj.day} (${dayObj.date})`;
+      } else {
+        cellSpan.classList.add('unread');
+        cellSpan.textContent = '·';
+        cellSpan.title = `${member.username} has not marked Day ${dayObj.day} (${dayObj.date})`;
+      }
+      dayTd.appendChild(cellSpan);
+      tr.appendChild(dayTd);
+    });
+
+    const totalTd = document.createElement('td');
+    totalTd.className = 'matrix-user-total';
+    totalTd.textContent = `${member.totalReadThisWeek}/${member.days.length}`;
+    tr.appendChild(totalTd);
+
+    tbody.appendChild(tr);
+  });
 }
 
 // ====== SECTION 3B: ALL TIME STATS ======
@@ -3725,6 +3978,334 @@ function renderTodayPortionDetail(portionText, dayNum, session) {
         chipsContainer.appendChild(chip);
       });
     }
+  }
+
+  // Render 3D Verse Flip Card & Youth TL;DR Bite
+  renderVerseFlipCard(portionText, dayNum);
+
+  // Initialize Daily Micro-Trivia / Flash Quiz
+  initDailyQuiz(portionText, dayNum);
+}
+
+// ====== 3D VERSE FLIP CARD & INSTAGRAM STORY COPY ======
+
+const YOUTH_PORTION_TLDR_BITES = {
+  1: "God speaks light into darkness and creates a breathtaking world, crafting you in His divine image with immense purpose.",
+  2: "God establishes His covenant with Abraham, proving that even when we can't see the full path, His promises never fail.",
+  3: "Through trials and betrayal, Joseph stays faithful—reminding us that what was meant to harm us, God turns for good.",
+  4: "God calls Moses at the burning bush, declaring 'I AM WHO I AM'—reminding us that God qualifies who He calls.",
+  5: "The Red Sea parts as God fights for His people: when you face a wall, stand firm and watch God make a way.",
+  6: "God gives the Ten Commandments: loving God wholeheartedly and loving your neighbors as yourself.",
+  7: "Consecrate yourselves and be holy: God desires a pure, dedicated generation to carry His light.",
+  8: "The priestly blessing: 'The Lord bless you and keep you; make His face shine on you and give you peace.'",
+  9: "Be strong and courageous: God promises to go before you and will never leave you nor forsake you.",
+  10: "Joshua takes the promised land: As for me and my household, we will serve the Lord with boldness.",
+  11: "God raises up Gideon and Deborah: He uses ordinary, willing youth to shatter giant obstacles.",
+  12: "Ruth's fierce loyalty: Walking in relentless love and discovering God's providential restoration.",
+  13: "Samuel hears God's voice in the quiet: 'Speak Lord, for your servant is listening.'",
+  14: "David faces Goliath with a sling and unshakable faith: The battle belongs to the Lord!",
+  15: "David's heart after God: Even in sorrow and brokenness, true worship is built on humble repentance."
+};
+
+function getTldrForPortion(portionText, dayNum) {
+  if (dayNum && YOUTH_PORTION_TLDR_BITES[dayNum]) {
+    return YOUTH_PORTION_TLDR_BITES[dayNum];
+  }
+  const parsed = parsePassage(portionText);
+  if (parsed.isCatchUp) {
+    return "Take time to rest, breathe, and catch up on previous readings. God's grace is fresh every morning!";
+  }
+  if (parsed.chapters && parsed.chapters.length > 0) {
+    const book = parsed.chapters[0].bookName;
+    return `Immerse yourself in ${book}—discovering God's faithful character and His living truth for our generation today.`;
+  }
+  return "God's living Word speaks directly into your story today. Meditate on it day and night.";
+}
+
+let isFlipCardWired = false;
+
+function renderVerseFlipCard(portionText, dayNum) {
+  const container = document.getElementById('flip-card-container');
+  const tldrEl = document.getElementById('flip-card-tldr-text');
+  const verseTextEl = document.getElementById('flip-card-verse-text');
+  const verseRefEl = document.getElementById('flip-card-verse-ref');
+  const toggleBtn = document.getElementById('flip-card-toggle-btn');
+  const igCopyBtn = document.getElementById('copy-ig-story-btn');
+
+  if (!container || !tldrEl || !verseTextEl || !verseRefEl) return;
+
+  const tldr = getTldrForPortion(portionText, dayNum);
+  const kv = getKeyVerseForPortion(portionText, dayNum);
+
+  tldrEl.textContent = `"${tldr}"`;
+  verseTextEl.textContent = `"${kv.text}"`;
+  verseRefEl.textContent = `— ${kv.ref}`;
+
+  const toggleFlip = () => {
+    container.classList.toggle('is-flipped');
+    const isFlipped = container.classList.contains('is-flipped');
+    container.setAttribute('aria-expanded', isFlipped ? 'true' : 'false');
+  };
+
+  if (!isFlipCardWired) {
+    container.addEventListener('click', (e) => {
+      // Don't flip if clicking the copy button
+      if (e.target.closest('#copy-ig-story-btn')) return;
+      toggleFlip();
+    });
+
+    container.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleFlip();
+      }
+    });
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFlip();
+      });
+    }
+
+    if (igCopyBtn) {
+      igCopyBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const curKv = getKeyVerseForPortion(portionText, currentDayNum);
+        const dayLabel = currentDayNum ? `DAY ${currentDayNum}` : 'BIBLE 92';
+        const igText = `📖 ${dayLabel} · BIBLE IN 92 DAYS ✨\n\n"${curKv.text}"\n— ${curKv.ref}\n\n🔥 Reading with @tg.youth_\n#BibleIn92Days #YouthGathering2026`;
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(igText);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = igText;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          igCopyBtn.classList.add('copied');
+          igCopyBtn.innerHTML = '<span>✓ Copied to Clipboard!</span>';
+          setTimeout(() => {
+            igCopyBtn.classList.remove('copied');
+            igCopyBtn.innerHTML = `
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              <span>Copy for Instagram Story</span>
+            `;
+          }, 2500);
+        } catch (err) {
+          alert('Could not copy automatically. You can copy the verse text directly!');
+        }
+      });
+    }
+
+    isFlipCardWired = true;
+  }
+}
+
+// ====== DAILY MICRO-TRIVIA / FLASH QUIZ ======
+
+const DAILY_BIBLE_QUIZ_BANK = {
+  1: {
+    question: "In Genesis 1, on which day of Creation did God create light?",
+    options: ["Day 1", "Day 3", "Day 4", "Day 7"],
+    correctIndex: 0,
+    verse: "Genesis 1:3",
+    explanation: "God said, 'Let there be light,' and there was light on the very first day!"
+  },
+  2: {
+    question: "What sign did God place in the sky as a covenant promise never to flood the earth again?",
+    options: ["A shooting star", "A rainbow", "A solar eclipse", "A pillar of cloud"],
+    correctIndex: 1,
+    verse: "Genesis 9:13",
+    explanation: "God placed His rainbow in the clouds as a sign of His everlasting covenant."
+  },
+  3: {
+    question: "What special gift did Jacob give to his beloved son Joseph?",
+    options: ["A golden signet ring", "A silver harp", "An ornate coat of many colors", "A shepherd's staff"],
+    correctIndex: 2,
+    verse: "Genesis 37:3",
+    explanation: "Jacob loved Joseph more than any of his other sons and gave him a richly ornamented coat."
+  },
+  4: {
+    question: "Through what miraculous sight did God first speak to Moses in Midian?",
+    options: ["A roaring thunderstorm", "A bush that burned without being consumed", "An angel in a chariot", "A stone tablet"],
+    correctIndex: 1,
+    verse: "Exodus 3:2",
+    explanation: "The angel of the Lord appeared to Moses in flames of fire from within a bush that did not burn up."
+  },
+  5: {
+    question: "What food did God rain down from heaven each morning for the Israelites in the wilderness?",
+    options: ["Manna", "Figs", "Unleavened bread", "Pomegranates"],
+    correctIndex: 0,
+    verse: "Exodus 16:15",
+    explanation: "God provided manna, a sweet flake-like bread from heaven that sustained them for 40 years."
+  },
+  6: {
+    question: "On which mountain did Moses receive the Ten Commandments from God?",
+    options: ["Mount Carmel", "Mount Sinai (Horeb)", "Mount Nebo", "Mount Zion"],
+    correctIndex: 1,
+    verse: "Exodus 19:20",
+    explanation: "The Lord descended upon the top of Mount Sinai and called Moses to meet Him."
+  },
+  7: {
+    question: "What did the high priest wear on the breastplate representing the 12 tribes of Israel?",
+    options: ["12 precious gemstones", "12 golden bells", "12 olive branches", "12 silver chains"],
+    correctIndex: 0,
+    verse: "Exodus 28:21",
+    explanation: "There were 12 stones on Aaron's breastplate, each engraved like a seal with the name of one of the 12 tribes."
+  },
+  8: {
+    question: "Which tribe of Israel was set apart specifically to serve in the Tabernacle and the priesthood?",
+    options: ["Judah", "Benjamin", "Levi", "Dan"],
+    correctIndex: 2,
+    verse: "Numbers 3:6",
+    explanation: "The tribe of Levi was dedicated to God to assist Aaron and care for the sacred Tabernacle."
+  },
+  9: {
+    question: "How many spies did Moses send out to explore the Promised Land of Canaan?",
+    options: ["7", "10", "12", "70"],
+    correctIndex: 2,
+    verse: "Numbers 13:1–2",
+    explanation: "Moses sent 12 leaders, one from each ancestral tribe of Israel, to explore Canaan."
+  },
+  10: {
+    question: "Which two faithful spies declared that with the Lord's help, Israel could take the land?",
+    options: ["Joshua and Caleb", "Aaron and Hur", "Gideon and Samson", "Moses and Eleazar"],
+    correctIndex: 0,
+    verse: "Numbers 14:6–9",
+    explanation: "Joshua and Caleb urged the people: 'The Lord is with us. Do not be afraid of them!'"
+  }
+};
+
+function getDailyQuizForDay(portionText, dayNum) {
+  if (dayNum && DAILY_BIBLE_QUIZ_BANK[dayNum]) {
+    return DAILY_BIBLE_QUIZ_BANK[dayNum];
+  }
+  // Generic fallback trivia for subsequent portions
+  const parsed = parsePassage(portionText);
+  const bookName = (parsed.chapters && parsed.chapters[0]) ? parsed.chapters[0].bookName : 'Scripture';
+  return {
+    question: `Which key spiritual discipline helps you carry the truth of ${bookName} into your daily life?`,
+    options: [
+      "Consistent prayer and meditating on God's Word",
+      "Reading only when in trouble",
+      "Keeping Scripture closed until Sunday",
+      "Relying solely on your own wisdom"
+    ],
+    correctIndex: 0,
+    verse: "Psalm 119:105",
+    explanation: "Consistent prayer and meditation on God's Word illuminates our path and anchors our faith daily!"
+  };
+}
+
+function initDailyQuiz(portionText, dayNum) {
+  const quizCard = document.getElementById('daily-quiz-card');
+  const questionEl = document.getElementById('quiz-question-text');
+  const optionsGrid = document.getElementById('quiz-options-grid');
+  const feedbackBox = document.getElementById('quiz-feedback-box');
+  const feedbackMsg = document.getElementById('quiz-feedback-msg');
+  const explanationEl = document.getElementById('quiz-explanation-text');
+  const statusPill = document.getElementById('quiz-status-pill');
+
+  if (!quizCard || !questionEl || !optionsGrid || !feedbackBox) return;
+
+  const quiz = getDailyQuizForDay(portionText, dayNum);
+  const todayStr = formatDDMMYY(new Date());
+  const session = getSession();
+  const uname = session ? session.username.toLowerCase() : 'guest';
+  const solvedKey = `bible92_quiz_status_${todayStr}_${uname}`;
+  const correctKey = `bible92_quiz_correct_${todayStr}_${uname}`;
+
+  questionEl.textContent = quiz.question;
+  optionsGrid.innerHTML = '';
+  feedbackBox.hidden = true;
+
+  const previousAnswer = localStorage.getItem(solvedKey);
+
+  quiz.options.forEach((optText, optIdx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quiz-option-btn';
+    btn.innerHTML = `<span class="opt-letter">${String.fromCharCode(65 + optIdx)}.</span> <span>${optText}</span>`;
+
+    if (previousAnswer !== null) {
+      btn.disabled = true;
+      const chosenIdx = parseInt(previousAnswer, 10);
+      if (optIdx === quiz.correctIndex) {
+        btn.classList.add('selected-correct');
+      } else if (optIdx === chosenIdx) {
+        btn.classList.add('selected-wrong');
+      }
+    } else {
+      btn.addEventListener('click', () => {
+        handleQuizSubmission(optIdx, quiz, todayStr, uname);
+      });
+    }
+
+    optionsGrid.appendChild(btn);
+  });
+
+  if (previousAnswer !== null) {
+    const isCorrect = localStorage.getItem(correctKey) === '1';
+    statusPill.textContent = isCorrect ? '🌟 Solved · Scholar Awarded' : '✓ Completed';
+    feedbackBox.hidden = false;
+    feedbackMsg.className = 'quiz-feedback-msg ' + (isCorrect ? 'correct' : 'wrong');
+    feedbackMsg.textContent = isCorrect ? '🎉 Correct! You unlocked the Scholar Crown!' : 'Keep digging in God\'s Word!';
+    explanationEl.textContent = `${quiz.explanation} (${quiz.verse})`;
+  } else {
+    statusPill.textContent = '1 Question';
+  }
+}
+
+function handleQuizSubmission(chosenIdx, quiz, todayStr, uname) {
+  const solvedKey = `bible92_quiz_status_${todayStr}_${uname}`;
+  const correctKey = `bible92_quiz_correct_${todayStr}_${uname}`;
+  const isCorrect = chosenIdx === quiz.correctIndex;
+
+  localStorage.setItem(solvedKey, String(chosenIdx));
+  if (isCorrect) {
+    localStorage.setItem(correctKey, '1');
+    celebrate(false);
+  }
+
+  const feedbackBox = document.getElementById('quiz-feedback-box');
+  const feedbackMsg = document.getElementById('quiz-feedback-msg');
+  const explanationEl = document.getElementById('quiz-explanation-text');
+  const statusPill = document.getElementById('quiz-status-pill');
+  const optionsGrid = document.getElementById('quiz-options-grid');
+
+  if (optionsGrid) {
+    const buttons = optionsGrid.querySelectorAll('.quiz-option-btn');
+    buttons.forEach((btn, idx) => {
+      btn.disabled = true;
+      if (idx === quiz.correctIndex) {
+        btn.classList.add('selected-correct');
+      } else if (idx === chosenIdx) {
+        btn.classList.add('selected-wrong');
+      }
+    });
+  }
+
+  if (statusPill) {
+    statusPill.textContent = isCorrect ? '🌟 Solved · Scholar Awarded' : '✓ Completed';
+  }
+
+  if (feedbackBox && feedbackMsg && explanationEl) {
+    feedbackBox.hidden = false;
+    feedbackMsg.className = 'quiz-feedback-msg ' + (isCorrect ? 'correct' : 'wrong');
+    feedbackMsg.textContent = isCorrect
+      ? '🎉 Correct! You earned the 📜 Scholar badge on the leaderboard!'
+      : `Almost! The correct answer is: ${quiz.options[quiz.correctIndex]}`;
+    explanationEl.textContent = `${quiz.explanation} (${quiz.verse})`;
+  }
+
+  // Re-render leaderboard to immediately reflect the 📜 Scholar badge
+  const curSession = getSession();
+  if (currentLeaderboard && currentLeaderboard.length > 0) {
+    renderLeaderboard(currentLeaderboard, curSession);
   }
 }
 
