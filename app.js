@@ -1161,6 +1161,10 @@ function renderLeaderboard(rows, session) {
       const sB = Math.min(b.streak || 0, b.daysCompleted || 0);
       if (sB !== sA) return sB - sA;
       if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+      if (a.lastReadTimestamp > 0 && b.lastReadTimestamp > 0) {
+        if (a.lastReadTimestamp !== b.lastReadTimestamp) return a.lastReadTimestamp - b.lastReadTimestamp;
+      } else if (a.lastReadTimestamp > 0) return -1;
+      else if (b.lastReadTimestamp > 0) return 1;
       return (a.username || '').localeCompare(b.username || '');
     });
   } else if (activeLeaderboardFilter === 'level') {
@@ -1169,6 +1173,13 @@ function renderLeaderboard(rows, session) {
       const lB = b.levelNum || 1;
       if (lB !== lA) return lB - lA;
       if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+      if (a.lastReadTimestamp > 0 && b.lastReadTimestamp > 0) {
+        if (a.lastReadTimestamp !== b.lastReadTimestamp) return a.lastReadTimestamp - b.lastReadTimestamp;
+      } else if (a.lastReadTimestamp > 0) return -1;
+      else if (b.lastReadTimestamp > 0) return 1;
+      const sA = a.streak || 0;
+      const sB = b.streak || 0;
+      if (sB !== sA) return sB - sA;
       return (a.username || '').localeCompare(b.username || '');
     });
   } else {
@@ -1318,30 +1329,53 @@ function renderWeeklyRecap(recap) {
   if (!recap || !recap.stats) return;
 
   const select = document.getElementById('recap-week-select');
-  if (select && select.children.length === 0) {
-    select.innerHTML = '';
+  const matrixSelect = document.getElementById('squad-matrix-week-select');
+
+  const populateWeekSelect = (el) => {
+    if (!el || el.children.length > 0) return;
+    el.innerHTML = '';
     const total = recap.totalWeeks || 14;
     for (let w = 1; w <= total; w++) {
       const opt = document.createElement('option');
       opt.value = w;
       opt.textContent = `Week ${w}` + (w === recap.currentWeek ? ' (Current)' : '');
-      select.appendChild(opt);
+      el.appendChild(opt);
     }
-    select.value = recap.weekNum;
+  };
 
-    select.addEventListener('change', async (e) => {
-      const selectedWeek = parseInt(e.target.value, 10);
-      try {
-        const res = await apiGet({ action: 'getWeeklyRecap', weekNum: selectedWeek });
-        if (res.success) {
-          renderWeeklyRecap(res);
-          if (res.allTimeStats) {
-            renderAllTimeStats(res.allTimeStats);
-          }
+  populateWeekSelect(select);
+  populateWeekSelect(matrixSelect);
+
+  if (select) select.value = recap.weekNum;
+  if (matrixSelect) matrixSelect.value = recap.weekNum;
+
+  const handleWeekChange = async (selectedWeek) => {
+    if (select) select.value = selectedWeek;
+    if (matrixSelect) matrixSelect.value = selectedWeek;
+    try {
+      const res = await apiGet({ action: 'getWeeklyRecap', weekNum: selectedWeek });
+      if (res.success) {
+        renderWeeklyRecap(res);
+        if (res.allTimeStats) {
+          renderAllTimeStats(res.allTimeStats);
         }
-      } catch (err) {
-        // silent fail
       }
+    } catch (err) {
+      // silent fail
+    }
+  };
+
+  if (select && !select.dataset.bound) {
+    select.dataset.bound = 'true';
+    select.addEventListener('change', (e) => {
+      handleWeekChange(parseInt(e.target.value, 10));
+    });
+  }
+
+  if (matrixSelect && !matrixSelect.dataset.bound) {
+    matrixSelect.dataset.bound = 'true';
+    matrixSelect.addEventListener('change', (e) => {
+      handleWeekChange(parseInt(e.target.value, 10));
     });
   }
 
@@ -1481,12 +1515,12 @@ function renderAllTimeStats(allTimeStats, leaderboard) {
       });
       const topReaders = leaderboard.filter(u => u.daysCompleted === maxDays).map(u => u.username).slice(0, 3);
       const topStreakers = leaderboard.filter(u => u.streak === maxStreak && maxStreak > 0).map(u => u.username).slice(0, 3);
-      const curDay = (typeof currentTodayPortion !== 'undefined' && currentTodayPortion && currentTodayPortion.dayNumber) ? currentTodayPortion.dayNumber : 25;
-      const totalPossible = curDay * leaderboard.length;
-      const pct = totalPossible > 0 ? Math.round((totalDays / totalPossible) * 100) : 0;
+      const totalPossible = 92 * (leaderboard.length || 13);
+      const pct = totalPossible > 0 ? Number(((totalDays / totalPossible) * 100).toFixed(2)) : 0;
       allTimeStats = {
         completionPct: pct,
         totalGroupDaysCompleted: totalDays,
+        totalPossibleDays: totalPossible,
         topReaders: topReaders,
         maxDays: maxDays,
         topStreakHolders: topStreakers,
@@ -1497,8 +1531,17 @@ function renderAllTimeStats(allTimeStats, leaderboard) {
     }
   }
 
+  const totalPossible = allTimeStats.totalPossibleDays || (92 * 13);
+  const totalDays = allTimeStats.totalGroupDaysCompleted || 0;
+  let pctVal = allTimeStats.completionPct;
+  if (pctVal === undefined || pctVal === null || isNaN(pctVal)) {
+    pctVal = totalPossible > 0 ? ((totalDays / totalPossible) * 100).toFixed(2) : '0.00';
+  } else {
+    pctVal = Number(pctVal).toFixed(2);
+  }
+
   const pctEl = document.getElementById('alltime-pct');
-  if (pctEl) pctEl.textContent = `${allTimeStats.completionPct}%`;
+  if (pctEl) pctEl.textContent = `${pctVal}%`;
 
   const topReaderEl = document.getElementById('alltime-top-reader');
   if (topReaderEl) {
@@ -1522,7 +1565,7 @@ function renderAllTimeStats(allTimeStats, leaderboard) {
 
   const totalDaysEl = document.getElementById('alltime-total-days');
   if (totalDaysEl) {
-    totalDaysEl.textContent = allTimeStats.totalGroupDaysCompleted || 0;
+    totalDaysEl.textContent = `${totalDays} / ${totalPossible}`;
   }
 }
 
@@ -4491,6 +4534,22 @@ function filterSidebarPortions(query) {
     const indexItem = buildScheduleItemSearchIndex(item);
     return matchesScheduleQuery(indexItem, qTrimmed);
   });
+
+  if (/^\d+$/.test(qTrimmed)) {
+    filtered.sort((a, b) => {
+      const getDigitTier = (item) => {
+        const dStr = String(item.day !== undefined && item.day !== null ? item.day : '').trim();
+        if (dStr === qTrimmed) return 1;
+        if (dStr.startsWith(qTrimmed)) return 2;
+        if (dStr.includes(qTrimmed)) return 3;
+        return 4;
+      };
+      const tierA = getDigitTier(a);
+      const tierB = getDigitTier(b);
+      if (tierA !== tierB) return tierA - tierB;
+      return (a.day || 0) - (b.day || 0);
+    });
+  }
 
   if (countEl) {
     if (qTrimmed) {
