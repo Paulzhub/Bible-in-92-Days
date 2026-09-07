@@ -2731,6 +2731,16 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   box-shadow: 0 0 14px rgba(232, 169, 59, 0.25);
 }
 
+@keyframes currentDayPulse {
+  0% { transform: scale(1); box-shadow: 0 0 14px rgba(232, 169, 59, 0.25); }
+  50% { transform: scale(1.02); box-shadow: 0 0 22px rgba(232, 169, 59, 0.55); }
+  100% { transform: scale(1); box-shadow: 0 0 14px rgba(232, 169, 59, 0.25); }
+}
+
+.sidebar-portion-item.current-day.pulse-highlight {
+  animation: currentDayPulse 1.2s ease-in-out;
+}
+
 .sidebar-chips-row {
   display: flex;
   flex-wrap: wrap;

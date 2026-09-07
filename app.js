@@ -11,6 +11,7 @@ const TOTAL_CHALLENGE_DAYS = 92;
 let currentUserData = null;
 let currentLeaderboard = [];
 let currentWeeklyRecap = null;
+let activeSelectedWeek = null;
 let currentNudges = [];
 let nudgedTargetsToday = new Set();
 let prayersCache = [];
@@ -951,6 +952,7 @@ async function loadInitialData(session, retryCount = 0) {
   try {
     if (res.recap && res.recap.success) {
       currentWeeklyRecap = res.recap;
+      activeSelectedWeek = res.recap.weekNum;
       renderWeeklyRecap(res.recap);
     }
     const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
@@ -1018,8 +1020,10 @@ async function loadUpdates(session) {
 
     try {
       if (res.recap && res.recap.success) {
-        currentWeeklyRecap = res.recap;
-        renderWeeklyRecap(res.recap);
+        if (!activeSelectedWeek || activeSelectedWeek === res.recap.weekNum) {
+          currentWeeklyRecap = res.recap;
+          renderWeeklyRecap(res.recap);
+        }
       }
       const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
       renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
@@ -1107,10 +1111,10 @@ function parseDDMMYY(str) {
 
 // ====== SECTION 2: LEADERBOARD ======
 
-function badgeFor(daysCompleted) {
+function badgeFor(daysCompleted, streak) {
   if (daysCompleted >= TOTAL_CHALLENGE_DAYS) return { icon: '🏆', label: 'Finished all 92 days!' };
   if (daysCompleted >= 46) return { icon: '🌟', label: 'Halfway there — 46+ days' };
-  if (daysCompleted >= 5) {
+  if (daysCompleted >= 5 && streak > 0) {
     const tier = Math.floor(daysCompleted / 5) * 5;
     return { icon: '🔥', label: tier + '-day milestone' };
   }
@@ -1236,8 +1240,9 @@ function renderLeaderboard(rows, session) {
       nameRow.appendChild(tag);
     }
 
-    const badge = badgeFor(row.daysCompleted);
-    if (badge) {
+    const safeStreak = Math.min(row.streak || 0, row.daysCompleted || 0);
+    const badge = badgeFor(row.daysCompleted, safeStreak);
+    if (badge && (badge.icon !== '🔥' || safeStreak > 0)) {
       const badgeEl = document.createElement('span');
       badgeEl.className = 'badge-icon';
       badgeEl.textContent = badge.icon;
@@ -1299,7 +1304,6 @@ function renderLeaderboard(rows, session) {
 
     readerTd.appendChild(nameRow);
 
-    const safeStreak = Math.min(row.streak || 0, row.daysCompleted || 0);
     const streakEl = document.createElement('span');
     streakEl.className = 'reader-streak';
     streakEl.innerHTML = safeStreak > 0
@@ -1350,6 +1354,7 @@ function renderWeeklyRecap(recap) {
   if (matrixSelect) matrixSelect.value = recap.weekNum;
 
   const handleWeekChange = async (selectedWeek) => {
+    activeSelectedWeek = selectedWeek;
     if (select) select.value = selectedWeek;
     if (matrixSelect) matrixSelect.value = selectedWeek;
     try {
@@ -4382,9 +4387,9 @@ function initReadingSidebar() {
     setTimeout(() => {
       const currentEl = sidebar.querySelector('.sidebar-portion-item.current-day');
       if (currentEl) {
-        currentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        currentEl.scrollIntoView({ behavior: 'instant', block: 'center' });
       }
-    }, 350);
+    }, 150);
   };
 
   const closeSidebar = () => {
@@ -4536,17 +4541,56 @@ function filterSidebarPortions(query) {
   });
 
   if (/^\d+$/.test(qTrimmed)) {
+    const qNum = parseInt(qTrimmed, 10);
+
+    const getPortionChapterMatch = (item) => {
+      const parsed = parsePassage(item.portion);
+      if (!parsed || !parsed.chapters || parsed.chapters.length === 0) {
+        return { bookId: 999, chapter: 999 };
+      }
+      const exactCh = parsed.chapters.find(c => c.chapter === qNum);
+      if (exactCh) return { bookId: exactCh.bookId || 999, chapter: exactCh.chapter };
+
+      const subCh = parsed.chapters.find(c => String(c.chapter).includes(qTrimmed));
+      if (subCh) return { bookId: subCh.bookId || 999, chapter: subCh.chapter };
+
+      const firstCh = parsed.chapters[0];
+      return { bookId: firstCh.bookId || 999, chapter: firstCh.chapter };
+    };
+
     filtered.sort((a, b) => {
-      const getDigitTier = (item) => {
-        const dStr = String(item.day !== undefined && item.day !== null ? item.day : '').trim();
-        if (dStr === qTrimmed) return 1;
-        if (dStr.startsWith(qTrimmed)) return 2;
-        if (dStr.includes(qTrimmed)) return 3;
-        return 4;
-      };
-      const tierA = getDigitTier(a);
-      const tierB = getDigitTier(b);
-      if (tierA !== tierB) return tierA - tierB;
+      const dStrA = String(a.day !== undefined && a.day !== null ? a.day : '').trim();
+      const dStrB = String(b.day !== undefined && b.day !== null ? b.day : '').trim();
+
+      const aIsDayMatch = dStrA.includes(qTrimmed) || a.day === qNum;
+      const bIsDayMatch = dStrB.includes(qTrimmed) || b.day === qNum;
+
+      // 1. Days first in ascending order
+      if (aIsDayMatch && !bIsDayMatch) return -1;
+      if (!aIsDayMatch && bIsDayMatch) return 1;
+
+      if (aIsDayMatch && bIsDayMatch) {
+        const aExact = (dStrA === qTrimmed || a.day === qNum);
+        const bExact = (dStrB === qTrimmed || b.day === qNum);
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        return (a.day || 0) - (b.day || 0);
+      }
+
+      // 2. Bible chapters in canonical biblical order (bookId 1 to 66)
+      const matchA = getPortionChapterMatch(a);
+      const matchB = getPortionChapterMatch(b);
+
+      if (matchA.bookId !== matchB.bookId) {
+        return matchA.bookId - matchB.bookId;
+      }
+
+      // 3. Chapters in ascending order
+      if (matchA.chapter !== matchB.chapter) {
+        return matchA.chapter - matchB.chapter;
+      }
+
+      // 4. Fallback to Day ascending
       return (a.day || 0) - (b.day || 0);
     });
   }
@@ -4614,6 +4658,17 @@ function filterSidebarPortions(query) {
 
     listEl.appendChild(el);
   });
+
+  if (!qTrimmed) {
+    requestAnimationFrame(() => {
+      const currentEl = listEl.querySelector('.sidebar-portion-item.current-day');
+      if (currentEl) {
+        currentEl.scrollIntoView({ behavior: 'instant', block: 'center' });
+        currentEl.classList.add('pulse-highlight');
+        setTimeout(() => currentEl.classList.remove('pulse-highlight'), 1200);
+      }
+    });
+  }
 }
 
 // ====== SECTION SCROLL TRANSITIONS ======
