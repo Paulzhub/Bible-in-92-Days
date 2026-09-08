@@ -240,14 +240,216 @@ function initBrowserLifecycleHandlers() {
   } catch (e) {}
 }
 
+// Register Service Worker for PWA Offline Caching
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
+
+function getChallengeDayForDate(date) {
+  const start = new Date(2026, 7, 10); // August 10, 2026
+  const cur = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((cur - start) / (1000 * 60 * 60 * 24)) + 1;
+  if (diffDays < 1) return 1;
+  if (diffDays > 92) return 92;
+  return diffDays;
+}
+
+function ensureSessionAndOpenReader(dayNum, portionStr) {
+  let session = getSession();
+  if (!session) {
+    const clientSessionId = 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    session = {
+      username: 'Guest1',
+      password: 'Guest1@123',
+      isGuest: true,
+      isAdmin: false,
+      sessionId: clientSessionId,
+      lastActivity: Date.now(),
+      loginTime: Date.now()
+    };
+    setSession(session);
+    showSite(session);
+  }
+
+  if (!portionStr) {
+    const cardEl = document.getElementById(`day-${dayNum}`);
+    if (cardEl) {
+      const pEl = cardEl.querySelector('.public-day-portion');
+      if (pEl) portionStr = pEl.textContent.trim();
+    }
+  }
+
+  setTimeout(() => {
+    openReaderModal({ portion: portionStr || `Day ${dayNum}`, day: dayNum });
+  }, 200);
+}
+
+function initPublicTodayPreview() {
+  const dayNum = getChallengeDayForDate(new Date());
+  const dayCard = document.getElementById(`day-${dayNum}`);
+
+  const dayNumEl = document.getElementById('public-today-day-num');
+  const dateBadgeEl = document.getElementById('public-today-date-badge');
+  const portionEl = document.getElementById('public-today-portion-text');
+  const readBtn = document.getElementById('public-read-today-btn');
+
+  let portionText = 'Genesis 1-13';
+  let dateText = '10/08/26';
+
+  if (dayCard) {
+    const cardPortion = dayCard.querySelector('.public-day-portion');
+    const cardDate = dayCard.querySelector('.public-day-date');
+    if (cardPortion) portionText = cardPortion.textContent.trim();
+    if (cardDate) dateText = cardDate.textContent.trim();
+  }
+
+  if (dayNumEl) dayNumEl.textContent = `Day ${dayNum}`;
+  if (dateBadgeEl) {
+    const now = new Date();
+    dateBadgeEl.textContent = `${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} (Day ${dayNum} of 92)`;
+  }
+  if (portionEl) portionEl.textContent = portionText;
+
+  if (readBtn) {
+    readBtn.addEventListener('click', () => {
+      ensureSessionAndOpenReader(dayNum, portionText);
+    });
+  }
+}
+
+function initPublicScheduleFeatures() {
+  const searchInput = document.getElementById('public-schedule-search');
+  const searchClear = document.getElementById('public-search-clear');
+  const phaseChips = document.querySelectorAll('#public-phase-chips .phase-chip');
+  const countEl = document.getElementById('public-schedule-count');
+  const cards = document.querySelectorAll('.public-day-card');
+  const printBtn = document.getElementById('print-schedule-btn');
+
+  let activePhase = 'all';
+
+  function filterCards() {
+    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    if (searchClear) searchClear.hidden = !query;
+
+    let visibleCount = 0;
+    cards.forEach((card) => {
+      const day = card.getAttribute('data-day') || '';
+      const phase = card.getAttribute('data-phase') || '';
+      const text = card.textContent.toLowerCase();
+
+      const matchesPhase = activePhase === 'all' || phase === activePhase;
+      const matchesQuery = !query || text.includes(query) || (`day ${day}`.includes(query));
+
+      if (matchesPhase && matchesQuery) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (countEl) {
+      countEl.textContent = `Showing ${visibleCount} of ${cards.length} days`;
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', filterCards);
+  }
+  if (searchClear) {
+    searchClear.addEventListener('click', () => {
+      searchInput.value = '';
+      filterCards();
+      searchInput.focus();
+    });
+  }
+
+  phaseChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      phaseChips.forEach((c) => c.classList.remove('active'));
+      chip.classList.add('active');
+      activePhase = chip.getAttribute('data-phase') || 'all';
+      filterCards();
+    });
+  });
+
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  document.querySelectorAll('.btn-public-read').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const day = Number(btn.getAttribute('data-day'));
+      const portion = btn.getAttribute('data-portion');
+      ensureSessionAndOpenReader(day, portion);
+    });
+  });
+}
+
+function checkUrlDeepLinks(session) {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const dayParam = params.get('day') || params.get('read');
+    const qParam = params.get('q');
+
+    if (dayParam) {
+      const dNum = parseInt(dayParam, 10);
+      if (!isNaN(dNum) && dNum >= 1 && dNum <= 92) {
+        ensureSessionAndOpenReader(dNum);
+        return;
+      }
+    }
+
+    if (window.location.hash) {
+      const hashMatch = window.location.hash.match(/^#day-(\d+)$/i);
+      if (hashMatch) {
+        const dNum = parseInt(hashMatch[1], 10);
+        if (!isNaN(dNum) && dNum >= 1 && dNum <= 92) {
+          const card = document.getElementById(`day-${dNum}`);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.borderColor = 'var(--accent)';
+            card.style.boxShadow = '0 0 16px rgba(212, 175, 55, 0.4)';
+          }
+        }
+      }
+    }
+
+    if (qParam) {
+      const searchInput = document.getElementById('public-schedule-search');
+      if (searchInput) {
+        searchInput.value = qParam;
+        searchInput.dispatchEvent(new Event('input'));
+        const scheduleSection = document.getElementById('full-schedule-section');
+        if (scheduleSection) {
+          scheduleSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Deep link handling error:', e);
+  }
+}
+
 function initLogin() {
   initBrowserLifecycleHandlers();
   initPasswordToggle();
+  initPublicTodayPreview();
+  initPublicScheduleFeatures();
   const session = getSession();
   if (session) {
     showSite(session);
+    checkUrlDeepLinks(session);
     return;
   }
+  checkUrlDeepLinks(null);
 
   const form = document.getElementById('login-form');
   const errorEl = document.getElementById('login-error');

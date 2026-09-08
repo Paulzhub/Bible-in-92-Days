@@ -270,6 +270,24 @@
         </p>
       </header>
 
+            <!-- DYNAMIC REAL-TIME "TODAY'S READING" PUBLIC PREVIEW CARD -->
+      <section id="public-today-preview" class="public-today-preview-card" aria-label="Today's Live Reading Portion">
+        <div class="today-preview-badge-row">
+          <span class="live-pulse-dot" aria-hidden="true"></span>
+          <span class="today-preview-badge">TODAY'S LIVE READING PORTION</span>
+          <span id="public-today-date-badge" class="today-preview-date">August 10, 2026 – November 9, 2026</span>
+        </div>
+        <div class="today-preview-content">
+          <div class="today-preview-text-wrap">
+            <span id="public-today-day-num" class="today-preview-day">Day 1</span>
+            <h3 id="public-today-portion-text" class="today-preview-portion">Genesis 1-13</h3>
+          </div>
+          <button type="button" id="public-read-today-btn" class="btn btn-primary btn-today-read">
+            <span>📖 Read Today's Portion Now</span>
+          </button>
+        </div>
+      </section>
+
       <!-- 2. Fast Facts & Key Metrics Grid -->
       <section class="seo-stats-grid" aria-label="Key Facts & Challenge Metrics">
         <div class="seo-stat-card">
@@ -368,6 +386,1390 @@
           </div>
         </div>
       </section>
+
+            <!-- GEO COMPARATIVE PACING TABLE -->
+      <section id="pacing-comparison-section" class="public-hub-section" aria-label="Reading Plan Comparison">
+        <div class="section-badge-wrap">
+          <span class="section-tag">COMPARISON</span>
+          <h3 class="section-heading">92-Day Bible Plan vs. Other Reading Plans</h3>
+          <p class="section-desc">See how the 92-Day Canonical Chronological Challenge compares to standard 90-day sprints and traditional 1-year plans.</p>
+        </div>
+        <div class="comparison-table-wrap">
+          <table class="comparison-table" aria-label="Bible Reading Plan Comparison Table">
+            <thead>
+              <tr>
+                <th scope="col">Plan Type</th>
+                <th scope="col">Total Duration</th>
+                <th scope="col">Daily Chapters</th>
+                <th scope="col">Daily Time</th>
+                <th scope="col">Audio & Gamification</th>
+                <th scope="col">Key Strength</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="highlight-row">
+                <th scope="row">
+                  <strong>Project Bible in 92 Days</strong>
+                  <span class="table-badge">Our Plan</span>
+                </th>
+                <td>92 Days (3 Months)</td>
+                <td>~12–14 ch/day</td>
+                <td>45–60 mins</td>
+                <td>✅ 7 Translations Audio + Streak Freezes</td>
+                <td>Maximum narrative immersion with peer squad accountability</td>
+              </tr>
+              <tr>
+                <th scope="row">Standard 90-Day Challenge</th>
+                <td>90 Days</td>
+                <td>~13.2 ch/day</td>
+                <td>50–65 mins</td>
+                <td>❌ None / Solo PDF</td>
+                <td>Rapid completion, but lacks community streaks and audio tools</td>
+              </tr>
+              <tr>
+                <th scope="row">Traditional 1-Year Plan</th>
+                <td>365 Days</td>
+                <td>3–4 ch/day</td>
+                <td>15–20 mins</td>
+                <td>⚠️ Varies by app</td>
+                <td>Gentle daily pace, but higher long-term dropout rate</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FULL 92-DAY CRAWLABLE READING SCHEDULE (Searchable, Printable & Deep-Linkable) -->
+      <section id="full-schedule-section" class="public-hub-section" aria-label="Complete 92-Day Reading Schedule">
+        <div class="section-badge-wrap">
+          <span class="section-tag">SCHEDULE</span>
+          <h3 class="section-heading">Complete 92-Day Reading Schedule</h3>
+          <p class="section-desc">Search portions, filter by phase, jump directly to any day, or print the full 92-day checklist.</p>
+        </div>
+        <div class="public-schedule-controls">
+          <div class="schedule-search-box">
+            <span class="schedule-search-icon" aria-hidden="true">🔍</span>
+            <input type="text" id="public-schedule-search" class="schedule-search-input" placeholder="Search Day, Book, or Date (e.g. Day 5, Genesis, 10/08)…" aria-label="Search 92-day schedule">
+            <button type="button" id="public-search-clear" class="schedule-search-clear" aria-label="Clear schedule search" hidden>&times;</button>
+          </div>
+          <div class="schedule-filter-actions">
+            <div id="public-phase-chips" class="phase-chips-group">
+              <button type="button" class="phase-chip active" data-phase="all">All (92)</button>
+              <button type="button" class="phase-chip" data-phase="1">Phase 1 (Law)</button>
+              <button type="button" class="phase-chip" data-phase="2">Phase 2 (History)</button>
+              <button type="button" class="phase-chip" data-phase="3">Phase 3 (Poetry)</button>
+              <button type="button" class="phase-chip" data-phase="4">Phase 4 (Prophets)</button>
+              <button type="button" class="phase-chip" data-phase="5">Phase 5 (Gospels)</button>
+              <button type="button" class="phase-chip" data-phase="6">Phase 6 (Epistles)</button>
+            </div>
+            <button type="button" id="print-schedule-btn" class="btn btn-secondary btn-print-schedule" title="Print or Save Schedule as PDF">
+              <span>🖨️ Print / Save as PDF</span>
+            </button>
+          </div>
+        </div>
+        <div id="public-schedule-count" class="public-schedule-count">Showing all 92 days</div>
+        <div id="public-schedule-grid" class="public-schedule-grid">
+          <div class="public-day-card" id="day-1" data-day="1" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 1</span>
+              <span class="public-day-date">10/08/26</span>
+            </div>
+            <p class="public-day-portion">Genesis 1-13</p>
+            <button type="button" class="btn-public-read" data-day="1" data-portion="Genesis 1-13" title="Read Day 1 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-2" data-day="2" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 2</span>
+              <span class="public-day-date">11/08/26</span>
+            </div>
+            <p class="public-day-portion">Genesis 14–26, Psalm 1, Matthew 1</p>
+            <button type="button" class="btn-public-read" data-day="2" data-portion="Genesis 14–26, Psalm 1, Matthew 1" title="Read Day 2 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-3" data-day="3" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 3</span>
+              <span class="public-day-date">12/08/26</span>
+            </div>
+            <p class="public-day-portion">Genesis 27–39, Psalm 2, Matthew 2</p>
+            <button type="button" class="btn-public-read" data-day="3" data-portion="Genesis 27–39, Psalm 2, Matthew 2" title="Read Day 3 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-4" data-day="4" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 4</span>
+              <span class="public-day-date">13/08/26</span>
+            </div>
+            <p class="public-day-portion">Genesis 40–50, Exodus 1–2, Psalm 3, Matthew 3</p>
+            <button type="button" class="btn-public-read" data-day="4" data-portion="Genesis 40–50, Exodus 1–2, Psalm 3, Matthew 3" title="Read Day 4 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-5" data-day="5" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 5</span>
+              <span class="public-day-date">14/08/26</span>
+            </div>
+            <p class="public-day-portion">Exodus 3–15, Psalm 4, Matthew 4</p>
+            <button type="button" class="btn-public-read" data-day="5" data-portion="Exodus 3–15, Psalm 4, Matthew 4" title="Read Day 5 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-6" data-day="6" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 6</span>
+              <span class="public-day-date">15/08/26</span>
+            </div>
+            <p class="public-day-portion">Exodus 16–28, Psalm 5, Matthew 5</p>
+            <button type="button" class="btn-public-read" data-day="6" data-portion="Exodus 16–28, Psalm 5, Matthew 5" title="Read Day 6 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-7" data-day="7" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 7</span>
+              <span class="public-day-date">16/08/26</span>
+            </div>
+            <p class="public-day-portion">Exodus 29–40, Leviticus 1, Psalm 6, Matthew 6</p>
+            <button type="button" class="btn-public-read" data-day="7" data-portion="Exodus 29–40, Leviticus 1, Psalm 6, Matthew 6" title="Read Day 7 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-8" data-day="8" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 8</span>
+              <span class="public-day-date">17/08/26</span>
+            </div>
+            <p class="public-day-portion">Leviticus 2–14, Psalm 7, Matthew 7</p>
+            <button type="button" class="btn-public-read" data-day="8" data-portion="Leviticus 2–14, Psalm 7, Matthew 7" title="Read Day 8 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-9" data-day="9" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 9</span>
+              <span class="public-day-date">18/08/26</span>
+            </div>
+            <p class="public-day-portion">Leviticus 15–27, Psalm 8, Matthew 8</p>
+            <button type="button" class="btn-public-read" data-day="9" data-portion="Leviticus 15–27, Psalm 8, Matthew 8" title="Read Day 9 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-10" data-day="10" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 10</span>
+              <span class="public-day-date">19/08/26</span>
+            </div>
+            <p class="public-day-portion">Numbers 1–13, Psalm 9, Matthew 9</p>
+            <button type="button" class="btn-public-read" data-day="10" data-portion="Numbers 1–13, Psalm 9, Matthew 9" title="Read Day 10 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-11" data-day="11" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 11</span>
+              <span class="public-day-date">20/08/26</span>
+            </div>
+            <p class="public-day-portion">Numbers 14–26, Psalm 10, Matthew 10</p>
+            <button type="button" class="btn-public-read" data-day="11" data-portion="Numbers 14–26, Psalm 10, Matthew 10" title="Read Day 11 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-12" data-day="12" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 12</span>
+              <span class="public-day-date">21/08/26</span>
+            </div>
+            <p class="public-day-portion">Numbers 27–36, Deuteronomy 1–3, Psalm 11, Matthew 11</p>
+            <button type="button" class="btn-public-read" data-day="12" data-portion="Numbers 27–36, Deuteronomy 1–3, Psalm 11, Matthew 11" title="Read Day 12 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-13" data-day="13" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 13</span>
+              <span class="public-day-date">22/08/26</span>
+            </div>
+            <p class="public-day-portion">Deuteronomy 4–16, Psalm 12, Matthew 12</p>
+            <button type="button" class="btn-public-read" data-day="13" data-portion="Deuteronomy 4–16, Psalm 12, Matthew 12" title="Read Day 13 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-14" data-day="14" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 14</span>
+              <span class="public-day-date">23/08/26</span>
+            </div>
+            <p class="public-day-portion">Deuteronomy 17–29, Psalm 13, Matthew 13</p>
+            <button type="button" class="btn-public-read" data-day="14" data-portion="Deuteronomy 17–29, Psalm 13, Matthew 13" title="Read Day 14 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-15" data-day="15" data-phase="1">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 15</span>
+              <span class="public-day-date">24/08/26</span>
+            </div>
+            <p class="public-day-portion">Deuteronomy 30–34, Joshua 1–8, Psalm 14, Matthew 14</p>
+            <button type="button" class="btn-public-read" data-day="15" data-portion="Deuteronomy 30–34, Joshua 1–8, Psalm 14, Matthew 14" title="Read Day 15 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-16" data-day="16" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 16</span>
+              <span class="public-day-date">25/08/26</span>
+            </div>
+            <p class="public-day-portion">Joshua 9–21, Psalm 15, Matthew 15</p>
+            <button type="button" class="btn-public-read" data-day="16" data-portion="Joshua 9–21, Psalm 15, Matthew 15" title="Read Day 16 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-17" data-day="17" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 17</span>
+              <span class="public-day-date">26/08/26</span>
+            </div>
+            <p class="public-day-portion">Joshua 22–24, Judges 1–10, Psalm 16, Matthew 16</p>
+            <button type="button" class="btn-public-read" data-day="17" data-portion="Joshua 22–24, Judges 1–10, Psalm 16, Matthew 16" title="Read Day 17 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-18" data-day="18" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 18</span>
+              <span class="public-day-date">27/08/26</span>
+            </div>
+            <p class="public-day-portion">Judges 11–21, Ruth 1–2, Psalm 17, Matthew 17</p>
+            <button type="button" class="btn-public-read" data-day="18" data-portion="Judges 11–21, Ruth 1–2, Psalm 17, Matthew 17" title="Read Day 18 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-19" data-day="19" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 19</span>
+              <span class="public-day-date">28/08/26</span>
+            </div>
+            <p class="public-day-portion">Ruth 3–4, 1 Samuel 1–11, Psalm 18, Matthew 18</p>
+            <button type="button" class="btn-public-read" data-day="19" data-portion="Ruth 3–4, 1 Samuel 1–11, Psalm 18, Matthew 18" title="Read Day 19 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-20" data-day="20" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 20</span>
+              <span class="public-day-date">29/08/26</span>
+            </div>
+            <p class="public-day-portion">1 Samuel 12–24, Psalm 19, Matthew 19</p>
+            <button type="button" class="btn-public-read" data-day="20" data-portion="1 Samuel 12–24, Psalm 19, Matthew 19" title="Read Day 20 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-21" data-day="21" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 21</span>
+              <span class="public-day-date">30/08/26</span>
+            </div>
+            <p class="public-day-portion">1 Samuel 25–31, 2 Samuel 1–6, Psalm 20, Matthew 20</p>
+            <button type="button" class="btn-public-read" data-day="21" data-portion="1 Samuel 25–31, 2 Samuel 1–6, Psalm 20, Matthew 20" title="Read Day 21 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-22" data-day="22" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 22</span>
+              <span class="public-day-date">31/08/26</span>
+            </div>
+            <p class="public-day-portion">2 Samuel 7–19, Psalm 21, Matthew 21</p>
+            <button type="button" class="btn-public-read" data-day="22" data-portion="2 Samuel 7–19, Psalm 21, Matthew 21" title="Read Day 22 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-23" data-day="23" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 23</span>
+              <span class="public-day-date">01/09/26</span>
+            </div>
+            <p class="public-day-portion">2 Samuel 20–24, 1 Kings 1–8, Psalm 22, Matthew 22</p>
+            <button type="button" class="btn-public-read" data-day="23" data-portion="2 Samuel 20–24, 1 Kings 1–8, Psalm 22, Matthew 22" title="Read Day 23 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-24" data-day="24" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 24</span>
+              <span class="public-day-date">02/09/26</span>
+            </div>
+            <p class="public-day-portion">1 Kings 9–21, Psalm 23, Matthew 23</p>
+            <button type="button" class="btn-public-read" data-day="24" data-portion="1 Kings 9–21, Psalm 23, Matthew 23" title="Read Day 24 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-25" data-day="25" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 25</span>
+              <span class="public-day-date">03/09/26</span>
+            </div>
+            <p class="public-day-portion">1 Kings 22, 2 Kings 1–12, Psalm 24, Matthew 24</p>
+            <button type="button" class="btn-public-read" data-day="25" data-portion="1 Kings 22, 2 Kings 1–12, Psalm 24, Matthew 24" title="Read Day 25 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-26" data-day="26" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 26</span>
+              <span class="public-day-date">04/09/26</span>
+            </div>
+            <p class="public-day-portion">2 Kings 13–25, Psalm 25, Matthew 25</p>
+            <button type="button" class="btn-public-read" data-day="26" data-portion="2 Kings 13–25, Psalm 25, Matthew 25" title="Read Day 26 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-27" data-day="27" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 27</span>
+              <span class="public-day-date">05/09/26</span>
+            </div>
+            <p class="public-day-portion">1 Chronicles 1–13, Psalm 26, Matthew 26</p>
+            <button type="button" class="btn-public-read" data-day="27" data-portion="1 Chronicles 1–13, Psalm 26, Matthew 26" title="Read Day 27 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-28" data-day="28" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 28</span>
+              <span class="public-day-date">06/09/26</span>
+            </div>
+            <p class="public-day-portion">1 Chronicles 14–26, Psalm 27, Matthew 27</p>
+            <button type="button" class="btn-public-read" data-day="28" data-portion="1 Chronicles 14–26, Psalm 27, Matthew 27" title="Read Day 28 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-29" data-day="29" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 29</span>
+              <span class="public-day-date">07/09/26</span>
+            </div>
+            <p class="public-day-portion">1 Chronicles 27–29, 2 Chronicles 1–10, Psalm 28, Matthew 28</p>
+            <button type="button" class="btn-public-read" data-day="29" data-portion="1 Chronicles 27–29, 2 Chronicles 1–10, Psalm 28, Matthew 28" title="Read Day 29 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-30" data-day="30" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 30</span>
+              <span class="public-day-date">08/09/26</span>
+            </div>
+            <p class="public-day-portion">2 Chronicles 11–23, Psalm 29, Mark 1</p>
+            <button type="button" class="btn-public-read" data-day="30" data-portion="2 Chronicles 11–23, Psalm 29, Mark 1" title="Read Day 30 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-31" data-day="31" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 31</span>
+              <span class="public-day-date">09/09/26</span>
+            </div>
+            <p class="public-day-portion">2 Chronicles 24–36, Psalm 30, Mark 2</p>
+            <button type="button" class="btn-public-read" data-day="31" data-portion="2 Chronicles 24–36, Psalm 30, Mark 2" title="Read Day 31 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-32" data-day="32" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 32</span>
+              <span class="public-day-date">10/09/26</span>
+            </div>
+            <p class="public-day-portion">Ezra 1–10, Nehemiah 1–3, Psalm 31, Mark 3</p>
+            <button type="button" class="btn-public-read" data-day="32" data-portion="Ezra 1–10, Nehemiah 1–3, Psalm 31, Mark 3" title="Read Day 32 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-33" data-day="33" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 33</span>
+              <span class="public-day-date">11/09/26</span>
+            </div>
+            <p class="public-day-portion">Nehemiah 4–13, Esther 1–3, Psalm 32, Mark 4</p>
+            <button type="button" class="btn-public-read" data-day="33" data-portion="Nehemiah 4–13, Esther 1–3, Psalm 32, Mark 4" title="Read Day 33 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-34" data-day="34" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 34</span>
+              <span class="public-day-date">12/09/26</span>
+            </div>
+            <p class="public-day-portion">Esther 4–10, Job 1–6, Psalm 33, Mark 5</p>
+            <button type="button" class="btn-public-read" data-day="34" data-portion="Esther 4–10, Job 1–6, Psalm 33, Mark 5" title="Read Day 34 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-35" data-day="35" data-phase="2">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 35</span>
+              <span class="public-day-date">13/09/26</span>
+            </div>
+            <p class="public-day-portion">Job 7–19, Psalm 34, Mark 6</p>
+            <button type="button" class="btn-public-read" data-day="35" data-portion="Job 7–19, Psalm 34, Mark 6" title="Read Day 35 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-36" data-day="36" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 36</span>
+              <span class="public-day-date">14/09/26</span>
+            </div>
+            <p class="public-day-portion">Job 20–32, Psalm 35, Mark 7</p>
+            <button type="button" class="btn-public-read" data-day="36" data-portion="Job 20–32, Psalm 35, Mark 7" title="Read Day 36 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-37" data-day="37" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 37</span>
+              <span class="public-day-date">15/09/26</span>
+            </div>
+            <p class="public-day-portion">Job 33–42, Psalm 36–39, Mark 8</p>
+            <button type="button" class="btn-public-read" data-day="37" data-portion="Job 33–42, Psalm 36–39, Mark 8" title="Read Day 37 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-38" data-day="38" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 38</span>
+              <span class="public-day-date">16/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 40–52, Proverbs 1, Mark 9</p>
+            <button type="button" class="btn-public-read" data-day="38" data-portion="Psalm 40–52, Proverbs 1, Mark 9" title="Read Day 38 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-39" data-day="39" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 39</span>
+              <span class="public-day-date">17/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 53–65, Proverbs 2, Mark 10</p>
+            <button type="button" class="btn-public-read" data-day="39" data-portion="Psalm 53–65, Proverbs 2, Mark 10" title="Read Day 39 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-40" data-day="40" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 40</span>
+              <span class="public-day-date">18/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 66–78, Proverbs 3, Mark 11</p>
+            <button type="button" class="btn-public-read" data-day="40" data-portion="Psalm 66–78, Proverbs 3, Mark 11" title="Read Day 40 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-41" data-day="41" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 41</span>
+              <span class="public-day-date">19/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 79–91, Proverbs 4, Mark 12</p>
+            <button type="button" class="btn-public-read" data-day="41" data-portion="Psalm 79–91, Proverbs 4, Mark 12" title="Read Day 41 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-42" data-day="42" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 42</span>
+              <span class="public-day-date">20/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 92–104, Proverbs 5, Mark 13</p>
+            <button type="button" class="btn-public-read" data-day="42" data-portion="Psalm 92–104, Proverbs 5, Mark 13" title="Read Day 42 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-43" data-day="43" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 43</span>
+              <span class="public-day-date">21/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 105–117, Proverbs 6, Mark 14</p>
+            <button type="button" class="btn-public-read" data-day="43" data-portion="Psalm 105–117, Proverbs 6, Mark 14" title="Read Day 43 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-44" data-day="44" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 44</span>
+              <span class="public-day-date">22/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 118–130, Proverbs 7, Mark 15</p>
+            <button type="button" class="btn-public-read" data-day="44" data-portion="Psalm 118–130, Proverbs 7, Mark 15" title="Read Day 44 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-45" data-day="45" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 45</span>
+              <span class="public-day-date">23/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 131–143, Proverbs 8, Mark 16</p>
+            <button type="button" class="btn-public-read" data-day="45" data-portion="Psalm 131–143, Proverbs 8, Mark 16" title="Read Day 45 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-46" data-day="46" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 46</span>
+              <span class="public-day-date">24/09/26</span>
+            </div>
+            <p class="public-day-portion">Psalm 144–150, Proverbs 9–14, Luke 1</p>
+            <button type="button" class="btn-public-read" data-day="46" data-portion="Psalm 144–150, Proverbs 9–14, Luke 1" title="Read Day 46 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-47" data-day="47" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 47</span>
+              <span class="public-day-date">25/09/26</span>
+            </div>
+            <p class="public-day-portion">Proverbs 15–27, Ecclesiastes 1, Luke 2</p>
+            <button type="button" class="btn-public-read" data-day="47" data-portion="Proverbs 15–27, Ecclesiastes 1, Luke 2" title="Read Day 47 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-48" data-day="48" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 48</span>
+              <span class="public-day-date">26/09/26</span>
+            </div>
+            <p class="public-day-portion">Proverbs 28–31, Ecclesiastes 2–10, Luke 3</p>
+            <button type="button" class="btn-public-read" data-day="48" data-portion="Proverbs 28–31, Ecclesiastes 2–10, Luke 3" title="Read Day 48 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-49" data-day="49" data-phase="3">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 49</span>
+              <span class="public-day-date">27/09/26</span>
+            </div>
+            <p class="public-day-portion">Ecclesiastes 11–12, Song of Solomon 1–8, Isaiah 1–3, Luke 4</p>
+            <button type="button" class="btn-public-read" data-day="49" data-portion="Ecclesiastes 11–12, Song of Solomon 1–8, Isaiah 1–3, Luke 4" title="Read Day 49 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-50" data-day="50" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 50</span>
+              <span class="public-day-date">28/09/26</span>
+            </div>
+            <p class="public-day-portion">Isaiah 4–16, Luke 5</p>
+            <button type="button" class="btn-public-read" data-day="50" data-portion="Isaiah 4–16, Luke 5" title="Read Day 50 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-51" data-day="51" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 51</span>
+              <span class="public-day-date">29/09/26</span>
+            </div>
+            <p class="public-day-portion">Isaiah 17–29, Luke 6</p>
+            <button type="button" class="btn-public-read" data-day="51" data-portion="Isaiah 17–29, Luke 6" title="Read Day 51 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-52" data-day="52" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 52</span>
+              <span class="public-day-date">30/09/26</span>
+            </div>
+            <p class="public-day-portion">Isaiah 30–42, Luke 7</p>
+            <button type="button" class="btn-public-read" data-day="52" data-portion="Isaiah 30–42, Luke 7" title="Read Day 52 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-53" data-day="53" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 53</span>
+              <span class="public-day-date">01/10/26</span>
+            </div>
+            <p class="public-day-portion">Isaiah 43–55, Luke 8</p>
+            <button type="button" class="btn-public-read" data-day="53" data-portion="Isaiah 43–55, Luke 8" title="Read Day 53 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-54" data-day="54" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 54</span>
+              <span class="public-day-date">02/10/26</span>
+            </div>
+            <p class="public-day-portion">Isaiah 56–66, Jeremiah 1–2, Luke 9</p>
+            <button type="button" class="btn-public-read" data-day="54" data-portion="Isaiah 56–66, Jeremiah 1–2, Luke 9" title="Read Day 54 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-55" data-day="55" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 55</span>
+              <span class="public-day-date">03/10/26</span>
+            </div>
+            <p class="public-day-portion">Jeremiah 3–15, Luke 10</p>
+            <button type="button" class="btn-public-read" data-day="55" data-portion="Jeremiah 3–15, Luke 10" title="Read Day 55 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-56" data-day="56" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 56</span>
+              <span class="public-day-date">04/10/26</span>
+            </div>
+            <p class="public-day-portion">Jeremiah 16–28, Luke 11</p>
+            <button type="button" class="btn-public-read" data-day="56" data-portion="Jeremiah 16–28, Luke 11" title="Read Day 56 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-57" data-day="57" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 57</span>
+              <span class="public-day-date">05/10/26</span>
+            </div>
+            <p class="public-day-portion">Jeremiah 29–41, Luke 12</p>
+            <button type="button" class="btn-public-read" data-day="57" data-portion="Jeremiah 29–41, Luke 12" title="Read Day 57 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-58" data-day="58" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 58</span>
+              <span class="public-day-date">06/10/26</span>
+            </div>
+            <p class="public-day-portion">Jeremiah 42–52, Lamentations 1–2, Luke 13</p>
+            <button type="button" class="btn-public-read" data-day="58" data-portion="Jeremiah 42–52, Lamentations 1–2, Luke 13" title="Read Day 58 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-59" data-day="59" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 59</span>
+              <span class="public-day-date">07/10/26</span>
+            </div>
+            <p class="public-day-portion">Lamentations 3–5, Ezekiel 1–10, Luke 14</p>
+            <button type="button" class="btn-public-read" data-day="59" data-portion="Lamentations 3–5, Ezekiel 1–10, Luke 14" title="Read Day 59 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-60" data-day="60" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 60</span>
+              <span class="public-day-date">08/10/26</span>
+            </div>
+            <p class="public-day-portion">Ezekiel 11–23, Luke 15</p>
+            <button type="button" class="btn-public-read" data-day="60" data-portion="Ezekiel 11–23, Luke 15" title="Read Day 60 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-61" data-day="61" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 61</span>
+              <span class="public-day-date">09/10/26</span>
+            </div>
+            <p class="public-day-portion">Ezekiel 24–36, Luke 16</p>
+            <button type="button" class="btn-public-read" data-day="61" data-portion="Ezekiel 24–36, Luke 16" title="Read Day 61 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-62" data-day="62" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 62</span>
+              <span class="public-day-date">10/10/26</span>
+            </div>
+            <p class="public-day-portion">Ezekiel 37–48, Daniel 1, Luke 17</p>
+            <button type="button" class="btn-public-read" data-day="62" data-portion="Ezekiel 37–48, Daniel 1, Luke 17" title="Read Day 62 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-63" data-day="63" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 63</span>
+              <span class="public-day-date">11/10/26</span>
+            </div>
+            <p class="public-day-portion">Daniel 2–12, Hosea 1–2, Luke 18</p>
+            <button type="button" class="btn-public-read" data-day="63" data-portion="Daniel 2–12, Hosea 1–2, Luke 18" title="Read Day 63 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-64" data-day="64" data-phase="4">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 64</span>
+              <span class="public-day-date">12/10/26</span>
+            </div>
+            <p class="public-day-portion">Hosea 3–14, Joel 1–3, Luke 19</p>
+            <button type="button" class="btn-public-read" data-day="64" data-portion="Hosea 3–14, Joel 1–3, Luke 19" title="Read Day 64 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-65" data-day="65" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 65</span>
+              <span class="public-day-date">13/10/26</span>
+            </div>
+            <p class="public-day-portion">Amos 1–9, Obadiah, Jonah 1–3, Luke 20</p>
+            <button type="button" class="btn-public-read" data-day="65" data-portion="Amos 1–9, Obadiah, Jonah 1–3, Luke 20" title="Read Day 65 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-66" data-day="66" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 66</span>
+              <span class="public-day-date">14/10/26</span>
+            </div>
+            <p class="public-day-portion">Jonah 4, Micah 1–7, Nahum 1–3, Luke 21</p>
+            <button type="button" class="btn-public-read" data-day="66" data-portion="Jonah 4, Micah 1–7, Nahum 1–3, Luke 21" title="Read Day 66 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-67" data-day="67" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 67</span>
+              <span class="public-day-date">15/10/26</span>
+            </div>
+            <p class="public-day-portion">Habakkuk 1–3, Zephaniah 1–3, Haggai 1–2, Zechariah 1–4, Luke 22</p>
+            <button type="button" class="btn-public-read" data-day="67" data-portion="Habakkuk 1–3, Zephaniah 1–3, Haggai 1–2, Zechariah 1–4, Luke 22" title="Read Day 67 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-68" data-day="68" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 68</span>
+              <span class="public-day-date">16/10/26</span>
+            </div>
+            <p class="public-day-portion">Zechariah 5–14, Malachi 1–4, Luke 23</p>
+            <button type="button" class="btn-public-read" data-day="68" data-portion="Zechariah 5–14, Malachi 1–4, Luke 23" title="Read Day 68 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-69" data-day="69" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 69</span>
+              <span class="public-day-date">17/10/26</span>
+            </div>
+            <p class="public-day-portion">Luke 24</p>
+            <button type="button" class="btn-public-read" data-day="69" data-portion="Luke 24" title="Read Day 69 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-70" data-day="70" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 70</span>
+              <span class="public-day-date">18/10/26</span>
+            </div>
+            <p class="public-day-portion">John 13–21</p>
+            <button type="button" class="btn-public-read" data-day="70" data-portion="John 13–21" title="Read Day 70 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-71" data-day="71" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 71</span>
+              <span class="public-day-date">19/10/26</span>
+            </div>
+            <p class="public-day-portion">Acts 5–17</p>
+            <button type="button" class="btn-public-read" data-day="71" data-portion="Acts 5–17" title="Read Day 71 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-72" data-day="72" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 72</span>
+              <span class="public-day-date">20/10/26</span>
+            </div>
+            <p class="public-day-portion">Acts 18–28</p>
+            <button type="button" class="btn-public-read" data-day="72" data-portion="Acts 18–28" title="Read Day 72 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-73" data-day="73" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 73</span>
+              <span class="public-day-date">21/10/26</span>
+            </div>
+            <p class="public-day-portion">Romans 3–16</p>
+            <button type="button" class="btn-public-read" data-day="73" data-portion="Romans 3–16" title="Read Day 73 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-74" data-day="74" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 74</span>
+              <span class="public-day-date">22/10/26</span>
+            </div>
+            <p class="public-day-portion">1 Corinthians 1–13</p>
+            <button type="button" class="btn-public-read" data-day="74" data-portion="1 Corinthians 1–13" title="Read Day 74 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-75" data-day="75" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 75</span>
+              <span class="public-day-date">23/10/26</span>
+            </div>
+            <p class="public-day-portion">1 Corinthians 14–16, 2 Corinthians 1–10</p>
+            <button type="button" class="btn-public-read" data-day="75" data-portion="1 Corinthians 14–16, 2 Corinthians 1–10" title="Read Day 75 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-76" data-day="76" data-phase="5">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 76</span>
+              <span class="public-day-date">24/10/26</span>
+            </div>
+            <p class="public-day-portion">2 Corinthians 11–13, Galatians 1–6, Ephesians 1–3</p>
+            <button type="button" class="btn-public-read" data-day="76" data-portion="2 Corinthians 11–13, Galatians 1–6, Ephesians 1–3" title="Read Day 76 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-77" data-day="77" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 77</span>
+              <span class="public-day-date">25/10/26</span>
+            </div>
+            <p class="public-day-portion">Ephesians 4–6, Philippians 1–4, Colossians 1–4</p>
+            <button type="button" class="btn-public-read" data-day="77" data-portion="Ephesians 4–6, Philippians 1–4, Colossians 1–4" title="Read Day 77 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-78" data-day="78" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 78</span>
+              <span class="public-day-date">26/10/26</span>
+            </div>
+            <p class="public-day-portion">1 Thessalonians 1–5, 2 Thessalonians 1–3, 1 Timothy 1–5</p>
+            <button type="button" class="btn-public-read" data-day="78" data-portion="1 Thessalonians 1–5, 2 Thessalonians 1–3, 1 Timothy 1–5" title="Read Day 78 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-79" data-day="79" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 79</span>
+              <span class="public-day-date">27/10/26</span>
+            </div>
+            <p class="public-day-portion">1 Timothy 6, 2 Timothy 1–4, Titus 1–3, Philemon, Hebrews 1–6</p>
+            <button type="button" class="btn-public-read" data-day="79" data-portion="1 Timothy 6, 2 Timothy 1–4, Titus 1–3, Philemon, Hebrews 1–6" title="Read Day 79 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-80" data-day="80" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 80</span>
+              <span class="public-day-date">28/10/26</span>
+            </div>
+            <p class="public-day-portion">Hebrews 7–13, James 1–5, 1 Peter 1–2</p>
+            <button type="button" class="btn-public-read" data-day="80" data-portion="Hebrews 7–13, James 1–5, 1 Peter 1–2" title="Read Day 80 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-81" data-day="81" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 81</span>
+              <span class="public-day-date">29/10/26</span>
+            </div>
+            <p class="public-day-portion">1 Peter 3–5, 2 Peter 1–3, 1 John 1–5</p>
+            <button type="button" class="btn-public-read" data-day="81" data-portion="1 Peter 3–5, 2 Peter 1–3, 1 John 1–5" title="Read Day 81 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-82" data-day="82" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 82</span>
+              <span class="public-day-date">30/10/26</span>
+            </div>
+            <p class="public-day-portion">2 John, 3 John, Jude, Revelation 1–10</p>
+            <button type="button" class="btn-public-read" data-day="82" data-portion="2 John, 3 John, Jude, Revelation 1–10" title="Read Day 82 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-83" data-day="83" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 83</span>
+              <span class="public-day-date">31/10/26</span>
+            </div>
+            <p class="public-day-portion">Revelation 11–22</p>
+            <button type="button" class="btn-public-read" data-day="83" data-portion="Revelation 11–22" title="Read Day 83 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-84" data-day="84" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 84</span>
+              <span class="public-day-date">01/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="84" data-portion="Catch-up Day" title="Read Day 84 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-85" data-day="85" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 85</span>
+              <span class="public-day-date">02/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="85" data-portion="Catch-up Day" title="Read Day 85 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-86" data-day="86" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 86</span>
+              <span class="public-day-date">03/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="86" data-portion="Catch-up Day" title="Read Day 86 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-87" data-day="87" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 87</span>
+              <span class="public-day-date">04/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="87" data-portion="Catch-up Day" title="Read Day 87 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-88" data-day="88" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 88</span>
+              <span class="public-day-date">05/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="88" data-portion="Catch-up Day" title="Read Day 88 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-89" data-day="89" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 89</span>
+              <span class="public-day-date">06/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="89" data-portion="Catch-up Day" title="Read Day 89 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-90" data-day="90" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 90</span>
+              <span class="public-day-date">07/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="90" data-portion="Catch-up Day" title="Read Day 90 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-91" data-day="91" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 91</span>
+              <span class="public-day-date">08/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="91" data-portion="Catch-up Day" title="Read Day 91 passage">📖 Read Passage</button>
+          </div>
+          <div class="public-day-card" id="day-92" data-day="92" data-phase="6">
+            <div class="public-day-header">
+              <span class="public-day-badge">Day 92</span>
+              <span class="public-day-date">09/11/26</span>
+            </div>
+            <p class="public-day-portion">Catch-up Day</p>
+            <button type="button" class="btn-public-read" data-day="92" data-portion="Catch-up Day" title="Read Day 92 passage">📖 Read Passage</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRINTABLE CHECKLIST VIEW (Shown strictly during window.print() via @media print) -->
+      <div id="printable-schedule-view" class="printable-schedule-view" hidden>
+        <div class="print-header">
+          <h1>Project Bible in 92 Days — Reading Schedule Checklist</h1>
+          <p class="print-sub">The Youth Gathering 2026 (@tg.youth_) · August 10, 2026 – November 9, 2026</p>
+          <p class="print-meta">66 Books · 1,189 Chapters · 7 Translations · https://paulzhub.github.io/Bible-in-92-Days/</p>
+        </div>
+        <div class="print-grid">
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 1</span>
+          <span class="print-date">(10/08/26)</span>
+          <span class="print-portion">Genesis 1-13</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 2</span>
+          <span class="print-date">(11/08/26)</span>
+          <span class="print-portion">Genesis 14–26, Psalm 1, Matthew 1</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 3</span>
+          <span class="print-date">(12/08/26)</span>
+          <span class="print-portion">Genesis 27–39, Psalm 2, Matthew 2</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 4</span>
+          <span class="print-date">(13/08/26)</span>
+          <span class="print-portion">Genesis 40–50, Exodus 1–2, Psalm 3, Matthew 3</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 5</span>
+          <span class="print-date">(14/08/26)</span>
+          <span class="print-portion">Exodus 3–15, Psalm 4, Matthew 4</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 6</span>
+          <span class="print-date">(15/08/26)</span>
+          <span class="print-portion">Exodus 16–28, Psalm 5, Matthew 5</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 7</span>
+          <span class="print-date">(16/08/26)</span>
+          <span class="print-portion">Exodus 29–40, Leviticus 1, Psalm 6, Matthew 6</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 8</span>
+          <span class="print-date">(17/08/26)</span>
+          <span class="print-portion">Leviticus 2–14, Psalm 7, Matthew 7</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 9</span>
+          <span class="print-date">(18/08/26)</span>
+          <span class="print-portion">Leviticus 15–27, Psalm 8, Matthew 8</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 10</span>
+          <span class="print-date">(19/08/26)</span>
+          <span class="print-portion">Numbers 1–13, Psalm 9, Matthew 9</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 11</span>
+          <span class="print-date">(20/08/26)</span>
+          <span class="print-portion">Numbers 14–26, Psalm 10, Matthew 10</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 12</span>
+          <span class="print-date">(21/08/26)</span>
+          <span class="print-portion">Numbers 27–36, Deuteronomy 1–3, Psalm 11, Matthew 11</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 13</span>
+          <span class="print-date">(22/08/26)</span>
+          <span class="print-portion">Deuteronomy 4–16, Psalm 12, Matthew 12</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 14</span>
+          <span class="print-date">(23/08/26)</span>
+          <span class="print-portion">Deuteronomy 17–29, Psalm 13, Matthew 13</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 15</span>
+          <span class="print-date">(24/08/26)</span>
+          <span class="print-portion">Deuteronomy 30–34, Joshua 1–8, Psalm 14, Matthew 14</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 16</span>
+          <span class="print-date">(25/08/26)</span>
+          <span class="print-portion">Joshua 9–21, Psalm 15, Matthew 15</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 17</span>
+          <span class="print-date">(26/08/26)</span>
+          <span class="print-portion">Joshua 22–24, Judges 1–10, Psalm 16, Matthew 16</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 18</span>
+          <span class="print-date">(27/08/26)</span>
+          <span class="print-portion">Judges 11–21, Ruth 1–2, Psalm 17, Matthew 17</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 19</span>
+          <span class="print-date">(28/08/26)</span>
+          <span class="print-portion">Ruth 3–4, 1 Samuel 1–11, Psalm 18, Matthew 18</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 20</span>
+          <span class="print-date">(29/08/26)</span>
+          <span class="print-portion">1 Samuel 12–24, Psalm 19, Matthew 19</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 21</span>
+          <span class="print-date">(30/08/26)</span>
+          <span class="print-portion">1 Samuel 25–31, 2 Samuel 1–6, Psalm 20, Matthew 20</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 22</span>
+          <span class="print-date">(31/08/26)</span>
+          <span class="print-portion">2 Samuel 7–19, Psalm 21, Matthew 21</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 23</span>
+          <span class="print-date">(01/09/26)</span>
+          <span class="print-portion">2 Samuel 20–24, 1 Kings 1–8, Psalm 22, Matthew 22</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 24</span>
+          <span class="print-date">(02/09/26)</span>
+          <span class="print-portion">1 Kings 9–21, Psalm 23, Matthew 23</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 25</span>
+          <span class="print-date">(03/09/26)</span>
+          <span class="print-portion">1 Kings 22, 2 Kings 1–12, Psalm 24, Matthew 24</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 26</span>
+          <span class="print-date">(04/09/26)</span>
+          <span class="print-portion">2 Kings 13–25, Psalm 25, Matthew 25</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 27</span>
+          <span class="print-date">(05/09/26)</span>
+          <span class="print-portion">1 Chronicles 1–13, Psalm 26, Matthew 26</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 28</span>
+          <span class="print-date">(06/09/26)</span>
+          <span class="print-portion">1 Chronicles 14–26, Psalm 27, Matthew 27</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 29</span>
+          <span class="print-date">(07/09/26)</span>
+          <span class="print-portion">1 Chronicles 27–29, 2 Chronicles 1–10, Psalm 28, Matthew 28</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 30</span>
+          <span class="print-date">(08/09/26)</span>
+          <span class="print-portion">2 Chronicles 11–23, Psalm 29, Mark 1</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 31</span>
+          <span class="print-date">(09/09/26)</span>
+          <span class="print-portion">2 Chronicles 24–36, Psalm 30, Mark 2</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 32</span>
+          <span class="print-date">(10/09/26)</span>
+          <span class="print-portion">Ezra 1–10, Nehemiah 1–3, Psalm 31, Mark 3</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 33</span>
+          <span class="print-date">(11/09/26)</span>
+          <span class="print-portion">Nehemiah 4–13, Esther 1–3, Psalm 32, Mark 4</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 34</span>
+          <span class="print-date">(12/09/26)</span>
+          <span class="print-portion">Esther 4–10, Job 1–6, Psalm 33, Mark 5</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 35</span>
+          <span class="print-date">(13/09/26)</span>
+          <span class="print-portion">Job 7–19, Psalm 34, Mark 6</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 36</span>
+          <span class="print-date">(14/09/26)</span>
+          <span class="print-portion">Job 20–32, Psalm 35, Mark 7</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 37</span>
+          <span class="print-date">(15/09/26)</span>
+          <span class="print-portion">Job 33–42, Psalm 36–39, Mark 8</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 38</span>
+          <span class="print-date">(16/09/26)</span>
+          <span class="print-portion">Psalm 40–52, Proverbs 1, Mark 9</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 39</span>
+          <span class="print-date">(17/09/26)</span>
+          <span class="print-portion">Psalm 53–65, Proverbs 2, Mark 10</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 40</span>
+          <span class="print-date">(18/09/26)</span>
+          <span class="print-portion">Psalm 66–78, Proverbs 3, Mark 11</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 41</span>
+          <span class="print-date">(19/09/26)</span>
+          <span class="print-portion">Psalm 79–91, Proverbs 4, Mark 12</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 42</span>
+          <span class="print-date">(20/09/26)</span>
+          <span class="print-portion">Psalm 92–104, Proverbs 5, Mark 13</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 43</span>
+          <span class="print-date">(21/09/26)</span>
+          <span class="print-portion">Psalm 105–117, Proverbs 6, Mark 14</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 44</span>
+          <span class="print-date">(22/09/26)</span>
+          <span class="print-portion">Psalm 118–130, Proverbs 7, Mark 15</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 45</span>
+          <span class="print-date">(23/09/26)</span>
+          <span class="print-portion">Psalm 131–143, Proverbs 8, Mark 16</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 46</span>
+          <span class="print-date">(24/09/26)</span>
+          <span class="print-portion">Psalm 144–150, Proverbs 9–14, Luke 1</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 47</span>
+          <span class="print-date">(25/09/26)</span>
+          <span class="print-portion">Proverbs 15–27, Ecclesiastes 1, Luke 2</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 48</span>
+          <span class="print-date">(26/09/26)</span>
+          <span class="print-portion">Proverbs 28–31, Ecclesiastes 2–10, Luke 3</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 49</span>
+          <span class="print-date">(27/09/26)</span>
+          <span class="print-portion">Ecclesiastes 11–12, Song of Solomon 1–8, Isaiah 1–3, Luke 4</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 50</span>
+          <span class="print-date">(28/09/26)</span>
+          <span class="print-portion">Isaiah 4–16, Luke 5</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 51</span>
+          <span class="print-date">(29/09/26)</span>
+          <span class="print-portion">Isaiah 17–29, Luke 6</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 52</span>
+          <span class="print-date">(30/09/26)</span>
+          <span class="print-portion">Isaiah 30–42, Luke 7</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 53</span>
+          <span class="print-date">(01/10/26)</span>
+          <span class="print-portion">Isaiah 43–55, Luke 8</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 54</span>
+          <span class="print-date">(02/10/26)</span>
+          <span class="print-portion">Isaiah 56–66, Jeremiah 1–2, Luke 9</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 55</span>
+          <span class="print-date">(03/10/26)</span>
+          <span class="print-portion">Jeremiah 3–15, Luke 10</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 56</span>
+          <span class="print-date">(04/10/26)</span>
+          <span class="print-portion">Jeremiah 16–28, Luke 11</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 57</span>
+          <span class="print-date">(05/10/26)</span>
+          <span class="print-portion">Jeremiah 29–41, Luke 12</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 58</span>
+          <span class="print-date">(06/10/26)</span>
+          <span class="print-portion">Jeremiah 42–52, Lamentations 1–2, Luke 13</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 59</span>
+          <span class="print-date">(07/10/26)</span>
+          <span class="print-portion">Lamentations 3–5, Ezekiel 1–10, Luke 14</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 60</span>
+          <span class="print-date">(08/10/26)</span>
+          <span class="print-portion">Ezekiel 11–23, Luke 15</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 61</span>
+          <span class="print-date">(09/10/26)</span>
+          <span class="print-portion">Ezekiel 24–36, Luke 16</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 62</span>
+          <span class="print-date">(10/10/26)</span>
+          <span class="print-portion">Ezekiel 37–48, Daniel 1, Luke 17</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 63</span>
+          <span class="print-date">(11/10/26)</span>
+          <span class="print-portion">Daniel 2–12, Hosea 1–2, Luke 18</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 64</span>
+          <span class="print-date">(12/10/26)</span>
+          <span class="print-portion">Hosea 3–14, Joel 1–3, Luke 19</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 65</span>
+          <span class="print-date">(13/10/26)</span>
+          <span class="print-portion">Amos 1–9, Obadiah, Jonah 1–3, Luke 20</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 66</span>
+          <span class="print-date">(14/10/26)</span>
+          <span class="print-portion">Jonah 4, Micah 1–7, Nahum 1–3, Luke 21</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 67</span>
+          <span class="print-date">(15/10/26)</span>
+          <span class="print-portion">Habakkuk 1–3, Zephaniah 1–3, Haggai 1–2, Zechariah 1–4, Luke 22</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 68</span>
+          <span class="print-date">(16/10/26)</span>
+          <span class="print-portion">Zechariah 5–14, Malachi 1–4, Luke 23</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 69</span>
+          <span class="print-date">(17/10/26)</span>
+          <span class="print-portion">Luke 24</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 70</span>
+          <span class="print-date">(18/10/26)</span>
+          <span class="print-portion">John 13–21</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 71</span>
+          <span class="print-date">(19/10/26)</span>
+          <span class="print-portion">Acts 5–17</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 72</span>
+          <span class="print-date">(20/10/26)</span>
+          <span class="print-portion">Acts 18–28</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 73</span>
+          <span class="print-date">(21/10/26)</span>
+          <span class="print-portion">Romans 3–16</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 74</span>
+          <span class="print-date">(22/10/26)</span>
+          <span class="print-portion">1 Corinthians 1–13</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 75</span>
+          <span class="print-date">(23/10/26)</span>
+          <span class="print-portion">1 Corinthians 14–16, 2 Corinthians 1–10</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 76</span>
+          <span class="print-date">(24/10/26)</span>
+          <span class="print-portion">2 Corinthians 11–13, Galatians 1–6, Ephesians 1–3</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 77</span>
+          <span class="print-date">(25/10/26)</span>
+          <span class="print-portion">Ephesians 4–6, Philippians 1–4, Colossians 1–4</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 78</span>
+          <span class="print-date">(26/10/26)</span>
+          <span class="print-portion">1 Thessalonians 1–5, 2 Thessalonians 1–3, 1 Timothy 1–5</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 79</span>
+          <span class="print-date">(27/10/26)</span>
+          <span class="print-portion">1 Timothy 6, 2 Timothy 1–4, Titus 1–3, Philemon, Hebrews 1–6</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 80</span>
+          <span class="print-date">(28/10/26)</span>
+          <span class="print-portion">Hebrews 7–13, James 1–5, 1 Peter 1–2</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 81</span>
+          <span class="print-date">(29/10/26)</span>
+          <span class="print-portion">1 Peter 3–5, 2 Peter 1–3, 1 John 1–5</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 82</span>
+          <span class="print-date">(30/10/26)</span>
+          <span class="print-portion">2 John, 3 John, Jude, Revelation 1–10</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 83</span>
+          <span class="print-date">(31/10/26)</span>
+          <span class="print-portion">Revelation 11–22</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 84</span>
+          <span class="print-date">(01/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 85</span>
+          <span class="print-date">(02/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 86</span>
+          <span class="print-date">(03/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 87</span>
+          <span class="print-date">(04/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 88</span>
+          <span class="print-date">(05/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 89</span>
+          <span class="print-date">(06/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 90</span>
+          <span class="print-date">(07/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 91</span>
+          <span class="print-date">(08/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        <div class="print-schedule-item">
+          <span class="print-box"></span>
+          <span class="print-day">Day 92</span>
+          <span class="print-date">(09/11/26)</span>
+          <span class="print-portion">Catch-up Day</span>
+        </div>
+        </div>
+      </div>
 
       <!-- 4. Feature Highlights -->
       <section class="public-hub-section" aria-label="Interactive Features">
