@@ -227,6 +227,10 @@
 
   <!-- LOGIN GATE -->
   <div id="login-screen" class="login-screen">
+    <button id="login-theme-toggle" class="icon-btn login-theme-toggle-btn" type="button" aria-label="Toggle light and dark mode" title="Toggle light and dark mode">
+      <svg id="login-theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg id="login-theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
     <form id="login-form" class="login-card">
       <p class="login-eyebrow">The Youth Gathering 2026</p>
       <h1 class="login-title">Project Bible in 92 Days</h1>
@@ -258,9 +262,18 @@
         <a href="#public-overview" class="login-public-link">92-Day Reading Schedule & FAQ ↓</a>
       </div>
     </form>
+  </div>
 
-    <!-- PUBLIC SEO / GEO KNOWLEDGE HUB (Crawlable & Accessible to Search Engines & LLMs) -->
-    <article id="public-overview" class="public-seo-hub" aria-label="About Project Bible in 92 Days">
+  <!-- PUBLIC SEO / GEO KNOWLEDGE HUB & PLAN OVERVIEW -->
+  <article id="public-overview" class="public-seo-hub" aria-label="About Project Bible in 92 Days">
+    <!-- RETURN TO DASHBOARD BAR (Visible when accessed by logged-in users) -->
+    <div id="overview-return-bar" class="overview-return-bar" hidden>
+      <button type="button" id="overview-return-btn" class="btn btn-secondary btn-return-dash">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Return to Dashboard</span>
+      </button>
+      <span id="overview-return-username" class="overview-return-user"></span>
+    </div>
       <!-- 1. Hero & Mission -->
       <header class="public-hub-header">
         <span class="public-pill">🌟 The Youth Gathering 2026 Challenge</span>
@@ -1914,7 +1927,6 @@
         <p class="public-footer-copy">The Youth Gathering 2026 · Scriptural data via Bolls Bible API and BibleGateway</p>
       </footer>
     </article>
-  </div>
 
   <!-- SITE -->
   <div id="site" class="site" hidden>
@@ -1936,6 +1948,12 @@
         <div class="header-title-wrap">
           <h1 class="site-title">Project Bible in 92 Days</h1>
           <span class="ribbon" aria-hidden="true"></span>
+          <div class="header-plan-overview-wrap">
+            <button type="button" id="header-plan-overview-btn" class="header-plan-overview-btn" title="View 92-Day Reading Plan Overview & Schedule">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              <span>Plan Overview</span>
+            </button>
+          </div>
         </div>
 
         <button id="menu-toggle" class="hamburger-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-left">

@@ -180,8 +180,20 @@ async function getClientGeoInfo() {
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  document.getElementById('theme-icon-moon').hidden = theme === 'light';
-  document.getElementById('theme-icon-sun').hidden = theme !== 'light';
+  const isLight = theme === 'light';
+  
+  // Header theme toggle icons
+  const headerMoon = document.getElementById('theme-icon-moon');
+  const headerSun = document.getElementById('theme-icon-sun');
+  if (headerMoon) headerMoon.hidden = isLight;
+  if (headerSun) headerSun.hidden = !isLight;
+
+  // Login screen theme toggle icons
+  const loginMoon = document.getElementById('login-theme-icon-moon');
+  const loginSun = document.getElementById('login-theme-icon-sun');
+  if (loginMoon) loginMoon.hidden = isLight;
+  if (loginSun) loginSun.hidden = !isLight;
+
   localStorage.setItem('bible92_theme', theme);
 }
 
@@ -190,13 +202,20 @@ function initTheme() {
   const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
   applyTheme(saved || (prefersLight ? 'light' : 'dark'));
 
+  const toggleTheme = (e) => {
+    e.preventDefault();
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'light' ? 'dark' : 'light');
+  };
+
   const toggleBtn = document.getElementById('theme-toggle');
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const current = document.documentElement.getAttribute('data-theme') || 'dark';
-      applyTheme(current === 'light' ? 'dark' : 'light');
-    });
+    toggleBtn.addEventListener('click', toggleTheme);
+  }
+
+  const loginToggleBtn = document.getElementById('login-theme-toggle');
+  if (loginToggleBtn) {
+    loginToggleBtn.addEventListener('click', toggleTheme);
   }
 }
 
@@ -273,6 +292,12 @@ function ensureSessionAndOpenReader(dayNum, portionStr) {
     };
     setSession(session);
     showSite(session);
+  } else {
+    // Ensure dashboard is visible and public overview is hidden
+    const publicOverview = document.getElementById('public-overview');
+    if (publicOverview) publicOverview.hidden = true;
+    const siteEl = document.getElementById('site');
+    if (siteEl) siteEl.hidden = false;
   }
 
   if (!portionStr) {
@@ -629,8 +654,54 @@ async function performLogout(session) {
   location.reload();
 }
 
+function initHeaderPlanOverview(session) {
+  const planOverviewBtn = document.getElementById('header-plan-overview-btn');
+  const returnBar = document.getElementById('overview-return-bar');
+  const returnBtn = document.getElementById('overview-return-btn');
+  const returnUser = document.getElementById('overview-return-username');
+  const publicOverview = document.getElementById('public-overview');
+  const siteEl = document.getElementById('site');
+  const loginScreen = document.getElementById('login-screen');
+
+  if (!planOverviewBtn || !publicOverview || !siteEl) return;
+
+  // Clicking "Plan Overview" in header
+  planOverviewBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    // Hide dashboard
+    siteEl.hidden = true;
+    // Strictly keep login screen and form hidden
+    if (loginScreen) loginScreen.hidden = true;
+    // Show public plan overview
+    publicOverview.hidden = false;
+    if (returnBar) {
+      returnBar.hidden = false;
+      if (returnUser && session) {
+        returnUser.textContent = `Logged in as ${session.username}${session.isGuest ? ' (Guest)' : ''}`;
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // Clicking "Return to Dashboard" bar inside public overview
+  if (returnBtn) {
+    returnBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      publicOverview.hidden = true;
+      if (returnBar) returnBar.hidden = true;
+      siteEl.hidden = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+}
+
 function showSite(session) {
   document.getElementById('login-screen').hidden = true;
+  const publicOverview = document.getElementById('public-overview');
+  if (publicOverview) publicOverview.hidden = true;
+  const returnBar = document.getElementById('overview-return-bar');
+  if (returnBar) returnBar.hidden = true;
+
   const siteEl = document.getElementById('site');
   siteEl.hidden = false;
   siteEl.classList.add('fade-in', 'site-ease-in');
@@ -650,6 +721,7 @@ function showSite(session) {
 
   updateGuestBanner(null, session);
   initGuestInactivityWatcher(session);
+  initHeaderPlanOverview(session);
   initMobileMenu();
   initDateDropdown();
   initShareModal();

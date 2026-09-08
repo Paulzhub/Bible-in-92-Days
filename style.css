@@ -199,6 +199,34 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   margin-top: 0.6rem;
 }
 
+.header-plan-overview-wrap {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.header-plan-overview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.95rem;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow);
+}
+
+.header-plan-overview-btn:hover {
+  background: var(--accent);
+  color: #000;
+  transform: translateY(-1px);
+}
+
 .welcome-user {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -351,9 +379,21 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 3rem 1.5rem 5rem;
+  justify-content: center;
+  padding: 3.5rem 1.5rem 4rem;
   background: var(--bg);
+  position: relative;
+}
+
+.login-theme-toggle-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: var(--shadow);
 }
 
 .login-card {
@@ -440,11 +480,44 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   text-decoration: underline;
 }
 
-/* ============ PUBLIC SEO / GEO KNOWLEDGE HUB ============ */
+/* ============ PUBLIC SEO / GEO KNOWLEDGE HUB & PLAN OVERVIEW ============ */
+.overview-return-bar {
+  position: sticky;
+  top: 1rem;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 2rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.btn-return-dash {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+}
+
+.overview-return-user {
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .public-seo-hub {
   width: 100%;
   max-width: 880px;
-  margin-top: 1.5rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 5rem;
   color: var(--text);
   line-height: 1.6;
 }
