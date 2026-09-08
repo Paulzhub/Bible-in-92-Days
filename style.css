@@ -507,10 +507,30 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   padding: 0.4rem 0.9rem;
 }
 
+.overview-return-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .overview-return-user {
   font-size: 0.82rem;
   color: var(--accent);
   font-weight: 600;
+}
+
+.overview-theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.overview-theme-toggle-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.25);
 }
 
 .public-seo-hub {

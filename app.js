@@ -194,6 +194,12 @@ function applyTheme(theme) {
   if (loginMoon) loginMoon.hidden = isLight;
   if (loginSun) loginSun.hidden = !isLight;
 
+  // Plan overview return bar theme toggle icons (for logged-in users)
+  const overviewMoon = document.getElementById('overview-theme-icon-moon');
+  const overviewSun = document.getElementById('overview-theme-icon-sun');
+  if (overviewMoon) overviewMoon.hidden = isLight;
+  if (overviewSun) overviewSun.hidden = !isLight;
+
   localStorage.setItem('bible92_theme', theme);
 }
 
@@ -216,6 +222,11 @@ function initTheme() {
   const loginToggleBtn = document.getElementById('login-theme-toggle');
   if (loginToggleBtn) {
     loginToggleBtn.addEventListener('click', toggleTheme);
+  }
+
+  const overviewToggleBtn = document.getElementById('overview-theme-toggle');
+  if (overviewToggleBtn) {
+    overviewToggleBtn.addEventListener('click', toggleTheme);
   }
 }
 
