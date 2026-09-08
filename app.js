@@ -20,6 +20,26 @@ let activePrayersDate = null;
 
 // ====== HELPERS ======
 
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function generateSecureToken(prefix = 's') {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${prefix}_${Date.now()}_${hex}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
 function formatDDMMYY(date) {
@@ -291,7 +311,7 @@ function getChallengeDayForDate(date) {
 function ensureSessionAndOpenReader(dayNum, portionStr) {
   let session = getSession();
   if (!session) {
-    const clientSessionId = 'g_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const clientSessionId = generateSecureToken('g');
     session = {
       username: 'Guest1',
       password: 'Guest1@123',
@@ -502,7 +522,7 @@ function initLogin() {
     const uLow = username.toLowerCase();
     const isGuest = uLow.includes('guest') || uLow.startsWith('guest') || uLow === 'rinrin' || uLow === 'rin-chan';
     const isAdmin = uLow === 'admin';
-    const clientSessionId = (isAdmin ? 'a_' : (isGuest ? 'g_' : 'u_')) + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const clientSessionId = generateSecureToken(isAdmin ? 'a' : (isGuest ? 'g' : 'u'));
     const geoInfo = await getClientGeoInfo();
     const userAgent = navigator.userAgent || '';
 
@@ -1596,7 +1616,11 @@ function renderLeaderboard(rows, session) {
       const nudgeTag = document.createElement('span');
       nudgeTag.className = 'nudge-tag';
       nudgeTag.setAttribute('tabindex', '0');
-      nudgeTag.innerHTML = `⚡ ${nudgesReceived}x<span class="nudge-hover-tooltip">Nudged by: ${sendersStr}</span>`;
+      nudgeTag.textContent = `⚡ ${nudgesReceived}x`;
+      const nudgeTooltip = document.createElement('span');
+      nudgeTooltip.className = 'nudge-hover-tooltip';
+      nudgeTooltip.textContent = `Nudged by: ${sendersStr}`;
+      nudgeTag.appendChild(nudgeTooltip);
       nudgeTag.title = `Nudged by: ${sendersStr}`;
       nameRow.appendChild(nudgeTag);
     }
@@ -3120,12 +3144,6 @@ function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
 function makeDraggable(el, container) {
   let dragging = false;
   let startPointerX = 0, startPointerY = 0, startX = 0, startY = 0;
@@ -4159,7 +4177,7 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
   contentContainer.innerHTML = `
     <div class="reader-loading-state">
       <div class="reader-spinner"></div>
-      <p>Loading ${portionText} (${version})…</p>
+      <p>Loading ${escapeHtml(portionText)} (${escapeHtml(version)})…</p>
     </div>
   `;
 
@@ -4189,7 +4207,13 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
           const row = document.createElement('span');
           row.className = 'verse-row';
           const cleanText = String(v.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-          row.innerHTML = `<sup class="verse-num">${v.verse}</sup><span class="verse-text">${cleanText}</span> `;
+          const sup = document.createElement('sup');
+          sup.className = 'verse-num';
+          sup.textContent = v.verse;
+          const textSpan = document.createElement('span');
+          textSpan.className = 'verse-text';
+          textSpan.textContent = cleanText;
+          row.append(sup, textSpan, document.createTextNode(' '));
           bodyWrap.appendChild(row);
         });
 
@@ -4576,7 +4600,12 @@ function initDailyQuiz(portionText, dayNum) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'quiz-option-btn';
-    btn.innerHTML = `<span class="opt-letter">${String.fromCharCode(65 + optIdx)}.</span> <span>${optText}</span>`;
+    const optLetter = document.createElement('span');
+    optLetter.className = 'opt-letter';
+    optLetter.textContent = `${String.fromCharCode(65 + optIdx)}. `;
+    const optTextSpan = document.createElement('span');
+    optTextSpan.textContent = optText;
+    btn.append(optLetter, optTextSpan);
 
     if (previousAnswer !== null) {
       btn.disabled = true;
@@ -4918,15 +4947,15 @@ function filterSidebarPortions(query) {
     const parsed = parsePassage(item.portion);
     let chipsHtml = '';
     if (!parsed.isCatchUp && parsed.chapters.length > 0) {
-      chipsHtml = `<div class="sidebar-chips-row">${parsed.chapters.slice(0, 8).map(c => `<span class="sidebar-mini-chip">${c.abbr} ${c.chapter}</span>`).join('')}${parsed.chapters.length > 8 ? `<span class="sidebar-mini-chip">+${parsed.chapters.length - 8} more</span>` : ''}</div>`;
+      chipsHtml = `<div class="sidebar-chips-row">${parsed.chapters.slice(0, 8).map(c => `<span class="sidebar-mini-chip">${escapeHtml(c.abbr)} ${escapeHtml(c.chapter)}</span>`).join('')}${parsed.chapters.length > 8 ? `<span class="sidebar-mini-chip">+${parsed.chapters.length - 8} more</span>` : ''}</div>`;
     }
 
     el.innerHTML = `
       <div class="sidebar-item-top">
-        <span class="sidebar-day-tag">Day ${item.day} ${isCurrent ? '• TODAY' : ''}</span>
-        <span class="sidebar-date-tag">${item.date || ''}</span>
+        <span class="sidebar-day-tag">Day ${escapeHtml(item.day)} ${isCurrent ? '• TODAY' : ''}</span>
+        <span class="sidebar-date-tag">${escapeHtml(item.date || '')}</span>
       </div>
-      <div class="sidebar-portion-text">${item.portion || ''}</div>
+      <div class="sidebar-portion-text">${escapeHtml(item.portion || '')}</div>
       ${chipsHtml}
       <div class="sidebar-item-actions">
         <button type="button" class="btn-sidebar-read">📖 Read Passage</button>
