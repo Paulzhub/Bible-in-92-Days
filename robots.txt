@@ -1,4 +1,35 @@
+# robots.txt for Project Bible in 92 Days
+# Allow all standard search engines and generative AI search crawlers
+
 User-agent: *
 Allow: /
 
+# Google
+User-agent: Googlebot
+Allow: /
+
+# Bing
+User-agent: Bingbot
+Allow: /
+
+# Apple Search
+User-agent: Applebot
+Allow: /
+
+# OpenAI / ChatGPT Search
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic / Claude
+User-agent: ClaudeBot
+Allow: /
+
+# Perplexity AI Search
+User-agent: PerplexityBot
+Allow: /
+
+Host: https://paulzhub.github.io/Bible-in-92-Days/
 Sitemap: https://paulzhub.github.io/Bible-in-92-Days/sitemap.xml

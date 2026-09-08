@@ -302,6 +302,20 @@ function initLogin() {
       submitBtn.textContent = 'Begin Reading';
     }
   });
+
+  const guestQuickBtn = document.getElementById('guest-quick-login-btn');
+  if (guestQuickBtn) {
+    guestQuickBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('login-username').value = 'Guest1';
+      document.getElementById('login-password').value = 'Guest1@123';
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      }
+    });
+  }
 }
 
 function initPasswordToggle() {
