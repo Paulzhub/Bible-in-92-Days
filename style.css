@@ -1503,9 +1503,11 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .flip-card-container {
   perspective: 1000px;
   width: 100%;
-  min-height: 180px;
+  max-width: 100%;
+  min-height: 190px;
   cursor: pointer;
   outline: none;
+  box-sizing: border-box;
 }
 
 .flip-card-container:focus-visible .flip-card-inner {
@@ -1515,11 +1517,12 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .flip-card-inner {
   position: relative;
   width: 100%;
-  min-height: 180px;
+  min-height: 190px;
   text-align: left;
   transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   transform-style: preserve-3d;
   border-radius: 16px;
+  box-sizing: border-box;
 }
 
 .flip-card-container.is-flipped .flip-card-inner {
@@ -1542,6 +1545,8 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   justify-content: space-between;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .flip-card-front {
@@ -1566,10 +1571,12 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 
 .flip-card-tldr {
   font-family: var(--font-display);
-  font-size: 1.05rem;
-  line-height: 1.55;
+  font-size: clamp(0.95rem, 3.8vw, 1.05rem);
+  line-height: 1.5;
   color: var(--text);
   margin: 0 0 0.75rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .flip-card-footer {
@@ -1588,11 +1595,13 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 
 .flip-card-verse {
   font-family: var(--font-display);
-  font-size: 1.02rem;
-  line-height: 1.55;
+  font-size: clamp(0.92rem, 3.6vw, 1.02rem);
+  line-height: 1.5;
   color: var(--text);
   font-style: italic;
   margin: 0 0 0.4rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .flip-card-ref {
@@ -1627,6 +1636,44 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   background: var(--good);
   color: #FFFFFF;
   border-color: var(--good);
+}
+
+@media (max-width: 480px) {
+  .verse-flip-card-wrap {
+    padding: 0;
+  }
+  .flip-card-face {
+    padding: 1rem 0.95rem;
+    border-radius: 14px;
+  }
+  .flip-card-tldr {
+    font-size: 0.94rem;
+    line-height: 1.45;
+    margin-bottom: 0.5rem;
+  }
+  .flip-card-verse {
+    font-size: 0.92rem;
+    line-height: 1.45;
+    margin-bottom: 0.35rem;
+  }
+  .flip-card-ref {
+    font-size: 0.78rem;
+    margin-bottom: 0.45rem;
+  }
+  .flip-card-footer {
+    padding-top: 0.35rem;
+  }
+  .flip-card-actions {
+    margin-top: 0.35rem;
+    width: 100%;
+    justify-content: center;
+  }
+  .ig-copy-btn {
+    font-size: 0.72rem;
+    padding: 0.32rem 0.65rem;
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ============ DAILY MICRO-TRIVIA / FLASH QUIZ ============ */
@@ -1789,31 +1836,36 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .today-schedule-action {
   display: flex;
   justify-content: center;
-  margin: 0.5rem auto 2.25rem;
+  margin: 1.15rem auto 1.35rem;
 }
 
 .today-schedule-action .sidebar-toggle-btn {
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.45rem 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.5rem 1.3rem;
   border-radius: 999px;
-  gap: 0.45rem;
+  gap: 0.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--accent, #e8a93b);
+  border: 1px solid var(--accent, #e8a93b);
+  color: var(--accent-ink, #0d1117);
+  box-shadow: 0 2px 12px rgba(232, 169, 59, 0.32);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .today-schedule-action .sidebar-toggle-btn:hover {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(232, 169, 59, 0.2);
+  background: #f5b94f;
+  border-color: #f5b94f;
+  color: var(--accent-ink, #0d1117);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(232, 169, 59, 0.5);
+}
+
+.today-schedule-action .sidebar-toggle-btn svg {
+  stroke: var(--accent-ink, #0d1117);
 }
 
 /* ============ SCRIPTURE READER MODAL ============ */
@@ -3183,6 +3235,265 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .squad-gauge-pct {
   font-weight: 700;
   color: var(--accent);
+}
+
+/* ============ BOYS VS GIRLS CUMULATIVE PROGRESS ============ */
+.boys-vs-girls-card {
+  margin: 1.5rem 0;
+  padding: 1.5rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.bvg-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.bvg-title-wrap {
+  flex: 1 1 240px;
+}
+
+.bvg-title {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.bvg-lead-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.bvg-lead-badge.lead-boys {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #0284c7;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+[data-theme="dark"] .bvg-lead-badge.lead-boys {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.18);
+}
+
+.bvg-lead-badge.lead-girls {
+  background: rgba(244, 114, 182, 0.14);
+  border-color: rgba(244, 114, 182, 0.55);
+  color: #e11d48;
+  box-shadow: 0 0 12px rgba(244, 114, 182, 0.25);
+}
+
+[data-theme="dark"] .bvg-lead-badge.lead-girls {
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.18);
+}
+
+.bvg-lead-badge.lead-tie {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+/* Dual Segmented Comparison Bar */
+.bvg-segmented-bar-wrap {
+  margin: 0.25rem 0 1.25rem;
+}
+
+.bvg-segmented-bar {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bvg-segment {
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bvg-boys-segment {
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+
+.bvg-girls-segment {
+  background: linear-gradient(90deg, #f472b6, #fb7185);
+}
+
+/* Cohort Grid */
+.bvg-cohort-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .bvg-cohort-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bvg-cohort-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.15rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bvg-cohort-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.bvg-boys-card {
+  border-left: 4px solid #38bdf8;
+}
+
+.bvg-girls-card {
+  border-left: 4px solid #f472b6;
+}
+
+.bvg-cohort-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bvg-cohort-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bvg-cohort-avatar {
+  font-size: 1.45rem;
+}
+
+.bvg-cohort-title-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.bvg-cohort-name {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bvg-cohort-roster-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.bvg-cohort-pct {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.bvg-boys-card .bvg-cohort-pct {
+  color: #0284c7;
+}
+
+[data-theme="dark"] .bvg-boys-card .bvg-cohort-pct {
+  color: #38bdf8;
+}
+
+.bvg-girls-card .bvg-cohort-pct {
+  color: #e11d48;
+}
+
+[data-theme="dark"] .bvg-girls-card .bvg-cohort-pct {
+  color: #f472b6;
+}
+
+.bvg-single-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.bvg-single-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bvg-boys-fill {
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+
+.bvg-girls-fill {
+  background: linear-gradient(90deg, #f472b6, #fb7185);
+}
+
+.bvg-cohort-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.bvg-fraction {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bvg-target-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.bvg-roster-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.bvg-roster-pills span {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 /* ============ ACHIEVEMENTS & FREEZE BADGES ============ */

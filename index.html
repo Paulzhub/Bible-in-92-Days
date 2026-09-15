@@ -2004,6 +2004,77 @@
         </div>
       </section>
 
+      <!-- BOYS VS GIRLS CUMULATIVE READING PROGRESS -->
+      <section id="boys-vs-girls-card" class="card boys-vs-girls-card" aria-label="Boys vs Girls Cumulative Reading Progress">
+        <div class="bvg-header">
+          <div class="bvg-title-wrap">
+            <p class="eyebrow">Cohort Showdown</p>
+            <h2 class="bvg-title">Boys vs Girls Cumulative Progress</h2>
+          </div>
+          <div id="bvg-lead-indicator" class="bvg-lead-badge lead-tie">
+            <span id="bvg-lead-icon">🤝</span>
+            <span id="bvg-lead-text">Tied Race</span>
+          </div>
+        </div>
+
+        <div class="bvg-segmented-bar-wrap">
+          <div class="bvg-segmented-bar" id="bvg-segmented-bar" role="progressbar" aria-label="Boys vs Girls Segmented Progress">
+            <div id="bvg-bar-boys" class="bvg-segment bvg-boys-segment" style="width: 50%;"></div>
+            <div id="bvg-bar-girls" class="bvg-segment bvg-girls-segment" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <div class="bvg-cohort-grid">
+          <!-- BOYS COHORT CARD -->
+          <div class="bvg-cohort-card bvg-boys-card">
+            <div class="bvg-cohort-head">
+              <div class="bvg-cohort-name-wrap">
+                <span class="bvg-cohort-avatar">🏃‍♂️</span>
+                <div class="bvg-cohort-title-meta">
+                  <span class="bvg-cohort-name">Boys Squad</span>
+                  <span class="bvg-cohort-roster-count">7 disciples</span>
+                </div>
+              </div>
+              <span id="bvg-boys-pct" class="bvg-cohort-pct">0.0%</span>
+            </div>
+            <div class="bvg-single-bar-wrap">
+              <div id="bvg-boys-single-bar" class="bvg-single-bar bvg-boys-fill" style="width: 0%;"></div>
+            </div>
+            <div class="bvg-cohort-stats">
+              <span id="bvg-boys-fraction" class="bvg-fraction">0 / 644 target days</span>
+              <span class="bvg-target-label">Target: 644</span>
+            </div>
+            <div class="bvg-roster-pills">
+              <span>Paulz</span><span>Victor</span><span>Jason</span><span>Guptaji</span><span>Puia</span><span>Ducks Fartbomber</span><span>Vishan</span>
+            </div>
+          </div>
+
+          <!-- GIRLS COHORT CARD -->
+          <div class="bvg-cohort-card bvg-girls-card">
+            <div class="bvg-cohort-head">
+              <div class="bvg-cohort-name-wrap">
+                <span class="bvg-cohort-avatar">🏃‍♀️</span>
+                <div class="bvg-cohort-title-meta">
+                  <span class="bvg-cohort-name">Girls Squad</span>
+                  <span class="bvg-cohort-roster-count">6 disciples</span>
+                </div>
+              </div>
+              <span id="bvg-girls-pct" class="bvg-cohort-pct">0.0%</span>
+            </div>
+            <div class="bvg-single-bar-wrap">
+              <div id="bvg-girls-single-bar" class="bvg-single-bar bvg-girls-fill" style="width: 0%;"></div>
+            </div>
+            <div class="bvg-cohort-stats">
+              <span id="bvg-girls-fraction" class="bvg-fraction">0 / 552 target days</span>
+              <span class="bvg-target-label">Target: 552</span>
+            </div>
+            <div class="bvg-roster-pills">
+              <span>Nim Nim</span><span>Daysel</span><span>Yutso</span><span>Elisha</span><span>Dechen</span><span>Yeshi</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- SECTION 1: TODAY'S READING -->
       <section id="section-today" class="card section-today">
         <div class="section-head-row">
@@ -2047,6 +2118,13 @@
               <span>Read Passage</span>
             </button>
           </div>
+        </div>
+
+        <div class="today-schedule-action">
+          <button id="sidebar-toggle-btn" class="btn btn-secondary sidebar-toggle-btn" type="button" title="View 92-Day Reading Schedule">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Reading Schedule</span>
+          </button>
         </div>
 
         <!-- 3D VERSE FLIP CARD & YOUTH TL;DR BITE -->
@@ -2099,13 +2177,6 @@
             <p id="quiz-feedback-msg" class="quiz-feedback-msg"></p>
             <p id="quiz-explanation-text" class="quiz-explanation"></p>
           </div>
-        </div>
-
-        <div class="today-schedule-action">
-          <button id="sidebar-toggle-btn" class="btn btn-secondary sidebar-toggle-btn" type="button" title="View 92-Day Reading Schedule">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            <span>Reading Schedule</span>
-          </button>
         </div>
 
         <form id="update-form" class="update-form">

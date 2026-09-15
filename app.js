@@ -982,6 +982,84 @@ function renderSquadGauge(rows) {
   }
 }
 
+const BOY_USERS = ['paulz', 'victor', 'jason', 'guptaji', 'puia', 'ducks fartbomber', 'vishan'];
+const GIRL_USERS = ['nim nim', 'daysel', 'yutso', 'elisha', 'dechen', 'yeshi'];
+const BOYS_TOTAL_TARGET_DAYS = 644; // 7 boys * 92 days
+const GIRLS_TOTAL_TARGET_DAYS = 552; // 6 girls * 92 days
+
+function renderBoysVsGirlsProgress(rows) {
+  const card = document.getElementById('boys-vs-girls-card');
+  if (!card) return;
+  if (!rows || !Array.isArray(rows)) return;
+
+  let boysDays = 0;
+  let girlsDays = 0;
+
+  rows.forEach(r => {
+    const normUser = (r.username || '').trim().toLowerCase();
+    const days = Number(r.daysCompleted) || 0;
+    if (BOY_USERS.includes(normUser)) {
+      boysDays += days;
+    } else if (GIRL_USERS.includes(normUser)) {
+      girlsDays += days;
+    }
+  });
+
+  const boysPct = Math.min(100, Math.max(0, (boysDays / BOYS_TOTAL_TARGET_DAYS) * 100));
+  const girlsPct = Math.min(100, Math.max(0, (girlsDays / GIRLS_TOTAL_TARGET_DAYS) * 100));
+
+  const boysPctEl = document.getElementById('bvg-boys-pct');
+  const girlsPctEl = document.getElementById('bvg-girls-pct');
+  if (boysPctEl) boysPctEl.textContent = `${boysPct.toFixed(1)}%`;
+  if (girlsPctEl) girlsPctEl.textContent = `${girlsPct.toFixed(1)}%`;
+
+  const boysFracEl = document.getElementById('bvg-boys-fraction');
+  const girlsFracEl = document.getElementById('bvg-girls-fraction');
+  if (boysFracEl) boysFracEl.textContent = `${boysDays} / ${BOYS_TOTAL_TARGET_DAYS} days`;
+  if (girlsFracEl) girlsFracEl.textContent = `${girlsDays} / ${GIRLS_TOTAL_TARGET_DAYS} days`;
+
+  const boysSingleBar = document.getElementById('bvg-boys-single-bar');
+  const girlsSingleBar = document.getElementById('bvg-girls-single-bar');
+  if (boysSingleBar) boysSingleBar.style.width = `${boysPct}%`;
+  if (girlsSingleBar) girlsSingleBar.style.width = `${girlsPct}%`;
+
+  const barBoys = document.getElementById('bvg-bar-boys');
+  const barGirls = document.getElementById('bvg-bar-girls');
+  if (barBoys && barGirls) {
+    const totalCurrentPct = boysPct + girlsPct;
+    if (totalCurrentPct > 0) {
+      const segBoysWidth = (boysPct / totalCurrentPct) * 100;
+      const segGirlsWidth = (girlsPct / totalCurrentPct) * 100;
+      barBoys.style.width = `${segBoysWidth.toFixed(1)}%`;
+      barGirls.style.width = `${segGirlsWidth.toFixed(1)}%`;
+    } else {
+      barBoys.style.width = '50%';
+      barGirls.style.width = '50%';
+    }
+  }
+
+  const leadIndicator = document.getElementById('bvg-lead-indicator');
+  const leadIcon = document.getElementById('bvg-lead-icon');
+  const leadText = document.getElementById('bvg-lead-text');
+
+  if (leadIndicator && leadText) {
+    leadIndicator.classList.remove('lead-boys', 'lead-girls', 'lead-tie');
+    if (boysPct > girlsPct) {
+      leadIndicator.classList.add('lead-boys');
+      if (leadIcon) leadIcon.textContent = '🏃‍♂️';
+      leadText.textContent = 'Boys are in the Lead!';
+    } else if (girlsPct > boysPct) {
+      leadIndicator.classList.add('lead-girls');
+      if (leadIcon) leadIcon.textContent = '🏃‍♀️';
+      leadText.textContent = 'Girls are in the Lead!';
+    } else {
+      leadIndicator.classList.add('lead-tie');
+      if (leadIcon) leadIcon.textContent = '🤝';
+      leadText.textContent = "It's a Tie!";
+    }
+  }
+}
+
 function celebrateTier(tier) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -1469,6 +1547,7 @@ function initLeaderboardFilterTabs() {
 function renderLeaderboard(rows, session) {
   initLeaderboardFilterTabs();
   renderSquadGauge(rows);
+  renderBoysVsGirlsProgress(rows);
   const body = document.getElementById('leaderboard-body');
   document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
@@ -4393,6 +4472,25 @@ function getTldrForPortion(portionText, dayNum) {
   return "God's living Word speaks directly into your story today. Meditate on it day and night.";
 }
 
+function syncVerseFlipCardHeight() {
+  const container = document.getElementById('flip-card-container');
+  if (!container) return;
+  const inner = document.getElementById('flip-card-inner');
+  const front = container.querySelector('.flip-card-front');
+  const back = container.querySelector('.flip-card-back');
+  if (!front || !back || !inner) return;
+
+  requestAnimationFrame(() => {
+    container.style.minHeight = '';
+    inner.style.minHeight = '';
+    const hFront = front.scrollHeight || 0;
+    const hBack = back.scrollHeight || 0;
+    const needed = Math.max(hFront, hBack, 190);
+    container.style.minHeight = `${needed}px`;
+    inner.style.minHeight = `${needed}px`;
+  });
+}
+
 let isFlipCardWired = false;
 
 function renderVerseFlipCard(portionText, dayNum) {
@@ -4412,6 +4510,8 @@ function renderVerseFlipCard(portionText, dayNum) {
   verseTextEl.textContent = `"${kv.text}"`;
   verseRefEl.textContent = `— ${kv.ref}`;
 
+  syncVerseFlipCardHeight();
+
   const toggleFlip = () => {
     container.classList.toggle('is-flipped');
     const isFlipped = container.classList.contains('is-flipped');
@@ -4419,6 +4519,8 @@ function renderVerseFlipCard(portionText, dayNum) {
   };
 
   if (!isFlipCardWired) {
+    window.addEventListener('resize', syncVerseFlipCardHeight);
+
     container.addEventListener('click', (e) => {
       // Don't flip if clicking the copy button
       if (e.target.closest('#copy-ig-story-btn')) return;
@@ -4479,87 +4581,1121 @@ function renderVerseFlipCard(portionText, dayNum) {
 // ====== DAILY MICRO-TRIVIA / FLASH QUIZ ======
 
 const DAILY_BIBLE_QUIZ_BANK = {
-  1: {
-    question: "In Genesis 1, on which day of Creation did God create light?",
-    options: ["Day 1", "Day 3", "Day 4", "Day 7"],
-    correctIndex: 0,
-    verse: "Genesis 1:3",
-    explanation: "God said, 'Let there be light,' and there was light on the very first day!"
+  "1": {
+    "question": "In Genesis 1, on which day of Creation did God create light?",
+    "options": [
+      "Day 1",
+      "Day 3",
+      "Day 4",
+      "Day 7"
+    ],
+    "correctIndex": 0,
+    "verse": "Genesis 1:3",
+    "explanation": "God said, 'Let there be light,' and there was light on the very first day!"
   },
-  2: {
-    question: "What sign did God place in the sky as a covenant promise never to flood the earth again?",
-    options: ["A shooting star", "A rainbow", "A solar eclipse", "A pillar of cloud"],
-    correctIndex: 1,
-    verse: "Genesis 9:13",
-    explanation: "God placed His rainbow in the clouds as a sign of His everlasting covenant."
+  "2": {
+    "question": "What sign did God place in the sky as a covenant promise never to flood the earth again?",
+    "options": [
+      "A shooting star",
+      "A rainbow",
+      "A solar eclipse",
+      "A pillar of cloud"
+    ],
+    "correctIndex": 1,
+    "verse": "Genesis 9:13",
+    "explanation": "God placed His rainbow in the clouds as a sign of His everlasting covenant."
   },
-  3: {
-    question: "What special gift did Jacob give to his beloved son Joseph?",
-    options: ["A golden signet ring", "A silver harp", "An ornate coat of many colors", "A shepherd's staff"],
-    correctIndex: 2,
-    verse: "Genesis 37:3",
-    explanation: "Jacob loved Joseph more than any of his other sons and gave him a richly ornamented coat."
+  "3": {
+    "question": "What special gift did Jacob give to his beloved son Joseph?",
+    "options": [
+      "A golden signet ring",
+      "A silver harp",
+      "An ornate coat of many colors",
+      "A shepherd's staff"
+    ],
+    "correctIndex": 2,
+    "verse": "Genesis 37:3",
+    "explanation": "Jacob loved Joseph more than any of his other sons and gave him a richly ornamented coat."
   },
-  4: {
-    question: "Through what miraculous sight did God first speak to Moses in Midian?",
-    options: ["A roaring thunderstorm", "A bush that burned without being consumed", "An angel in a chariot", "A stone tablet"],
-    correctIndex: 1,
-    verse: "Exodus 3:2",
-    explanation: "The angel of the Lord appeared to Moses in flames of fire from within a bush that did not burn up."
+  "4": {
+    "question": "Through what miraculous sight did God first speak to Moses in Midian?",
+    "options": [
+      "A roaring thunderstorm",
+      "A bush that burned without being consumed",
+      "An angel in a chariot",
+      "A stone tablet"
+    ],
+    "correctIndex": 1,
+    "verse": "Exodus 3:2",
+    "explanation": "The angel of the Lord appeared to Moses in flames of fire from within a bush that did not burn up."
   },
-  5: {
-    question: "What food did God rain down from heaven each morning for the Israelites in the wilderness?",
-    options: ["Manna", "Figs", "Unleavened bread", "Pomegranates"],
-    correctIndex: 0,
-    verse: "Exodus 16:15",
-    explanation: "God provided manna, a sweet flake-like bread from heaven that sustained them for 40 years."
+  "5": {
+    "question": "What food did God rain down from heaven each morning for the Israelites in the wilderness?",
+    "options": [
+      "Manna",
+      "Figs",
+      "Unleavened bread",
+      "Pomegranates"
+    ],
+    "correctIndex": 0,
+    "verse": "Exodus 16:15",
+    "explanation": "God provided manna, a sweet flake-like bread from heaven that sustained them for 40 years."
   },
-  6: {
-    question: "On which mountain did Moses receive the Ten Commandments from God?",
-    options: ["Mount Carmel", "Mount Sinai (Horeb)", "Mount Nebo", "Mount Zion"],
-    correctIndex: 1,
-    verse: "Exodus 19:20",
-    explanation: "The Lord descended upon the top of Mount Sinai and called Moses to meet Him."
+  "6": {
+    "question": "On which mountain did Moses receive the Ten Commandments from God?",
+    "options": [
+      "Mount Carmel",
+      "Mount Sinai (Horeb)",
+      "Mount Nebo",
+      "Mount Zion"
+    ],
+    "correctIndex": 1,
+    "verse": "Exodus 19:20",
+    "explanation": "The Lord descended upon the top of Mount Sinai and called Moses to meet Him."
   },
-  7: {
-    question: "What did the high priest wear on the breastplate representing the 12 tribes of Israel?",
-    options: ["12 precious gemstones", "12 golden bells", "12 olive branches", "12 silver chains"],
-    correctIndex: 0,
-    verse: "Exodus 28:21",
-    explanation: "There were 12 stones on Aaron's breastplate, each engraved like a seal with the name of one of the 12 tribes."
+  "7": {
+    "question": "What did the high priest wear on the breastplate representing the 12 tribes of Israel?",
+    "options": [
+      "12 precious gemstones",
+      "12 golden bells",
+      "12 olive branches",
+      "12 silver chains"
+    ],
+    "correctIndex": 0,
+    "verse": "Exodus 28:21",
+    "explanation": "There were 12 stones on Aaron's breastplate, each engraved like a seal with the name of one of the 12 tribes."
   },
-  8: {
-    question: "Which tribe of Israel was set apart specifically to serve in the Tabernacle and the priesthood?",
-    options: ["Judah", "Benjamin", "Levi", "Dan"],
-    correctIndex: 2,
-    verse: "Numbers 3:6",
-    explanation: "The tribe of Levi was dedicated to God to assist Aaron and care for the sacred Tabernacle."
+  "8": {
+    "question": "Which tribe of Israel was set apart specifically to serve in the Tabernacle and the priesthood?",
+    "options": [
+      "Judah",
+      "Benjamin",
+      "Levi",
+      "Dan"
+    ],
+    "correctIndex": 2,
+    "verse": "Numbers 3:6",
+    "explanation": "The tribe of Levi was dedicated to God to assist Aaron and care for the sacred Tabernacle."
   },
-  9: {
-    question: "How many spies did Moses send out to explore the Promised Land of Canaan?",
-    options: ["7", "10", "12", "70"],
-    correctIndex: 2,
-    verse: "Numbers 13:1–2",
-    explanation: "Moses sent 12 leaders, one from each ancestral tribe of Israel, to explore Canaan."
+  "9": {
+    "question": "How many spies did Moses send out to explore the Promised Land of Canaan?",
+    "options": [
+      "7",
+      "10",
+      "12",
+      "70"
+    ],
+    "correctIndex": 2,
+    "verse": "Numbers 13:1–2",
+    "explanation": "Moses sent 12 leaders, one from each ancestral tribe of Israel, to explore Canaan."
   },
-  10: {
-    question: "Which two faithful spies declared that with the Lord's help, Israel could take the land?",
-    options: ["Joshua and Caleb", "Aaron and Hur", "Gideon and Samson", "Moses and Eleazar"],
-    correctIndex: 0,
-    verse: "Numbers 14:6–9",
-    explanation: "Joshua and Caleb urged the people: 'The Lord is with us. Do not be afraid of them!'"
+  "10": {
+    "question": "Which two faithful spies declared that with the Lord's help, Israel could take the land?",
+    "options": [
+      "Joshua and Caleb",
+      "Aaron and Hur",
+      "Gideon and Samson",
+      "Moses and Eleazar"
+    ],
+    "correctIndex": 0,
+    "verse": "Numbers 14:6–9",
+    "explanation": "Joshua and Caleb urged the people: 'The Lord is with us. Do not be afraid of them!'"
+  },
+  "11": {
+    "question": "What miraculous event in Numbers 17 confirmed Aaron's divine appointment as high priest?",
+    "options": [
+      "Aaron's wooden staff blossomed and produced ripe almonds overnight",
+      "Water flowed from his priestly garments",
+      "A column of fire rested exclusively on his tent",
+      "A golden crown descended from heaven"
+    ],
+    "correctIndex": 0,
+    "verse": "Numbers 17:8",
+    "explanation": "Aaron's staff miraculously sprouted, budded, blossomed, and produced almonds, settling his priesthood permanently."
+  },
+  "12": {
+    "question": "Whom did the Lord commission before the high priest Eleazar to succeed Moses as Israel's leader?",
+    "options": [
+      "Phinehas",
+      "Caleb son of Jephunneh",
+      "Joshua son of Nun",
+      "Gershom"
+    ],
+    "correctIndex": 2,
+    "verse": "Numbers 27:18–22",
+    "explanation": "Moses laid his hands on Joshua, a man in whom is the Spirit, commissioning him before the whole congregation."
+  },
+  "13": {
+    "question": "What foundational declaration of monotheism and love for God is commanded in Deuteronomy 6:4–5?",
+    "options": [
+      "The Shema ('Hear, O Israel: The LORD our God, the LORD is one')",
+      "The Beatitudes",
+      "The Aaronic Blessing",
+      "The Song of Moses"
+    ],
+    "correctIndex": 0,
+    "verse": "Deuteronomy 6:4–5",
+    "explanation": "The Shema declares: 'Hear, O Israel: The LORD our God, the LORD is one. Love the LORD your God with all your heart, soul, and strength.'"
+  },
+  "14": {
+    "question": "In Deuteronomy 18, what future deliverer did Moses prophesy that God would raise up from among their brothers?",
+    "options": [
+      "A world-conquering monarch",
+      "A Prophet like Moses whom they must listen to",
+      "An angelic army general",
+      "A wealthy merchant king"
+    ],
+    "correctIndex": 1,
+    "verse": "Deuteronomy 18:15",
+    "explanation": "Moses prophesied that God would raise up a prophet like him, pointing directly to Jesus Christ."
+  },
+  "15": {
+    "question": "By what divine strategy did the massive fortified walls of Jericho collapse in Joshua 6?",
+    "options": [
+      "Battering rams breaking the iron gates",
+      "Marching around the city for 7 days, blowing ram's horns, and shouting",
+      "A sudden earthquake at midnight",
+      "Sapping beneath the city foundations"
+    ],
+    "correctIndex": 1,
+    "verse": "Joshua 6:20",
+    "explanation": "When the trumpets sounded and the army shouted with a great shout, the wall fell down flat by faith!"
+  },
+  "16": {
+    "question": "During Joshua's battle at Gibeon against the Amorites, what unprecedented miracle occurred in the heavens?",
+    "options": [
+      "The sun and moon stood still in the sky for about a full day",
+      "A solar eclipse turned day into pitch black night",
+      "A shower of falling stars destroyed the enemy camps",
+      "Lightning burned the enemy chariots"
+    ],
+    "correctIndex": 0,
+    "verse": "Joshua 10:12–14",
+    "explanation": "Joshua cried out in the sight of Israel, and the sun stopped in the middle of the sky and delayed going down about a full day."
+  },
+  "17": {
+    "question": "What famous declaration of family dedication did Joshua give in his farewell address in Joshua 24?",
+    "options": [
+      "'As for me and my household, we will serve the LORD'",
+      "'Peace be within your walls and prosperity in your palaces'",
+      "'Do not be afraid, stand firm and see salvation'",
+      "'Great is your faithfulness O Lord'"
+    ],
+    "correctIndex": 0,
+    "verse": "Joshua 24:15",
+    "explanation": "Joshua challenged the nation, concluding: 'Choose this day whom you will serve... But as for me and my household, we will serve the LORD.'"
+  },
+  "18": {
+    "question": "What loyal covenant vow did Ruth profess to Naomi when urged to stay in Moab?",
+    "options": [
+      "'Where you go I will go; your people will be my people and your God my God'",
+      "'I will build a dwelling in Bethlehem on my own'",
+      "'Provide me with my portion of the inheritance'",
+      "'I shall return to the temple of Chemosh'"
+    ],
+    "correctIndex": 0,
+    "verse": "Ruth 1:16–17",
+    "explanation": "Ruth's steadfast devotion brought her into the lineage of King David and Jesus Christ."
+  },
+  "19": {
+    "question": "How did the young boy Samuel respond when the Lord called his name three times at Shiloh?",
+    "options": [
+      "'Here I am, Eli, for you called me'",
+      "'Speak, LORD, for your servant is listening'",
+      "'Depart from me, for I am only a youth'",
+      "'Who speaks to me in the dark?'"
+    ],
+    "correctIndex": 1,
+    "verse": "1 Samuel 3:9–10",
+    "explanation": "Taught by the priest Eli, Samuel answered: 'Speak, LORD, for your servant is listening.'"
+  },
+  "20": {
+    "question": "What weapon and confidence did young David use to strike down the Philistine champion Goliath?",
+    "options": [
+      "Saul's royal sword and bronze helmet",
+      "A shepherd's sling and a single smooth stone in the Name of the LORD",
+      "An iron spear from Bethlehem",
+      "A flaming arrow fired from the hillside"
+    ],
+    "correctIndex": 1,
+    "verse": "1 Samuel 17:45–50",
+    "explanation": "David declared that the battle is the LORD's, defeating Goliath with a single sling stone."
+  },
+  "21": {
+    "question": "How did King David celebrate when the Ark of God was successfully brought into Jerusalem in 2 Samuel 6?",
+    "options": [
+      "He sat silently on a golden royal chariot",
+      "He danced before the LORD with all his might wearing a linen ephod",
+      "He declared thirty days of national fasting",
+      "He hid the Ark in a mountain cave"
+    ],
+    "correctIndex": 1,
+    "verse": "2 Samuel 6:14",
+    "explanation": "David rejoiced with exuberant worship, leaping and dancing before the Lord with all his might."
+  },
+  "22": {
+    "question": "What eternal covenant promise did God make to David through the prophet Nathan in 2 Samuel 7?",
+    "options": [
+      "David would never suffer physical illness",
+      "David's royal throne and kingdom would be established forever",
+      "David would personally construct the stone temple",
+      "Israel would never have another king"
+    ],
+    "correctIndex": 1,
+    "verse": "2 Samuel 7:16",
+    "explanation": "God promised: 'Your house and your kingdom will endure forever before me; your throne will be established forever'—fulfilled in the Messiah Jesus!"
+  },
+  "23": {
+    "question": "When God appeared to young King Solomon in a dream at Gibeon, what did Solomon ask for?",
+    "options": [
+      "Limitless gold and long life",
+      "The defeat of all his political adversaries",
+      "A discerning heart / wisdom to govern God's people",
+      "Dominion over the kingdoms of Egypt and Assyria"
+    ],
+    "correctIndex": 2,
+    "verse": "1 Kings 3:9–10",
+    "explanation": "Solomon asked for wisdom and understanding to lead God's great people, which pleased the Lord greatly."
+  },
+  "24": {
+    "question": "On Mount Carmel, how did the LORD answer Elijah's prayer to prove that He alone is God in 1 Kings 18?",
+    "options": [
+      "A gentle breeze passed over the mountain",
+      "Fire fell from heaven and consumed the sacrifice, wood, stones, and water",
+      "An earthquake split the altar in two",
+      "A sudden torrential rain extinguished the pagan altars"
+    ],
+    "correctIndex": 1,
+    "verse": "1 Kings 18:38",
+    "explanation": "The fire of the LORD fell and consumed the burnt offering, the wood, the stones, and the dust, licking up the water in the trench."
+  },
+  "25": {
+    "question": "How was the prophet Elijah miraculously taken up to heaven in 2 Kings 2?",
+    "options": [
+      "He died of old age on Mount Carmel",
+      "A chariot of fire and horses of fire appeared, and he went up in a whirlwind",
+      "He was carried across the Jordan by angels",
+      "He vanished inside the holy place"
+    ],
+    "correctIndex": 1,
+    "verse": "2 Kings 2:11",
+    "explanation": "As Elijah and Elisha walked, a chariot of fire and horses of fire separated them, and Elijah ascended in a whirlwind."
+  },
+  "26": {
+    "question": "Which godly young king of Judah wept, tore his robes, and sparked national revival when the Book of the Law was found?",
+    "options": [
+      "Josiah",
+      "Manasseh",
+      "Ahaz",
+      "Rehoboam"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Kings 22:11–13",
+    "explanation": "King Josiah had a tender and humble heart, turning to the Lord with all his soul when God's Law was read to him."
+  },
+  "27": {
+    "question": "In 1 Chronicles 4:10, what was the earnest petition of Jabez that God granted?",
+    "options": [
+      "'Oh, that you would bless me and enlarge my territory! Let your hand be with me, and keep me from harm'",
+      "'Make my name feared across all nations'",
+      "'Grant me a royal palace of cedar'",
+      "'Give me victory over the Philistines'"
+    ],
+    "correctIndex": 0,
+    "verse": "1 Chronicles 4:10",
+    "explanation": "Jabez cried out to the God of Israel for blessing, enlargement, and protection—and God granted his request."
+  },
+  "28": {
+    "question": "Whom did King David appoint to lead continual musical praise and thanksgiving before the Ark of the Covenant in 1 Chronicles 16?",
+    "options": [
+      "Asaph and his fellow Levites",
+      "Joab the commander of the army",
+      "Hiram King of Tyre",
+      "The elders of Gilead"
+    ],
+    "correctIndex": 0,
+    "verse": "1 Chronicles 16:4–7",
+    "explanation": "David appointed Asaph and his brethren to minister before the Ark regularly with cymbals, harps, and songs of praise."
+  },
+  "29": {
+    "question": "What dramatic sign accompanied the dedication of Solomon's Temple in 2 Chronicles 7?",
+    "options": [
+      "Fire came down from heaven and consumed the offerings, and the glory of the LORD filled the temple",
+      "A dense fog hid the city for seven days",
+      "The bronze pillars sang aloud",
+      "The Jordan river flowed backwards"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Chronicles 7:1–2",
+    "explanation": "Fire came down from heaven and the glory of the LORD filled the temple so intensely that the priests could not enter."
+  },
+  "30": {
+    "question": "When facing a vast confederation of enemies in 2 Chronicles 20, what did King Jehoshaphat position at the head of the army?",
+    "options": [
+      "His heaviest iron chariots",
+      "Singers appointed to praise the beauty of God's holiness",
+      "Foreign archers from Damascus",
+      "Spies bearing peace treaties"
+    ],
+    "correctIndex": 1,
+    "verse": "2 Chronicles 20:21–22",
+    "explanation": "As the worshipers sang: 'Give thanks to the LORD, for His love endures forever,' the Lord ambushed and defeated the invaders!"
+  },
+  "31": {
+    "question": "What famous imperial decree by King Cyrus of Persia at the end of 2 Chronicles fulfilled Jeremiah's prophecy?",
+    "options": [
+      "A decree allowing the exiled Jews to return to Jerusalem and rebuild the House of the LORD",
+      "A decree making Persian pagan gods mandatory",
+      "A decree forbidding all travel across the Euphrates",
+      "A decree destroying Jerusalem's foundations"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Chronicles 36:22–23",
+    "explanation": "Cyrus proclaimed that God appointed him to build a temple in Jerusalem, authorizing the exiles to return."
+  },
+  "32": {
+    "question": "According to Ezra 7:10, what threefold commitment defined Ezra's life and ministry?",
+    "options": [
+      "To study the Law of the LORD, to practice it, and to teach its statutes in Israel",
+      "To conquer neighboring lands, build fortresses, and collect gold",
+      "To negotiate trade routes with Persia",
+      "To administer legal trials in Susa"
+    ],
+    "correctIndex": 0,
+    "verse": "Ezra 7:10",
+    "explanation": "Ezra set his heart to study the Law of the LORD, to do it, and to teach His statutes and ordinances in Israel."
+  },
+  "33": {
+    "question": "In how many days did Nehemiah and the people miraculously finish rebuilding Jerusalem's broken walls?",
+    "options": [
+      "7 days",
+      "52 days",
+      "100 days",
+      "3 years"
+    ],
+    "correctIndex": 1,
+    "verse": "Nehemiah 6:15",
+    "explanation": "The wall was completed in 52 days, convincing surrounding nations that this work had been accomplished with God's help."
+  },
+  "34": {
+    "question": "What penetrating question did Mordecai challenge Queen Esther with in Esther 4?",
+    "options": [
+      "'And who knows but that you have come to your royal position for such a time as this?'",
+      "'Why have you forgotten your family in the palace?'",
+      "'Can anyone challenge the decree of Haman?'",
+      "'Will the king grant you half his treasures?'"
+    ],
+    "correctIndex": 0,
+    "verse": "Esther 4:14",
+    "explanation": "Mordecai reminded Esther that God had placed her on the throne 'for such a time as this' to deliver His people."
+  },
+  "35": {
+    "question": "In the depths of his grief, what unwavering declaration of faith did Job speak in Job 19:25?",
+    "options": [
+      "'I know that my Redeemer lives, and that in the end He will stand on the earth'",
+      "'There is no purpose under heaven'",
+      "'God has forgotten me in my suffering'",
+      "'My friends speak the truth about my sins'"
+    ],
+    "correctIndex": 0,
+    "verse": "Job 19:25",
+    "explanation": "Job looked beyond his earthly pain with prophetic assurance: 'I know that my Redeemer lives!'"
+  },
+  "36": {
+    "question": "In Job 28:28, what does God declare to mankind regarding true wisdom and understanding?",
+    "options": [
+      "'The fear of the Lord—that is wisdom, and to shun evil is understanding'",
+      "'Wisdom is found in the deepest silver mines'",
+      "'Understanding belongs only to the angels'",
+      "'Wisdom is gained by accumulating worldly power'"
+    ],
+    "correctIndex": 0,
+    "verse": "Job 28:28",
+    "explanation": "God declared that true wisdom is rooted in holy reverence for Him, and understanding is turning away from evil."
+  },
+  "37": {
+    "question": "How did the LORD conclude Job's story after Job prayed for his companions in Job 42?",
+    "options": [
+      "God rebuked Job and left him in poverty",
+      "God restored Job's fortunes and gave him twice as much as he had before",
+      "Job remained in exile away from his family",
+      "Job passed away immediately without seeing his children"
+    ],
+    "correctIndex": 1,
+    "verse": "Job 42:10–12",
+    "explanation": "The Lord blessed the latter half of Job's life even more than the beginning, giving him double of all he had lost."
+  },
+  "38": {
+    "question": "In Psalm 46:1, what comforting assurance is given to every believer facing chaos or trouble?",
+    "options": [
+      "'God is our refuge and strength, an ever-present help in trouble'",
+      "'We must rely solely on our own inner resilience'",
+      "'Trouble is a sign that God has departed'",
+      "'Only kings receive divine protection'"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 46:1",
+    "explanation": "Psalm 46:1 assures us that God is our shelter and fortress, always close at hand whenever we face distress."
+  },
+  "39": {
+    "question": "What heartfelt prayer of inner spiritual renewal did David pray in Psalm 51:10?",
+    "options": [
+      "'Create in me a pure heart, O God, and renew a steadfast spirit within me'",
+      "'Destroy all my adversaries with fire'",
+      "'Give me more gold than King Saul'",
+      "'Make me the ruler of all surrounding nations'"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 51:10",
+    "explanation": "David prayed for deep inward cleansing: 'Create in me a pure heart, O God, and renew a steadfast spirit within me.'"
+  },
+  "40": {
+    "question": "What instruction for life guidance is given in Proverbs 3:5–6?",
+    "options": [
+      "'Trust in the LORD with all your heart and lean not on your own understanding; in all your ways submit to Him, and He will make your paths straight'",
+      "'Follow your own feelings wherever they lead'",
+      "'Depend first on human wisdom before praying'",
+      "'Keep your plans hidden from God'"
+    ],
+    "correctIndex": 0,
+    "verse": "Proverbs 3:5–6",
+    "explanation": "Proverbs 3 calls for wholehearted reliance on God, promising that He will direct and straighten our paths."
+  },
+  "41": {
+    "question": "What divine shelter is promised in Psalm 91:1 to those who seek intimacy with God?",
+    "options": [
+      "'Whoever dwells in the shelter of the Most High will rest in the shadow of the Almighty'",
+      "'They will never encounter any opposition on earth'",
+      "'They will gain automatic entry into royal palaces'",
+      "'They will receive physical invincibility from all toil'"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 91:1",
+    "explanation": "Those who dwell in secret communion with the Most High find unbroken peace under the shadow of the Almighty."
+  },
+  "42": {
+    "question": "According to Psalm 103:12, how completely has God removed our sins from us?",
+    "options": [
+      "As far as the east is from the west",
+      "Only a few paces away",
+      "To the edge of the desert",
+      "For a single generation"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 103:12",
+    "explanation": "As far as the east is from the west—an immeasurable, infinite distance—so far has He removed our sins from us!"
+  },
+  "43": {
+    "question": "Which psalm is the shortest chapter in the entire Bible, consisting of just two verses of praise?",
+    "options": [
+      "Psalm 23",
+      "Psalm 117",
+      "Psalm 119",
+      "Psalm 150"
+    ],
+    "correctIndex": 1,
+    "verse": "Psalm 117:1–2",
+    "explanation": "Psalm 117 contains only two verses, calling all nations and peoples to extol the Lord for His enduring love and faithfulness."
+  },
+  "44": {
+    "question": "In Psalm 119:105, how does the psalmist describe the practical guidance of God's Word?",
+    "options": [
+      "A heavy stone to carry",
+      "A lamp to my feet and a light to my path",
+      "A mystery that no one can fathom",
+      "A seal for the priests only"
+    ],
+    "correctIndex": 1,
+    "verse": "Psalm 119:105",
+    "explanation": "God's living Word illuminates our immediate next step ('a lamp to my feet') and our future course ('a light to my path')."
+  },
+  "45": {
+    "question": "Why does David express awe and praise regarding human creation in Psalm 139:14?",
+    "options": [
+      "'For I am fearfully and wonderfully made; marvelous are your works'",
+      "'Because humans are the strongest animals'",
+      "'Because our minds can master the universe'",
+      "'Because we have dominion over the stars'"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 139:14",
+    "explanation": "David rejoices in God's intimate craftsmanship: each person is fearfully, wonderfully, and intentionally fashioned by God."
+  },
+  "46": {
+    "question": "With what glorious universal call to praise does the Book of Psalms conclude in Psalm 150:6?",
+    "options": [
+      "'Let everything that has breath praise the LORD. Praise the LORD!'",
+      "'May peace remain in Jerusalem forever'",
+      "'The prayers of David the son of Jesse are ended'",
+      "'Let the earth be silent before Him'"
+    ],
+    "correctIndex": 0,
+    "verse": "Psalm 150:6",
+    "explanation": "The entire Psalter reaches its soaring summit: 'Let everything that has breath praise the LORD!'"
+  },
+  "47": {
+    "question": "According to Proverbs 16:3, what happens when you surrender your activities to the Lord?",
+    "options": [
+      "'Commit to the LORD whatever you do, and He will establish your plans'",
+      "'You will never have to work again'",
+      "'All men will praise your accomplishments'",
+      "'You will immediately gain royal authority'"
+    ],
+    "correctIndex": 0,
+    "verse": "Proverbs 16:3",
+    "explanation": "When our endeavors are committed and entrusted to God's guidance, He aligns and establishes our purposes."
+  },
+  "48": {
+    "question": "In Proverbs 31:30, what timeless truth contrasts fleeting outward appearance with godly character?",
+    "options": [
+      "'Charm is deceptive, and beauty is fleeting; but a woman who fears the LORD is to be praised'",
+      "'Wealth covers all shortcomings'",
+      "'Wisdom belongs only to elders'",
+      "'Beauty will never fade if tended carefully'"
+    ],
+    "correctIndex": 0,
+    "verse": "Proverbs 31:30",
+    "explanation": "Physical beauty is transient, but a heart that reveres the Lord possesses enduring honor and praise."
+  },
+  "49": {
+    "question": "What is the ultimate conclusion of life according to the Teacher in Ecclesiastes 12:13?",
+    "options": [
+      "'Fear God and keep His commandments, for this is the duty of all mankind'",
+      "'Pursue pleasure and leave legacy to chance'",
+      "'Accumulate wisdom and riches without restraint'",
+      "'Withdraw into solitude away from society'"
+    ],
+    "correctIndex": 0,
+    "verse": "Ecclesiastes 12:13",
+    "explanation": "After exploring every earthly pursuit under the sun, the conclusion of the whole matter is to fear God and obey His Word."
+  },
+  "50": {
+    "question": "In Isaiah 6, when Isaiah saw the holy presence of God and heard 'Whom shall I send?', how did he answer?",
+    "options": [
+      "'Send someone with greater eloquence'",
+      "'Here am I. Send me!'",
+      "'Wait until I have completed my duties'",
+      "'I am terrified and cannot go'"
+    ],
+    "correctIndex": 1,
+    "verse": "Isaiah 6:8",
+    "explanation": "Cleansed by the coal from the altar, Isaiah surrendered willingly: 'Here am I. Send me!'"
+  },
+  "51": {
+    "question": "What wonderful promise of peace does Isaiah 26:3 declare to the faithful?",
+    "options": [
+      "'You will keep in perfect peace those whose minds are steadfast, because they trust in you'",
+      "'Peace is only attainable through military dominance'",
+      "'Peace will arrive only after all trials cease'",
+      "'Those who seek wealth shall find inner peace'"
+    ],
+    "correctIndex": 0,
+    "verse": "Isaiah 26:3",
+    "explanation": "God bestows perfect peace (shalom shalom) upon the soul that remains steadfastly fixed on Him in faith."
+  },
+  "52": {
+    "question": "What extraordinary promise of renewed vitality is given in Isaiah 40:31?",
+    "options": [
+      "'Those who hope in the LORD will renew their strength. They will soar on wings like eagles; they will run and not grow weary'",
+      "'They will become political leaders in Babylon'",
+      "'They will never have to face another valley'",
+      "'Their youth will remain unchanged forever'"
+    ],
+    "correctIndex": 0,
+    "verse": "Isaiah 40:31",
+    "explanation": "Those who wait patiently upon God exchange their human weakness for His divine strength, soaring like eagles."
+  },
+  "53": {
+    "question": "In the renowned prophecy of the Suffering Servant in Isaiah 53:5, why was He pierced?",
+    "options": [
+      "For our transgressions, and crushed for our iniquities; by His wounds we are healed",
+      "Because He committed crimes against the empire",
+      "By misfortune and accident of history",
+      "To satisfy the political leaders of Jerusalem"
+    ],
+    "correctIndex": 0,
+    "verse": "Isaiah 53:5",
+    "explanation": "Isaiah foresaw Jesus Christ bearing the penalty for our sins on the cross, purchasing our complete spiritual healing."
+  },
+  "54": {
+    "question": "What divine commission did God declare to young Jeremiah in Jeremiah 1:5?",
+    "options": [
+      "'Before I formed you in the womb I knew you, before you were born I set you apart; I appointed you as a prophet to the nations'",
+      "'Wait until you are an elder before speaking'",
+      "'Study in the libraries of Babylon first'",
+      "'You are too young to be of any service'"
+    ],
+    "correctIndex": 0,
+    "verse": "Jeremiah 1:5",
+    "explanation": "God revealed that Jeremiah was known, chosen, and consecrated for divine mission before his physical conception!"
+  },
+  "55": {
+    "question": "According to Jeremiah 9:23–24, what is the only thing in which a human being should boast?",
+    "options": [
+      "In understanding and knowing the LORD, that He exercises kindness, justice, and righteousness on earth",
+      "In wisdom, military power, and financial riches",
+      "In ancestry and tribal connections",
+      "In personal accomplishments and awards"
+    ],
+    "correctIndex": 0,
+    "verse": "Jeremiah 9:24",
+    "explanation": "Neither wisdom, might, nor riches merit boasting—our sole glory is knowing the character and loving heart of God."
+  },
+  "56": {
+    "question": "In Jeremiah 18, what metaphor does God use to illustrate His absolute sovereignty over nations and individuals?",
+    "options": [
+      "A potter shaping pliable clay on the wheel",
+      "A captain steering a ship through a gale",
+      "A builder laying foundation stones",
+      "A farmer threshing wheat"
+    ],
+    "correctIndex": 0,
+    "verse": "Jeremiah 18:6",
+    "explanation": "'Like clay in the hand of the potter, so are you in my hand, O house of Israel'—God shapes and reshapes us for His glory."
+  },
+  "57": {
+    "question": "What comforting assurance of future hope did God deliver to the Jewish exiles in Jeremiah 29:11?",
+    "options": [
+      "'For I know the plans I have for you,' declares the LORD, 'plans to prosper you and not to harm you, plans to give you hope and a future'",
+      "'You will never see Jerusalem restored'",
+      "'Expect only judgment for your remaining days'",
+      "'Seek your peace in foreign idols'"
+    ],
+    "correctIndex": 0,
+    "verse": "Jeremiah 29:11",
+    "explanation": "God assured His people that His sovereign thoughts toward them were plans of peace, hope, and an expected end."
+  },
+  "58": {
+    "question": "In Jeremiah 31:31–33, what revolutionary covenant did God promise to establish with His people?",
+    "options": [
+      "A New Covenant written upon their hearts and minds, where He will be their God and forgive their sins",
+      "A covenant etched upon heavier granite tablets",
+      "A temporary peace treaty with Babylon",
+      "A sacrificial system requiring thousands of bulls"
+    ],
+    "correctIndex": 0,
+    "verse": "Jeremiah 31:33",
+    "explanation": "God foretold the New Covenant, fulfilled through Jesus's blood, transforming our inner hearts through the Holy Spirit."
+  },
+  "59": {
+    "question": "In Lamentations 3:22–23, what steadfast truth gives hope in the midst of profound grief?",
+    "options": [
+      "'The steadfast love of the LORD never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness'",
+      "'Time heals all sorrows naturally'",
+      "'Human resilience will eventually triumph'",
+      "'Sorrow is permanent in this world'"
+    ],
+    "correctIndex": 0,
+    "verse": "Lamentations 3:22–23",
+    "explanation": "Even amid the ruins of Jerusalem, Jeremiah clung to God's unfailing mercies, renewed fresh with every dawn."
+  },
+  "60": {
+    "question": "What spiritual renewal does God promise in Ezekiel 36:26 to perform within His people?",
+    "options": [
+      "'I will give you a new heart and put a new spirit in you; I will remove from you your heart of stone and give you a heart of flesh'",
+      "'I will give you golden crowns of victory'",
+      "'I will make you invincible against foreign armies'",
+      "'I will restore the old legal rituals'"
+    ],
+    "correctIndex": 0,
+    "verse": "Ezekiel 36:26",
+    "explanation": "God promises supernatural regeneration: removing stubborn, lifeless hearts of stone and replacing them with soft, responsive hearts of flesh."
+  },
+  "61": {
+    "question": "In Ezekiel 34, how does God contrast His pastoral care with the corrupt shepherds who exploited Israel?",
+    "options": [
+      "The Sovereign LORD Himself will search for His lost sheep, rescue them from danger, and tend them with justice",
+      "God will hire foreign caretakers to govern the flock",
+      "God will leave the sheep to wander in the wilderness",
+      "God will divide the flock and abandon them"
+    ],
+    "correctIndex": 0,
+    "verse": "Ezekiel 34:11–16",
+    "explanation": "God promised: 'I myself will search for my sheep and look after them... I will bind up the injured and strengthen the weak.'"
+  },
+  "62": {
+    "question": "In Ezekiel 37, what astonishing vision of national and spiritual resurrection did Ezekiel behold?",
+    "options": [
+      "A valley of dry bones coming together, covered with flesh, and brought to life by the breath of God's Spirit",
+      "A great cedar tree reaching into heaven",
+      "Four chariots emerging from between bronze mountains",
+      "A river of fire flowing from the throne"
+    ],
+    "correctIndex": 0,
+    "verse": "Ezekiel 37:4–10",
+    "explanation": "Ezekiel prophesied to the dry bones, and the breath of the Spirit entered them, raising a vast living army for God."
+  },
+  "63": {
+    "question": "Why was Daniel completely unharmed when thrown into the den of lions in Daniel 6?",
+    "options": [
+      "God sent His angel and shut the lions' mouths, because Daniel was found blameless before Him",
+      "Daniel fought the lions using an iron spear",
+      "The lions were asleep throughout the night",
+      "The king secretly fed the lions before lowering Daniel"
+    ],
+    "correctIndex": 0,
+    "verse": "Daniel 6:22",
+    "explanation": "Daniel walked out unscathed because he trusted in his God, who sent His angel to shut the hungry lions' mouths."
+  },
+  "64": {
+    "question": "In Joel 2:28, what momentous outpouring of the Holy Spirit did the prophet announce for the last days?",
+    "options": [
+      "'I will pour out my Spirit on all people. Your sons and daughters will prophesy, your old men will dream dreams'",
+      "'Only ordained priests will hear God's voice'",
+      "'The Spirit will be withdrawn from the nations'",
+      "'Prophecy will cease across the earth'"
+    ],
+    "correctIndex": 0,
+    "verse": "Joel 2:28",
+    "explanation": "Joel foretold the Pentecostal outpouring of the Holy Spirit upon all flesh, fulfilling God's promise to empower every believer."
+  },
+  "65": {
+    "question": "What urgent prophetic standard for genuine social righteousness is proclaimed in Amos 5:24?",
+    "options": [
+      "'Let justice roll on like a river, righteousness like a never-failing stream!'",
+      "'Offer double sacrifices on holy days'",
+      "'Build taller walls around your cities'",
+      "'Keep silent and avoid public courts'"
+    ],
+    "correctIndex": 0,
+    "verse": "Amos 5:24",
+    "explanation": "Amos declared that external religious rituals are worthless unless accompanied by justice and active righteousness."
+  },
+  "66": {
+    "question": "According to Micah 6:8, what does the LORD require of every human being?",
+    "options": [
+      "To act justly, to love mercy, and to walk humbly with your God",
+      "To bring thousands of rams and rivers of olive oil",
+      "To conquer foreign territories in battle",
+      "To isolate oneself from society"
+    ],
+    "correctIndex": 0,
+    "verse": "Micah 6:8",
+    "explanation": "Micah summarizes true discipleship: 'He has shown you, O mortal, what is good... To act justly and to love mercy and to walk humbly with your God.'"
+  },
+  "67": {
+    "question": "What foundational declaration in Habakkuk 2:4 is quoted three times in the New Testament (Romans, Galatians, Hebrews)?",
+    "options": [
+      "'The righteous person will live by his faith'",
+      "'Wealth brings lasting peace'",
+      "'Wisdom belongs only to kings'",
+      "'All striving ends in dust'"
+    ],
+    "correctIndex": 0,
+    "verse": "Habakkuk 2:4",
+    "explanation": "'The just shall live by his faith' became the foundational pillar of the Gospel and Christian justification by faith alone."
+  },
+  "68": {
+    "question": "What powerful word of divine empowerment did the Lord give to Zerubbabel in Zechariah 4:6?",
+    "options": [
+      "'Not by might nor by power, but by my Spirit,' says the LORD Almighty",
+      "'Through military strategy and foreign gold'",
+      "'By the sheer willpower of human leaders'",
+      "'By building insurmountable stone towers'"
+    ],
+    "correctIndex": 0,
+    "verse": "Zechariah 4:6",
+    "explanation": "God's work is accomplished not by human strength or resources, but by the supernatural power of the Holy Spirit!"
+  },
+  "69": {
+    "question": "On the road to Emmaus in Luke 24, how did the risen Jesus cause the hearts of the two disciples to burn within them?",
+    "options": [
+      "He explained to them what was said in all the Scriptures concerning Himself",
+      "He performed miraculous signs and wonders",
+      "He gave them earthly riches",
+      "He offered political advice"
+    ],
+    "correctIndex": 0,
+    "verse": "Luke 24:27, 32",
+    "explanation": "Jesus opened the Scriptures to them, revealing how the Law, Prophets, and Psalms all pointed directly to His death and resurrection."
+  },
+  "70": {
+    "question": "In John 14:6, what exclusive declaration did Jesus make regarding the way to the Father?",
+    "options": [
+      "'I am the way and the truth and the life. No one comes to the Father except through me'",
+      "'I am one of many paths to enlightenment'",
+      "'Follow your own conscience and you will arrive'",
+      "'All religions lead to the same destination'"
+    ],
+    "correctIndex": 0,
+    "verse": "John 14:6",
+    "explanation": "Jesus revealed that He is the singular, living mediator: the Way, the Truth, and the Life, through whom alone we know the Father."
+  },
+  "71": {
+    "question": "In Acts 9, who was dramatically converted by a blinding encounter with the risen Jesus on the road to Damascus?",
+    "options": [
+      "Saul of Tarsus (the Apostle Paul)",
+      "Cornelius the Roman centurion",
+      "Nicodemus the Pharisee",
+      "Barnabas of Cyprus"
+    ],
+    "correctIndex": 0,
+    "verse": "Acts 9:3–6",
+    "explanation": "Saul, once a fierce persecutor of the church, was stopped by Jesus's light and transformed into Christ's chosen apostle to the nations."
+  },
+  "72": {
+    "question": "In Acts 28, what happened when Paul was shipwrecked on Malta and bitten by a venomous viper as he laid wood on the fire?",
+    "options": [
+      "He shook the snake off into the fire and suffered no ill effects",
+      "He fell ill and needed weeks of medicine",
+      "He had to jump into the sea to neutralize the venom",
+      "The islanders locked him away in quarantine"
+    ],
+    "correctIndex": 0,
+    "verse": "Acts 28:5",
+    "explanation": "Paul shook off the snake into the fire without suffering harm, demonstrating Christ's supernatural protection over His ambassadors."
+  },
+  "73": {
+    "question": "In Romans 8:38–39, what power or circumstance can separate the believer from the love of God in Christ Jesus?",
+    "options": [
+      "Neither death nor life, angels nor demons, present nor future, nor any other creature—nothing can separate us!",
+      "Extreme persecution and economic distress",
+      "Human doubts and past failures",
+      "The rulers and authorities of this dark world"
+    ],
+    "correctIndex": 0,
+    "verse": "Romans 8:38–39",
+    "explanation": "Paul triumphantly proclaims that absolutely nothing in all creation can ever sever us from the covenant love of God in Christ Jesus!"
+  },
+  "74": {
+    "question": "According to 1 Corinthians 13:13, what three virtues endure forever, and which of them is the greatest?",
+    "options": [
+      "Faith, hope, and love; but the greatest of these is love",
+      "Wisdom, knowledge, and power; but the greatest is power",
+      "Fastings, prayers, and alms; but the greatest is prayer",
+      "Zeal, obedience, and sacrifice; but the greatest is sacrifice"
+    ],
+    "correctIndex": 0,
+    "verse": "1 Corinthians 13:13",
+    "explanation": "'And now these three remain: faith, hope and love. But the greatest of these is love'—because God Himself is love!"
+  },
+  "75": {
+    "question": "What life-changing truth does 2 Corinthians 5:17 proclaim for anyone who is united with Christ?",
+    "options": [
+      "'Therefore, if anyone is in Christ, the new creation has come: The old has gone, the new is here!'",
+      "'They must first earn righteousness through good deeds'",
+      "'They will never experience earthly challenges again'",
+      "'They retain their old identity alongside a religious label'"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Corinthians 5:17",
+    "explanation": "In Christ, our old sinful identity is eradicated and we are made completely new creations by the Holy Spirit."
+  },
+  "76": {
+    "question": "In Galatians 5:22–23, what are the nine Christlike virtues that comprise the fruit of the Holy Spirit?",
+    "options": [
+      "Love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control",
+      "Wealth, fame, influence, eloquence, pride, power, ambition, honor, and beauty",
+      "Rules, traditions, fasts, rituals, sacrifices, debates, phylacteries, titles, and garments",
+      "Visions, prophecies, tongues, signs, wonders, authority, dreams, healings, and miracles"
+    ],
+    "correctIndex": 0,
+    "verse": "Galatians 5:22–23",
+    "explanation": "The Holy Spirit reproduces Christ's very nature within us through these nine beautiful, interrelated spiritual fruits."
+  },
+  "77": {
+    "question": "According to Philippians 4:6–7, how are believers instructed to handle anxiety and worry?",
+    "options": [
+      "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God",
+      "Worry until solutions emerge through human effort",
+      "Suppress your emotions and tell no one",
+      "Seek counsel only from secular philosophies"
+    ],
+    "correctIndex": 0,
+    "verse": "Philippians 4:6–7",
+    "explanation": "Paul commands us to turn every worry into thankful prayer, and God's transcendent peace will guard our hearts and minds."
+  },
+  "78": {
+    "question": "In 1 Thessalonians 5:16–18, what threefold practice is declared as God's will for you in Christ Jesus?",
+    "options": [
+      "Rejoice always, pray continually, give thanks in all circumstances",
+      "Complain during hardships, pray only on Sundays, fast occasionally",
+      "Withdraw from the community, keep silent, avoid strangers",
+      "Seek personal ambition, work without rest, trust your instincts"
+    ],
+    "correctIndex": 0,
+    "verse": "1 Thessalonians 5:16–18",
+    "explanation": "Unceasing joy, continual prayer, and gratitude in every circumstance reflect the heartbeat of a disciple walking in God's will."
+  },
+  "79": {
+    "question": "In 2 Timothy 1:7, what spirit has God imparted to believers instead of a spirit of fear and timidity?",
+    "options": [
+      "A spirit of power, of love, and of a sound mind (self-discipline)",
+      "A spirit of worldly caution and doubt",
+      "A spirit of pride and aggression",
+      "A spirit of isolation and passivity"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Timothy 1:7",
+    "explanation": "God does not give us a timid spirit; He fills us with divine power, selfless love, and sober spiritual self-discipline."
+  },
+  "80": {
+    "question": "How does Hebrews 11:1 define the biblical essence of genuine faith?",
+    "options": [
+      "Faith is confidence in what we hope for and assurance about what we do not see",
+      "Faith is positive thinking detached from evidence",
+      "Faith is an emotional feeling that comes and goes",
+      "Faith is blindly accepting whatever humans teach"
+    ],
+    "correctIndex": 0,
+    "verse": "Hebrews 11:1",
+    "explanation": "Faith is the title deed of things hoped for, the rock-solid conviction of eternal realities beyond physical sight."
+  },
+  "81": {
+    "question": "In 1 John 4:18, what divine reality drives out all tormenting fear from the believer's heart?",
+    "options": [
+      "Perfect love drives out fear, because fear has to do with punishment",
+      "Human bravery and physical courage",
+      "Ignoring the reality of danger",
+      "Accumulating earthly wealth and security"
+    ],
+    "correctIndex": 0,
+    "verse": "1 John 4:18",
+    "explanation": "Understanding God's unconditional, perfect love frees our hearts from fear, dread, and condemnation."
+  },
+  "82": {
+    "question": "In Revelation 3:20, what tender personal invitation does Jesus offer to every person?",
+    "options": [
+      "'Here I am! I stand at the door and knock. If anyone hears my voice and opens the door, I will come in and eat with that person, and they with me'",
+      "'I knock only when you have achieved perfection'",
+      "'Only priests and scholars may open the door'",
+      "'The door to fellowship is closed until judgment day'"
+    ],
+    "correctIndex": 0,
+    "verse": "Revelation 3:20",
+    "explanation": "Jesus gently knocks at the door of our hearts, seeking close, intimate fellowship with whoever opens to Him."
+  },
+  "83": {
+    "question": "In the breathtaking vision of the New Jerusalem in Revelation 21:4, what will God wipe away forever?",
+    "options": [
+      "Every tear from their eyes; there will be no more death or mourning or crying or pain",
+      "Only the memories of their past sins",
+      "The light of the stars and planets",
+      "The physical foundations of the new earth"
+    ],
+    "correctIndex": 0,
+    "verse": "Revelation 21:4",
+    "explanation": "In eternal glory with Christ, grief, death, pain, and tears are completely abolished forever!"
+  },
+  "84": {
+    "question": "What is the primary biblical purpose of a Sabbath and catch-up day in a disciple's spiritual rhythm?",
+    "options": [
+      "To rest in God's presence, reflect on His goodness, and renew spiritual and physical strength",
+      "To waste time in idleness and spiritual neglect",
+      "To avoid all fellowship and interaction with others",
+      "To read secular entertainment books instead of Scripture"
+    ],
+    "correctIndex": 0,
+    "verse": "Exodus 20:8–11; Mark 2:27",
+    "explanation": "Sabbath rest is God's gift to replenish our souls, recenter our focus on Christ, and celebrate His ongoing grace."
+  },
+  "85": {
+    "question": "How many total canonical books comprise the Holy Bible that we read through in 92 days?",
+    "options": [
+      "66 books (39 Old Testament and 27 New Testament)",
+      "50 books (25 Old and 25 New)",
+      "73 books in all translations",
+      "100 books from Genesis to Revelation"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Timothy 3:16",
+    "explanation": "The Christian canon contains 66 divinely inspired books—39 Old Testament and 27 New Testament—telling one unified story of redemption."
+  },
+  "86": {
+    "question": "In the Great Commission (Matthew 28:19–20), what command did Jesus entrust to all His followers?",
+    "options": [
+      "'Go and make disciples of all nations, baptizing them and teaching them to obey everything I have commanded you'",
+      "'Build private monuments and remain inside Jerusalem'",
+      "'Impose the faith through worldly political power'",
+      "'Wait silently for the end without sharing the Gospel'"
+    ],
+    "correctIndex": 0,
+    "verse": "Matthew 28:19–20",
+    "explanation": "Christ commands every disciple to actively share the Gospel, make disciples across all nations, and walk in His abiding presence."
+  },
+  "87": {
+    "question": "According to Ephesians 6:14–17, what is the single offensive spiritual weapon in the Armor of God?",
+    "options": [
+      "The sword of the Spirit, which is the word of God",
+      "The shield of faith",
+      "The helmet of salvation",
+      "The breastplate of righteousness"
+    ],
+    "correctIndex": 0,
+    "verse": "Ephesians 6:17",
+    "explanation": "The sword of the Spirit is the living, active Word of God—our essential weapon to overcome spiritual temptation and lies."
+  },
+  "88": {
+    "question": "In the Lord's Prayer (Matthew 6:9–13), what petition teaches us daily dependence upon God's provision?",
+    "options": [
+      "'Give us this day our daily bread'",
+      "'Grant us more wealth than our neighbors'",
+      "'Protect our worldly treasures from decay'",
+      "'Spare us from having to labor'"
+    ],
+    "correctIndex": 0,
+    "verse": "Matthew 6:11",
+    "explanation": "'Give us this day our daily bread' trains us to look to our Heavenly Father day by day for physical and spiritual sustenance."
+  },
+  "89": {
+    "question": "In Romans 12:1–2, what does the Apostle Paul urge believers to present to God as spiritual worship?",
+    "options": [
+      "Our bodies as a living sacrifice, holy and pleasing to God, not conforming to this world but transformed by the renewing of our mind",
+      "Extravagant financial donations only",
+      "Animal sacrifices like the Old Testament temple",
+      "Formal religious rituals performed once a year"
+    ],
+    "correctIndex": 0,
+    "verse": "Romans 12:1–2",
+    "explanation": "True worship is a surrendered life: presenting our whole self as a living sacrifice to be renewed and transformed by God."
+  },
+  "90": {
+    "question": "When asked which commandment in the Law is the greatest in Matthew 22:37–40, how did Jesus reply?",
+    "options": [
+      "'Love the Lord your God with all your heart, soul, and mind; and love your neighbor as yourself'",
+      "'Observe all ceremonial washings without fail'",
+      "'Fast twice a week and tithe your herbs'",
+      "'Keep all your traditions strictly separated from Gentiles'"
+    ],
+    "correctIndex": 0,
+    "verse": "Matthew 22:37–40",
+    "explanation": "Jesus declared that all the Law and the Prophets hang on these two great commandments: wholehearted love for God and love for our neighbor."
+  },
+  "91": {
+    "question": "According to 1 John 1:7, what happens when we walk in the light as God is in the light?",
+    "options": [
+      "We have fellowship with one another, and the blood of Jesus His Son purifies us from all sin",
+      "We become morally perfect and never sin again",
+      "We will never face any criticism or opposition",
+      "We no longer have need of God's forgiveness"
+    ],
+    "correctIndex": 0,
+    "verse": "1 John 1:7",
+    "explanation": "Walking in honest, transparent obedience with God fosters authentic Christian fellowship and continual cleansing through Christ's blood."
+  },
+  "92": {
+    "question": "At the end of his apostolic race in 2 Timothy 4:7, what triumphant testimony did Paul declare?",
+    "options": [
+      "'I have fought the good fight, I have finished the race, I have kept the faith'",
+      "'I regret that I sacrificed so much for the Gospel'",
+      "'I wish I had accumulated more earthly security'",
+      "'The race was too difficult to complete'"
+    ],
+    "correctIndex": 0,
+    "verse": "2 Timothy 4:7",
+    "explanation": "Paul celebrated a life wholly spent for Jesus: 'I have fought the good fight, I have finished the race, I have kept the faith. Now there is in store for me the crown of righteousness!'"
   }
 };
 
 function getDailyQuizForDay(portionText, dayNum) {
-  if (dayNum && DAILY_BIBLE_QUIZ_BANK[dayNum]) {
-    return DAILY_BIBLE_QUIZ_BANK[dayNum];
+  const d = dayNum || (typeof currentDayNum !== 'undefined' ? currentDayNum : null);
+  if (d && DAILY_BIBLE_QUIZ_BANK[d]) {
+    return DAILY_BIBLE_QUIZ_BANK[d];
   }
-  // Generic fallback trivia for subsequent portions
   const parsed = parsePassage(portionText);
   const bookName = (parsed.chapters && parsed.chapters[0]) ? parsed.chapters[0].bookName : 'Scripture';
   return {
-    question: `Which key spiritual discipline helps you carry the truth of ${bookName} into your daily life?`,
+    question: "Which key spiritual discipline helps you carry the truth of " + bookName + " into your daily life?",
     options: [
       "Consistent prayer and meditating on God's Word",
       "Reading only when in trouble",
