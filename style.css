@@ -3271,6 +3271,42 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   letter-spacing: -0.01em;
 }
 
+.bvg-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.bvg-share-btn {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.8rem;
+  border-radius: 999px;
+  gap: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bvg-share-btn:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(232, 169, 59, 0.3);
+}
+
+.bvg-share-btn svg {
+  stroke: currentColor;
+}
+
 .bvg-lead-badge {
   display: inline-flex;
   align-items: center;
@@ -3486,14 +3522,47 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   margin-top: 0.25rem;
 }
 
-.bvg-roster-pills span {
+.bvg-roster-pills span,
+.bvg-pill {
   font-size: 0.68rem;
   font-weight: 600;
-  padding: 0.15rem 0.45rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.25s ease;
+}
+
+/* Active reader pill in Boys Theme */
+.bvg-pill.pill-active-boys {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #0284c7;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+}
+
+[data-theme="dark"] .bvg-pill.pill-active-boys {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.22);
+}
+
+/* Active reader pill in Girls Theme */
+.bvg-pill.pill-active-girls {
+  background: rgba(244, 114, 182, 0.18);
+  border-color: #f472b6;
+  color: #e11d48;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(244, 114, 182, 0.35);
+}
+
+[data-theme="dark"] .bvg-pill.pill-active-girls {
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.22);
 }
 
 /* ============ ACHIEVEMENTS & FREEZE BADGES ============ */

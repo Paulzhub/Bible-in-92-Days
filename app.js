@@ -756,6 +756,7 @@ function showSite(session) {
   initMobileMenu();
   initDateDropdown();
   initShareModal();
+  initBoysVsGirlsShareModal();
   initReadingSidebar();
   initScriptureReader(session);
   initScrollTransitions();
@@ -986,6 +987,25 @@ const BOY_USERS = ['paulz', 'victor', 'jason', 'guptaji', 'puia', 'ducks fartbom
 const GIRL_USERS = ['nim nim', 'daysel', 'yutso', 'elisha', 'dechen', 'yeshi'];
 const BOYS_TOTAL_TARGET_DAYS = 644; // 7 boys * 92 days
 const GIRLS_TOTAL_TARGET_DAYS = 552; // 6 girls * 92 days
+const BOYS_ROSTER_DEFS = ['Paulz', 'Victor', 'Jason', 'Guptaji', 'Puia', 'Ducks Fartbomber', 'Vishan'];
+const GIRLS_ROSTER_DEFS = ['Nim Nim', 'Daysel', 'Yutso', 'Elisha', 'Dechen', 'Yeshi'];
+
+let lastBvgData = null;
+let lastBvgCardBlob = null;
+
+function hasReadOnCurrentDay(row) {
+  if (!row) return false;
+  if (row.readToday) return true;
+  if (row.todayTimestamp) return true;
+  if (row.lastReadTimestamp > 0) {
+    const d = new Date(row.lastReadTimestamp);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() &&
+           d.getMonth() === now.getMonth() &&
+           d.getDate() === now.getDate();
+  }
+  return false;
+}
 
 function renderBoysVsGirlsProgress(rows) {
   const card = document.getElementById('boys-vs-girls-card');
@@ -1057,6 +1077,356 @@ function renderBoysVsGirlsProgress(rows) {
       if (leadIcon) leadIcon.textContent = '🤝';
       leadText.textContent = "It's a Tie!";
     }
+  }
+
+  // Update roster pills with active reader badges in respective themes
+  const boysRosterEl = document.getElementById('bvg-boys-roster');
+  if (boysRosterEl) {
+    boysRosterEl.innerHTML = '';
+    BOYS_ROSTER_DEFS.forEach(name => {
+      const uRow = rows.find(r => (r.username || '').trim().toLowerCase() === name.toLowerCase());
+      const isRead = hasReadOnCurrentDay(uRow);
+      const span = document.createElement('span');
+      span.className = 'bvg-pill' + (isRead ? ' pill-active-boys' : '');
+      span.textContent = isRead ? `${name} ✓` : name;
+      if (isRead) span.title = `${name} read today! 🔥`;
+      boysRosterEl.appendChild(span);
+    });
+  }
+
+  const girlsRosterEl = document.getElementById('bvg-girls-roster');
+  if (girlsRosterEl) {
+    girlsRosterEl.innerHTML = '';
+    GIRLS_ROSTER_DEFS.forEach(name => {
+      const uRow = rows.find(r => (r.username || '').trim().toLowerCase() === name.toLowerCase());
+      const isRead = hasReadOnCurrentDay(uRow);
+      const span = document.createElement('span');
+      span.className = 'bvg-pill' + (isRead ? ' pill-active-girls' : '');
+      span.textContent = isRead ? `${name} ✓` : name;
+      if (isRead) span.title = `${name} read today! 🔥`;
+      girlsRosterEl.appendChild(span);
+    });
+  }
+
+  lastBvgData = {
+    boysDays,
+    boysTotal: BOYS_TOTAL_TARGET_DAYS,
+    boysPct,
+    girlsDays,
+    girlsTotal: GIRLS_TOTAL_TARGET_DAYS,
+    girlsPct,
+    leadText: leadText ? leadText.textContent : "It's a Tie!",
+    leadIcon: leadIcon ? leadIcon.textContent : "🤝",
+    rows
+  };
+}
+
+function generateBoysVsGirlsShareCanvas(bvgData) {
+  const data = bvgData || lastBvgData || {
+    boysDays: 0,
+    boysTotal: 644,
+    boysPct: 0,
+    girlsDays: 0,
+    girlsTotal: 552,
+    girlsPct: 0,
+    leadText: "It's a Tie!",
+    leadIcon: "🤝",
+    rows: []
+  };
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 675;
+  const ctx = canvas.getContext('2d');
+
+  // Background Gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 1200, 675);
+  bgGrad.addColorStop(0, '#090c15');
+  bgGrad.addColorStop(0.5, '#0f1422');
+  bgGrad.addColorStop(1, '#171a2b');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, 1200, 675);
+
+  // Ambient Glow Orbs
+  const orbBoys = ctx.createRadialGradient(250, 300, 10, 250, 300, 350);
+  orbBoys.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
+  orbBoys.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  ctx.fillStyle = orbBoys;
+  ctx.fillRect(0, 0, 600, 675);
+
+  const orbGirls = ctx.createRadialGradient(950, 300, 10, 950, 300, 350);
+  orbGirls.addColorStop(0, 'rgba(244, 114, 182, 0.18)');
+  orbGirls.addColorStop(1, 'rgba(244, 114, 182, 0)');
+  ctx.fillStyle = orbGirls;
+  ctx.fillRect(600, 0, 600, 675);
+
+  // Outer Border Frame
+  ctx.strokeStyle = 'rgba(232, 169, 59, 0.35)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 24, 24, 1152, 627, 20, false, true);
+
+  // Corner Accents
+  ctx.strokeStyle = '#e8a93b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(40, 60); ctx.lineTo(40, 40); ctx.lineTo(60, 40);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(1140, 60); ctx.lineTo(1140, 40); ctx.lineTo(1160, 40);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(40, 615); ctx.lineTo(40, 635); ctx.lineTo(60, 635);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(1140, 615); ctx.lineTo(1140, 635); ctx.lineTo(1160, 635);
+  ctx.stroke();
+
+  // Header
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e8a93b';
+  ctx.font = '600 14px "Space Grotesk", sans-serif';
+  ctx.fillText('THE YOUTH GATHERING 2026 • BIBLE IN 92 DAYS', 600, 62);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 36px "Fraunces", Georgia, serif';
+  ctx.fillText('BOYS VS GIRLS SHOWDOWN', 600, 105);
+
+  ctx.fillStyle = '#94A3B8';
+  ctx.font = '500 14px "Space Grotesk", sans-serif';
+  ctx.fillText('Cumulative Reading Progress • 66 Books • 1,189 Chapters', 600, 132);
+
+  // Lead Banner Pill
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.strokeStyle = 'rgba(232, 169, 59, 0.6)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 420, 150, 360, 40, 20, true, true);
+
+  ctx.fillStyle = '#F8FAFC';
+  ctx.font = '700 16px "Space Grotesk", sans-serif';
+  ctx.fillText(`${data.leadIcon} ${data.leadText}`, 600, 175);
+
+  // Left Card: Boys Squad
+  ctx.save();
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.strokeStyle = '#0284c7';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 60, 210, 515, 305, 18, true, true);
+
+  ctx.fillStyle = '#38bdf8';
+  roundRect(ctx, 60, 228, 6, 268, 3, true, false);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 22px "Space Grotesk", sans-serif';
+  ctx.fillText('🏃‍♂️ BOYS SQUAD', 85, 248);
+
+  ctx.fillStyle = '#94A3B8';
+  ctx.font = '500 13px "Space Grotesk", sans-serif';
+  ctx.fillText('7 Disciples • Cumulative Target: 644 Days', 85, 270);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '800 54px "Fraunces", Georgia, serif';
+  ctx.fillText(`${data.boysPct.toFixed(1)}%`, 85, 335);
+
+  ctx.fillStyle = '#E2E8F0';
+  ctx.font = '600 17px "Space Grotesk", sans-serif';
+  ctx.fillText(`${data.boysDays} / 644 target days read`, 85, 368);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  roundRect(ctx, 85, 385, 460, 12, 6, true, false);
+  const boysBarW = Math.max(12, Math.min(460, (data.boysPct / 100) * 460));
+  const boysGrad = ctx.createLinearGradient(85, 0, 545, 0);
+  boysGrad.addColorStop(0, '#0284c7');
+  boysGrad.addColorStop(1, '#38bdf8');
+  ctx.fillStyle = boysGrad;
+  roundRect(ctx, 85, 385, boysBarW, 12, 6, true, false);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '600 11px "Space Grotesk", sans-serif';
+  ctx.fillText('DISCIPLES ROSTER (✓ = READ TODAY):', 85, 430);
+
+  let bX = 85;
+  let bY = 455;
+  BOYS_ROSTER_DEFS.forEach(name => {
+    const uRow = (data.rows || []).find(r => (r.username || '').trim().toLowerCase() === name.toLowerCase());
+    const isRead = hasReadOnCurrentDay(uRow);
+    const label = isRead ? `${name} ✓` : name;
+    ctx.font = isRead ? '700 12px "Space Grotesk", sans-serif' : '500 12px "Space Grotesk", sans-serif';
+    const tagW = ctx.measureText(label).width + 14;
+
+    if (bX + tagW > 550) {
+      bX = 85;
+      bY += 28;
+    }
+
+    ctx.fillStyle = isRead ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.06)';
+    ctx.strokeStyle = isRead ? '#38bdf8' : 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, bX, bY - 14, tagW, 22, 6, true, true);
+
+    ctx.fillStyle = isRead ? '#38bdf8' : '#94A3B8';
+    ctx.fillText(label, bX + 7, bY + 2);
+    bX += tagW + 6;
+  });
+  ctx.restore();
+
+  // Right Card: Girls Squad
+  ctx.save();
+  ctx.fillStyle = 'rgba(30, 15, 25, 0.85)';
+  ctx.strokeStyle = '#e11d48';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 625, 210, 515, 305, 18, true, true);
+
+  ctx.fillStyle = '#f472b6';
+  roundRect(ctx, 625, 228, 6, 268, 3, true, false);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 22px "Space Grotesk", sans-serif';
+  ctx.fillText('🏃‍♀️ GIRLS SQUAD', 650, 248);
+
+  ctx.fillStyle = '#94A3B8';
+  ctx.font = '500 13px "Space Grotesk", sans-serif';
+  ctx.fillText('6 Disciples • Cumulative Target: 552 Days', 650, 270);
+
+  ctx.fillStyle = '#f472b6';
+  ctx.font = '800 54px "Fraunces", Georgia, serif';
+  ctx.fillText(`${data.girlsPct.toFixed(1)}%`, 650, 335);
+
+  ctx.fillStyle = '#E2E8F0';
+  ctx.font = '600 17px "Space Grotesk", sans-serif';
+  ctx.fillText(`${data.girlsDays} / 552 target days read`, 650, 368);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  roundRect(ctx, 650, 385, 460, 12, 6, true, false);
+  const girlsBarW = Math.max(12, Math.min(460, (data.girlsPct / 100) * 460));
+  const girlsGrad = ctx.createLinearGradient(650, 0, 1110, 0);
+  girlsGrad.addColorStop(0, '#e11d48');
+  girlsGrad.addColorStop(1, '#f472b6');
+  ctx.fillStyle = girlsGrad;
+  roundRect(ctx, 650, 385, girlsBarW, 12, 6, true, false);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '600 11px "Space Grotesk", sans-serif';
+  ctx.fillText('DISCIPLES ROSTER (✓ = READ TODAY):', 650, 430);
+
+  let gX = 650;
+  let gY = 455;
+  GIRLS_ROSTER_DEFS.forEach(name => {
+    const uRow = (data.rows || []).find(r => (r.username || '').trim().toLowerCase() === name.toLowerCase());
+    const isRead = hasReadOnCurrentDay(uRow);
+    const label = isRead ? `${name} ✓` : name;
+    ctx.font = isRead ? '700 12px "Space Grotesk", sans-serif' : '500 12px "Space Grotesk", sans-serif';
+    const tagW = ctx.measureText(label).width + 14;
+
+    if (gX + tagW > 1115) {
+      gX = 650;
+      gY += 28;
+    }
+
+    ctx.fillStyle = isRead ? 'rgba(244, 114, 182, 0.25)' : 'rgba(255, 255, 255, 0.06)';
+    ctx.strokeStyle = isRead ? '#f472b6' : 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, gX, gY - 14, tagW, 22, 6, true, true);
+
+    ctx.fillStyle = isRead ? '#f472b6' : '#94A3B8';
+    ctx.fillText(label, gX + 7, gY + 2);
+    gX += tagW + 6;
+  });
+  ctx.restore();
+
+  // Segmented Comparison Ratio Bar
+  ctx.save();
+  const totalBothPct = data.boysPct + data.girlsPct;
+  const boysShare = totalBothPct > 0 ? (data.boysPct / totalBothPct) : 0.5;
+  const barTotalW = 1080;
+  const barX = 60;
+  const barY = 535;
+  const barH = 16;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  roundRect(ctx, barX, barY, barTotalW, barH, 8, true, false);
+
+  const boysSegW = Math.max(10, Math.min(barTotalW - 10, barTotalW * boysShare));
+  ctx.fillStyle = '#0284c7';
+  roundRect(ctx, barX, barY, boysSegW, barH, 8, true, false);
+
+  ctx.fillStyle = '#f472b6';
+  roundRect(ctx, barX + boysSegW, barY, barTotalW - boysSegW, barH, 8, true, false);
+  ctx.restore();
+
+  // Footer
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#e8a93b';
+  ctx.font = '600 13px "Space Grotesk", sans-serif';
+  ctx.fillText('🔥 Track live on: paulzhub.github.io/Bible-in-92-Days/', 60, 595);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#94A3B8';
+  ctx.font = '500 13px "Space Grotesk", sans-serif';
+  ctx.fillText('#BibleIn92Days  •  The Youth Gathering 2026', 1140, 595);
+
+  return canvas;
+}
+
+function initBoysVsGirlsShareModal() {
+  const modal = document.getElementById('bvg-share-modal');
+  const shareBtn = document.getElementById('bvg-share-btn');
+  const closeBtn = document.getElementById('close-bvg-share-modal');
+  const downloadBtn = document.getElementById('download-bvg-card-btn');
+  const nativeShareBtn = document.getElementById('native-share-bvg-btn');
+  const previewImg = document.getElementById('bvg-share-card-preview');
+
+  if (!modal || !shareBtn) return;
+
+  if (closeBtn) closeBtn.addEventListener('click', () => modal.hidden = true);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.hidden = true;
+  });
+
+  shareBtn.addEventListener('click', () => {
+    const canvas = generateBoysVsGirlsShareCanvas(lastBvgData);
+    canvas.toBlob((blob) => {
+      lastBvgCardBlob = blob;
+      if (previewImg) previewImg.src = URL.createObjectURL(blob);
+      modal.hidden = false;
+    }, 'image/png');
+  });
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      if (!lastBvgCardBlob) return;
+      const url = URL.createObjectURL(lastBvgCardBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Boys_vs_Girls_Progress_Day${currentDayNum || 0}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if (nativeShareBtn) {
+    nativeShareBtn.addEventListener('click', async () => {
+      if (!lastBvgCardBlob) return;
+      const filename = `Boys_vs_Girls_Progress_Day${currentDayNum || 0}.png`;
+      const file = new File([lastBvgCardBlob], filename, { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Boys vs Girls Cohort Showdown',
+            text: `Boys vs Girls Cumulative Reading Showdown! ${lastBvgData ? lastBvgData.leadText : ''} 🔥 Bible in 92 Days with @tg.youth_`,
+            files: [file]
+          });
+        } catch (err) {
+          // User cancelled share
+        }
+      } else {
+        alert('Direct image sharing is not supported on this browser. Use "Download PNG" to save the image!');
+      }
+    });
   }
 }
 

@@ -2011,9 +2011,15 @@
             <p class="eyebrow">Cohort Showdown</p>
             <h2 class="bvg-title">Boys vs Girls Cumulative Progress</h2>
           </div>
-          <div id="bvg-lead-indicator" class="bvg-lead-badge lead-tie">
-            <span id="bvg-lead-icon">🤝</span>
-            <span id="bvg-lead-text">Tied Race</span>
+          <div class="bvg-header-actions">
+            <div id="bvg-lead-indicator" class="bvg-lead-badge lead-tie">
+              <span id="bvg-lead-icon">🤝</span>
+              <span id="bvg-lead-text">Tied Race</span>
+            </div>
+            <button type="button" id="bvg-share-btn" class="btn btn-secondary bvg-share-btn" title="Share Boys vs Girls progress as image">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span>Share</span>
+            </button>
           </div>
         </div>
 
@@ -2044,8 +2050,8 @@
               <span id="bvg-boys-fraction" class="bvg-fraction">0 / 644 target days</span>
               <span class="bvg-target-label">Target: 644</span>
             </div>
-            <div class="bvg-roster-pills">
-              <span>Paulz</span><span>Victor</span><span>Jason</span><span>Guptaji</span><span>Puia</span><span>Ducks Fartbomber</span><span>Vishan</span>
+            <div class="bvg-roster-pills" id="bvg-boys-roster">
+              <span class="bvg-pill">Paulz</span><span class="bvg-pill">Victor</span><span class="bvg-pill">Jason</span><span class="bvg-pill">Guptaji</span><span class="bvg-pill">Puia</span><span class="bvg-pill">Ducks Fartbomber</span><span class="bvg-pill">Vishan</span>
             </div>
           </div>
 
@@ -2068,8 +2074,8 @@
               <span id="bvg-girls-fraction" class="bvg-fraction">0 / 552 target days</span>
               <span class="bvg-target-label">Target: 552</span>
             </div>
-            <div class="bvg-roster-pills">
-              <span>Nim Nim</span><span>Daysel</span><span>Yutso</span><span>Elisha</span><span>Dechen</span><span>Yeshi</span>
+            <div class="bvg-roster-pills" id="bvg-girls-roster">
+              <span class="bvg-pill">Nim Nim</span><span class="bvg-pill">Daysel</span><span class="bvg-pill">Yutso</span><span class="bvg-pill">Elisha</span><span class="bvg-pill">Dechen</span><span class="bvg-pill">Yeshi</span>
             </div>
           </div>
         </div>
@@ -2480,6 +2486,26 @@
       <div class="modal-actions">
         <button id="download-card-btn" class="btn btn-primary" type="button">Download PNG</button>
         <button id="native-share-btn" class="btn btn-secondary" type="button">Share Image</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOYS VS GIRLS SHARE MODAL -->
+  <div id="bvg-share-modal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Share Cohort Showdown</h3>
+        <button id="close-bvg-share-modal" class="modal-close-btn" type="button" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-sub">Boys vs Girls cumulative progress card for social stories & WhatsApp!</p>
+        <div class="share-preview-container">
+          <img id="bvg-share-card-preview" class="share-card-preview" alt="Boys vs Girls Showdown Card Preview">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="download-bvg-card-btn" class="btn btn-primary" type="button">Download PNG</button>
+        <button id="native-share-bvg-btn" class="btn btn-secondary" type="button">Share Image</button>
       </div>
     </div>
   </div>
