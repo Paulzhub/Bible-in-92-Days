@@ -7408,6 +7408,7 @@ function initAmbientCelestialBackground() {
 
   let renderer, scene, camera;
   let starField, starMaterial, starGeometry;
+  let dustField, dustMaterial, dustGeometry;
   let animFrameId = null;
   let lastTime = 0;
 
@@ -7415,6 +7416,8 @@ function initAmbientCelestialBackground() {
   let mouseX = 0, mouseY = 0;
   let targetMouseX = 0, targetMouseY = 0;
   let baseRotY = 0, baseRotX = 0;
+  let scrollTargetY = 0;
+  let scrollCurrentY = 0;
 
   // Battery and resource pause management
   const pauseReasons = new Set();
@@ -7443,20 +7446,39 @@ function initAmbientCelestialBackground() {
     checkLoopState();
   }
 
-  // Soft circular star alpha texture
+  // Brilliant circular glowing star alpha texture (64x64)
   function createCircularStarTexture() {
     const c = document.createElement('canvas');
-    c.width = 32;
-    c.height = 32;
+    c.width = 64;
+    c.height = 64;
     const ctx = c.getContext('2d');
-    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.85)');
-    grad.addColorStop(0.55, 'rgba(255, 255, 255, 0.28)');
+    grad.addColorStop(0.18, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.42, 'rgba(255, 255, 255, 0.6)');
+    grad.addColorStop(0.72, 'rgba(255, 255, 255, 0.18)');
     grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(16, 16, 16, 0, Math.PI * 2);
+    ctx.arc(32, 32, 32, 0, Math.PI * 2);
+    ctx.fill();
+    return new THREE.CanvasTexture(c);
+  }
+
+  // Soft ambient cosmic dust texture (64x64)
+  function createDustMoteTexture() {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 64;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.45)');
+    grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.1)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(32, 32, 32, 0, Math.PI * 2);
     ctx.fill();
     return new THREE.CanvasTexture(c);
   }
@@ -7476,19 +7498,13 @@ function initAmbientCelestialBackground() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(60, width / height, 1, 2500);
-    camera.position.z = 600;
+    camera = new THREE.PerspectiveCamera(60, width / height, 1, 3000);
+    camera.position.z = 800;
 
-    // Fog configuration
+    // Calibrated atmospheric fog
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     const isDark = currentTheme !== 'light';
-    scene.fog = new THREE.FogExp2(isDark ? 0x14162b : 0xf6efe1, isDark ? 0.00065 : 0.00085);
-
-    // 2,200 Celestial Stars
-    const STAR_COUNT = 2200;
-    starGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(STAR_COUNT * 3);
-    const colors = new Float32Array(STAR_COUNT * 3);
+    scene.fog = new THREE.FogExp2(isDark ? 0x14162b : 0xf6efe1, isDark ? 0.00028 : 0.00035);
 
     // Color palettes
     const darkPalette = [
@@ -7496,7 +7512,7 @@ function initAmbientCelestialBackground() {
       new THREE.Color('#f59e0b'), // warm gold
       new THREE.Color('#f472b6'), // cosmic rose
       new THREE.Color('#ffffff'), // diamond white
-      new THREE.Color('#818cf8')  // nebula violet
+      new THREE.Color('#a78bfa')  // celestial purple
     ];
 
     const lightPalette = [
@@ -7508,12 +7524,19 @@ function initAmbientCelestialBackground() {
     ];
 
     const activePalette = isDark ? darkPalette : lightPalette;
+    const sharedStarTexture = createCircularStarTexture();
 
-    for (let i = 0; i < STAR_COUNT; i++) {
+    // 1. PRIMARY STARFIELD (1,800 radiant celestial stars)
+    const PRIMARY_STAR_COUNT = 1800;
+    starGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(PRIMARY_STAR_COUNT * 3);
+    const colors = new Float32Array(PRIMARY_STAR_COUNT * 3);
+
+    for (let i = 0; i < PRIMARY_STAR_COUNT; i++) {
       const i3 = i * 3;
-      positions[i3] = (Math.random() - 0.5) * 1600;
-      positions[i3 + 1] = (Math.random() - 0.5) * 1600;
-      positions[i3 + 2] = (Math.random() - 0.5) * 1600;
+      positions[i3] = (Math.random() - 0.5) * 1800;
+      positions[i3 + 1] = (Math.random() - 0.5) * 1800;
+      positions[i3 + 2] = (Math.random() - 0.5) * 1600 - 100;
 
       const col = activePalette[Math.floor(Math.random() * activePalette.length)];
       colors[i3] = col.r;
@@ -7525,11 +7548,11 @@ function initAmbientCelestialBackground() {
     starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     starMaterial = new THREE.PointsMaterial({
-      size: isDark ? 5.5 : 4.8,
+      size: isDark ? 16 : 13,
       vertexColors: true,
-      map: createCircularStarTexture(),
+      map: sharedStarTexture,
       transparent: true,
-      opacity: isDark ? 0.88 : 0.42,
+      opacity: isDark ? 0.95 : 0.55,
       blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
       depthWrite: false
     });
@@ -7537,10 +7560,50 @@ function initAmbientCelestialBackground() {
     starField = new THREE.Points(starGeometry, starMaterial);
     scene.add(starField);
 
-    // Mouse parallax reaction
+    // 2. ETHEREAL NEBULA DUST (450 larger, soft glowing cosmic motes)
+    const DUST_COUNT = 450;
+    dustGeometry = new THREE.BufferGeometry();
+    const dustPositions = new Float32Array(DUST_COUNT * 3);
+    const dustColors = new Float32Array(DUST_COUNT * 3);
+
+    for (let i = 0; i < DUST_COUNT; i++) {
+      const i3 = i * 3;
+      dustPositions[i3] = (Math.random() - 0.5) * 2000;
+      dustPositions[i3 + 1] = (Math.random() - 0.5) * 2000;
+      dustPositions[i3 + 2] = (Math.random() - 0.5) * 1800 - 200;
+
+      const col = activePalette[Math.floor(Math.random() * activePalette.length)];
+      dustColors[i3] = col.r;
+      dustColors[i3 + 1] = col.g;
+      dustColors[i3 + 2] = col.b;
+    }
+
+    dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    dustGeometry.setAttribute('color', new THREE.BufferAttribute(dustColors, 3));
+
+    dustMaterial = new THREE.PointsMaterial({
+      size: isDark ? 36 : 28,
+      vertexColors: true,
+      map: createDustMoteTexture(),
+      transparent: true,
+      opacity: isDark ? 0.55 : 0.35,
+      blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
+      depthWrite: false
+    });
+
+    dustField = new THREE.Points(dustGeometry, dustMaterial);
+    scene.add(dustField);
+
+    // Mouse parallax reaction with responsive sensitivity
     window.addEventListener('mousemove', (e) => {
-      targetMouseX = (e.clientX - window.innerWidth / 2) * 0.00045;
-      targetMouseY = (e.clientY - window.innerHeight / 2) * 0.00045;
+      targetMouseX = (e.clientX - window.innerWidth / 2) * 0.00085;
+      targetMouseY = (e.clientY - window.innerHeight / 2) * 0.00085;
+    }, { passive: true });
+
+    // Scroll parallax reaction
+    window.addEventListener('scroll', () => {
+      const st = window.pageYOffset || document.documentElement.scrollTop;
+      scrollTargetY = st * 0.07;
     }, { passive: true });
 
     // Window resize handler
@@ -7571,19 +7634,28 @@ function initAmbientCelestialBackground() {
       const isLightMode = theme === 'light';
       if (scene.fog) {
         scene.fog.color.setHex(isLightMode ? 0xf6efe1 : 0x14162b);
-        scene.fog.density = isLightMode ? 0.00085 : 0.00065;
+        scene.fog.density = isLightMode ? 0.00035 : 0.00028;
       }
 
       if (starMaterial) {
-        starMaterial.opacity = isLightMode ? 0.42 : 0.88;
+        starMaterial.size = isLightMode ? 13 : 16;
+        starMaterial.opacity = isLightMode ? 0.55 : 0.95;
         starMaterial.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
         starMaterial.needsUpdate = true;
       }
 
+      if (dustMaterial) {
+        dustMaterial.size = isLightMode ? 28 : 36;
+        dustMaterial.opacity = isLightMode ? 0.35 : 0.55;
+        dustMaterial.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
+        dustMaterial.needsUpdate = true;
+      }
+
+      const targetPalette = isLightMode ? lightPalette : darkPalette;
+
       if (starGeometry) {
         const colorAttr = starGeometry.attributes.color;
-        const targetPalette = isLightMode ? lightPalette : darkPalette;
-        for (let i = 0; i < STAR_COUNT; i++) {
+        for (let i = 0; i < PRIMARY_STAR_COUNT; i++) {
           const i3 = i * 3;
           const col = targetPalette[Math.floor(Math.random() * targetPalette.length)];
           colorAttr.array[i3] = col.r;
@@ -7591,6 +7663,18 @@ function initAmbientCelestialBackground() {
           colorAttr.array[i3 + 2] = col.b;
         }
         colorAttr.needsUpdate = true;
+      }
+
+      if (dustGeometry) {
+        const dustColAttr = dustGeometry.attributes.color;
+        for (let i = 0; i < DUST_COUNT; i++) {
+          const i3 = i * 3;
+          const col = targetPalette[Math.floor(Math.random() * targetPalette.length)];
+          dustColAttr.array[i3] = col.r;
+          dustColAttr.array[i3 + 1] = col.g;
+          dustColAttr.array[i3 + 2] = col.b;
+        }
+        dustColAttr.needsUpdate = true;
       }
     }
 
@@ -7605,16 +7689,25 @@ function initAmbientCelestialBackground() {
       lastTime = timestamp;
 
       // Parallax lerp
-      mouseX += (targetMouseX - mouseX) * 0.04;
-      mouseY += (targetMouseY - mouseY) * 0.04;
+      mouseX += (targetMouseX - mouseX) * 0.05;
+      mouseY += (targetMouseY - mouseY) * 0.05;
+
+      // Scroll parallax lerp
+      scrollCurrentY += (scrollTargetY - scrollCurrentY) * 0.05;
+      camera.position.y = -scrollCurrentY;
 
       // Base orbital rotation
-      baseRotY += 0.00035;
-      baseRotX += 0.00012;
+      baseRotY += 0.00045;
+      baseRotX += 0.00015;
 
       if (starField) {
         starField.rotation.y = baseRotY + mouseX;
         starField.rotation.x = baseRotX + mouseY;
+      }
+
+      if (dustField) {
+        dustField.rotation.y = -(baseRotY * 0.6) + mouseX * 0.5;
+        dustField.rotation.x = -(baseRotX * 0.6) + mouseY * 0.5;
       }
 
       renderer.render(scene, camera);
