@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- Security Headers & Content Security Policy (CSP) -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://bolls.life https://ipwho.is https://ipapi.co https://api.ipify.org; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://bolls.life https://ipwho.is https://ipapi.co https://api.ipify.org; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <title>Project Bible in 92 Days — The Youth Gathering 2026 | Full Bible Reading Plan & Audio Tracker</title>
@@ -228,6 +228,20 @@
 </script>
 </head>
 <body>
+
+  <!-- AMBIENT CELESTIAL 3D CANVAS -->
+  <canvas id="ambient-canvas" class="ambient-canvas" aria-hidden="true"></canvas>
+
+  <!-- VERTICAL SCROLL SCRUBBER RAIL -->
+  <aside id="scroll-scrubber-rail" class="scroll-scrubber-rail" aria-label="Reading journey scroll progress and section navigator" hidden>
+    <div class="scrubber-rail-inner">
+      <div class="scrubber-track" id="scrubber-track">
+        <div class="scrubber-fill" id="scrubber-fill"></div>
+        <div class="scrubber-glow-thumb" id="scrubber-glow-thumb"></div>
+        <div class="scrubber-markers-container" id="scrubber-markers-container"></div>
+      </div>
+    </div>
+  </aside>
 
   <!-- LOGIN GATE -->
   <div id="login-screen" class="login-screen">
@@ -2512,7 +2526,7 @@
 
   <!-- SCRIPTURE READER MODAL -->
   <div id="reader-modal-backdrop" class="reader-modal-backdrop" hidden></div>
-  <div id="reader-modal" class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-portion-title" hidden>
+  <div id="reader-modal" class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-portion-title" data-lenis-prevent hidden>
     <div class="reader-modal-dialog">
       <!-- HEADER TOOLBAR -->
       <div class="reader-header">
@@ -2588,7 +2602,7 @@
       </div>
 
       <!-- SCRIPTURE TEXT CONTENT -->
-      <div id="reader-content" class="reader-content">
+      <div id="reader-content" class="reader-content" data-lenis-prevent>
         <div class="reader-loading-state">
           <div class="reader-spinner"></div>
           <p>Loading Scripture passage…</p>
@@ -2610,7 +2624,7 @@
 
   <!-- DAYWISE READING PORTION SIDEBAR -->
   <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
-  <aside id="reading-sidebar" class="reading-sidebar" hidden>
+  <aside id="reading-sidebar" class="reading-sidebar" data-lenis-prevent hidden>
     <div class="sidebar-header">
       <div class="sidebar-title-group">
         <h3 class="sidebar-title">92-Day Reading Schedule</h3>
@@ -2637,6 +2651,11 @@
   <!-- NUDGE FEEDBACK TOAST -->
   <div id="nudge-toast" class="nudge-toast" hidden aria-live="polite"></div>
 
+  <!-- VENDOR LIBRARIES (OFFLINE ZERO-BUILD) -->
+  <script src="assets/vendor/three.min.js"></script>
+  <script src="assets/vendor/gsap.min.js"></script>
+  <script src="assets/vendor/ScrollTrigger.min.js"></script>
+  <script src="assets/vendor/lenis.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

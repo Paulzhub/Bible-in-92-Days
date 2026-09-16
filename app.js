@@ -221,6 +221,11 @@ function applyTheme(theme) {
   if (overviewSun) overviewSun.hidden = !isLight;
 
   localStorage.setItem('bible92_theme', theme);
+
+  // Notify Ambient Three.js celestial background to morph colors and fog
+  if (window.ambientCelestialBg && typeof window.ambientCelestialBg.setTheme === 'function') {
+    window.ambientCelestialBg.setTheme(theme);
+  }
 }
 
 function initTheme() {
@@ -712,6 +717,7 @@ function initHeaderPlanOverview(session) {
       }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.refreshScrollScrubber) setTimeout(window.refreshScrollScrubber, 120);
   });
 
   // Clicking "Return to Dashboard" bar inside public overview
@@ -722,6 +728,7 @@ function initHeaderPlanOverview(session) {
       if (returnBar) returnBar.hidden = true;
       siteEl.hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (window.refreshScrollScrubber) setTimeout(window.refreshScrollScrubber, 120);
     });
   }
 }
@@ -736,6 +743,7 @@ function showSite(session) {
   const siteEl = document.getElementById('site');
   siteEl.hidden = false;
   siteEl.classList.add('fade-in', 'site-ease-in');
+  if (window.refreshScrollScrubber) setTimeout(window.refreshScrollScrubber, 120);
   
   const userGreetingSuffix = session.isAdmin ? ' (🛡️ Admin)' : (session.isGuest ? ' (Guest)' : '');
   document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + userGreetingSuffix;
@@ -4392,6 +4400,9 @@ function initScriptureReader(session) {
     stopAudioPlayback();
     modal.classList.remove('active');
     backdrop.classList.remove('active');
+    if (window.ambientCelestialBg && typeof window.ambientCelestialBg.resume === 'function') {
+      window.ambientCelestialBg.resume('reader');
+    }
     setTimeout(() => {
       modal.hidden = true;
       backdrop.hidden = true;
@@ -4560,6 +4571,9 @@ async function openReaderModal({ portion, day, initialChapter }) {
 
   modal.hidden = false;
   backdrop.hidden = false;
+  if (window.ambientCelestialBg && typeof window.ambientCelestialBg.pause === 'function') {
+    window.ambientCelestialBg.pause('reader');
+  }
   requestAnimationFrame(() => {
     modal.classList.add('active');
     backdrop.classList.add('active');
@@ -7143,7 +7157,490 @@ function startAudioProgressTimer() {
   }, 1000);
 }
 
+// ====== LENIS SMOOTH SCROLLING ======
+
+let lenisInstance = null;
+
+function initLenisSmoothScroll() {
+  if (typeof Lenis === 'undefined') {
+    return null;
+  }
+  try {
+    lenisInstance = new Lenis({
+      lerp: 0.1,
+      wheelMultiplier: 1.0,
+      touchMultiplier: 1.2,
+      smoothWheel: true,
+      syncTouch: false
+    });
+
+    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+      gsap.registerPlugin(ScrollTrigger);
+      lenisInstance.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add((time) => {
+        lenisInstance.raf(time * 1000);
+      });
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      function raf(time) {
+        lenisInstance.raf(time);
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+    }
+
+    return lenisInstance;
+  } catch (err) {
+    console.warn('Lenis smooth scroll notice:', err);
+    return null;
+  }
+}
+
+// ====== VERTICAL SCROLL SCRUBBER RAIL ======
+
+function initScrollScrubberRail() {
+  const railEl = document.getElementById('scroll-scrubber-rail');
+  const trackEl = document.getElementById('scrubber-track');
+  const fillEl = document.getElementById('scrubber-fill');
+  const thumbEl = document.getElementById('scrubber-glow-thumb');
+  const markersContainer = document.getElementById('scrubber-markers-container');
+
+  if (!railEl || !trackEl || !fillEl || !thumbEl || !markersContainer) {
+    return;
+  }
+
+  const DASHBOARD_SECTIONS = [
+    { id: 'squad-gauge-card', label: 'Daily Goal' },
+    { id: 'boys-vs-girls-card', label: 'Boys vs Girls' },
+    { id: 'section-today', label: "Today's Portion" },
+    { id: 'section-heatmap', label: 'Streak Heatmap' },
+    { id: 'section-leaderboard', label: 'Leaderboard' },
+    { id: 'section-recap', label: 'Weekly Recap' },
+    { id: 'section-all-time', label: 'Hall of Fame' },
+    { id: 'section-comments', label: 'Community Chat' },
+    { id: 'section-prayers', label: 'Prayer Wall' },
+    { id: 'section-playground', label: 'Playground' }
+  ];
+
+  const PUBLIC_SECTIONS = [
+    { id: 'public-today-preview', label: "Today's Portion" },
+    { id: 'reading-syllabus', label: 'Reading Syllabus' },
+    { id: 'pacing-comparison-section', label: 'Pacing Tiers' },
+    { id: 'full-schedule-section', label: '92-Day Full Plan' },
+    { id: 'frequently-asked-questions', label: 'FAQ & Features' }
+  ];
+
+  let currentActiveMarkers = [];
+  let isTicking = false;
+
+  function refreshMarkers() {
+    markersContainer.innerHTML = '';
+    currentActiveMarkers = [];
+
+    const siteEl = document.getElementById('site');
+    const publicOverview = document.getElementById('public-overview');
+    const loginScreen = document.getElementById('login-screen');
+
+    const isSiteVisible = siteEl && !siteEl.hidden;
+    const isPublicVisible = publicOverview && !publicOverview.hidden;
+
+    if (!isSiteVisible && !isPublicVisible) {
+      railEl.hidden = true;
+      return;
+    }
+
+    railEl.hidden = false;
+    const targetDefs = isSiteVisible ? DASHBOARD_SECTIONS : PUBLIC_SECTIONS;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+
+    targetDefs.forEach((def) => {
+      const el = document.getElementById(def.id);
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const elTop = rect.top + scrollY;
+      const percent = Math.min(1, Math.max(0, elTop / docHeight));
+
+      const marker = document.createElement('div');
+      marker.className = 'scrubber-marker';
+      marker.style.top = `${(percent * 100).toFixed(2)}%`;
+      marker.setAttribute('role', 'button');
+      marker.setAttribute('tabindex', '0');
+      marker.setAttribute('aria-label', `Jump to ${def.label}`);
+
+      const tooltip = document.createElement('span');
+      tooltip.className = 'scrubber-tooltip';
+      tooltip.textContent = def.label;
+      marker.appendChild(tooltip);
+
+      const scrollToTarget = (e) => {
+        if (e) e.stopPropagation();
+        if (lenisInstance) {
+          lenisInstance.scrollTo(el, { offset: -24, duration: 0.7 });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+
+      marker.addEventListener('click', scrollToTarget);
+      marker.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          scrollToTarget(e);
+        }
+      });
+
+      markersContainer.appendChild(marker);
+      currentActiveMarkers.push({ el, marker, def });
+    });
+
+    updateScrubberProgress();
+  }
+
+  function updateScrubberProgress() {
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const progress = Math.min(1, Math.max(0, scrollY / docHeight));
+    const percentStr = `${(progress * 100).toFixed(2)}%`;
+
+    fillEl.style.height = percentStr;
+    thumbEl.style.top = percentStr;
+    thumbEl.style.opacity = progress > 0.005 ? '1' : '0';
+
+    if (currentActiveMarkers.length === 0) return;
+
+    const viewportCenter = scrollY + window.innerHeight * 0.35;
+    let activeIdx = 0;
+    let closestDist = Infinity;
+
+    currentActiveMarkers.forEach((item, idx) => {
+      const rect = item.el.getBoundingClientRect();
+      const itemTop = rect.top + scrollY;
+      const itemBottom = itemTop + rect.height;
+
+      if (viewportCenter >= itemTop && viewportCenter <= itemBottom) {
+        activeIdx = idx;
+        closestDist = 0;
+      } else {
+        const dist = Math.abs(itemTop - viewportCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          activeIdx = idx;
+        }
+      }
+    });
+
+    currentActiveMarkers.forEach((item, idx) => {
+      item.marker.classList.toggle('active', idx === activeIdx);
+    });
+  }
+
+  function onScroll() {
+    if (!isTicking) {
+      window.requestAnimationFrame(() => {
+        updateScrubberProgress();
+        isTicking = false;
+      });
+      isTicking = true;
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  if (lenisInstance) {
+    lenisInstance.on('scroll', onScroll);
+  }
+
+  // Live drag & click scrub on rail track
+  let isDraggingRail = false;
+
+  function scrubToEvent(e) {
+    const rect = trackEl.getBoundingClientRect();
+    const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : rect.top);
+    const clampY = Math.min(rect.height, Math.max(0, clientY - rect.top));
+    const ratio = clampY / rect.height;
+    const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const targetY = ratio * docHeight;
+
+    if (lenisInstance) {
+      lenisInstance.scrollTo(targetY, { immediate: true });
+    } else {
+      window.scrollTo({ top: targetY, behavior: 'auto' });
+    }
+  }
+
+  trackEl.parentElement.addEventListener('pointerdown', (e) => {
+    isDraggingRail = true;
+    railEl.classList.add('active-scrub');
+    scrubToEvent(e);
+
+    const onPointerMove = (moveEvent) => {
+      if (!isDraggingRail) return;
+      scrubToEvent(moveEvent);
+    };
+
+    const onPointerUp = () => {
+      isDraggingRail = false;
+      railEl.classList.remove('active-scrub');
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  });
+
+  window.refreshScrollScrubber = refreshMarkers;
+  window.addEventListener('resize', () => {
+    setTimeout(refreshMarkers, 100);
+  }, { passive: true });
+
+  refreshMarkers();
+}
+
+// ====== AMBIENT THREE.JS 3D CELESTIAL BACKGROUND ======
+
+function initAmbientCelestialBackground() {
+  const canvas = document.getElementById('ambient-canvas');
+  if (!canvas || typeof THREE === 'undefined') {
+    return;
+  }
+
+  let renderer, scene, camera;
+  let starField, starMaterial, starGeometry;
+  let animFrameId = null;
+  let lastTime = 0;
+
+  // Parallax reaction coordinates
+  let mouseX = 0, mouseY = 0;
+  let targetMouseX = 0, targetMouseY = 0;
+  let baseRotY = 0, baseRotX = 0;
+
+  // Battery and resource pause management
+  const pauseReasons = new Set();
+
+  function checkLoopState() {
+    if (pauseReasons.size === 0) {
+      if (!animFrameId) {
+        lastTime = performance.now();
+        animFrameId = requestAnimationFrame(renderLoop);
+      }
+    } else {
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+    }
+  }
+
+  function pause(reason) {
+    pauseReasons.add(reason);
+    checkLoopState();
+  }
+
+  function resume(reason) {
+    pauseReasons.delete(reason);
+    checkLoopState();
+  }
+
+  // Soft circular star alpha texture
+  function createCircularStarTexture() {
+    const c = document.createElement('canvas');
+    c.width = 32;
+    c.height = 32;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.25, 'rgba(255, 255, 255, 0.85)');
+    grad.addColorStop(0.55, 'rgba(255, 255, 255, 0.28)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(16, 16, 16, 0, Math.PI * 2);
+    ctx.fill();
+    return new THREE.CanvasTexture(c);
+  }
+
+  try {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Renderer with battery saving options
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'low-power'
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(60, width / height, 1, 2500);
+    camera.position.z = 600;
+
+    // Fog configuration
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const isDark = currentTheme !== 'light';
+    scene.fog = new THREE.FogExp2(isDark ? 0x14162b : 0xf6efe1, isDark ? 0.00065 : 0.00085);
+
+    // 2,200 Celestial Stars
+    const STAR_COUNT = 2200;
+    starGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(STAR_COUNT * 3);
+    const colors = new Float32Array(STAR_COUNT * 3);
+
+    // Color palettes
+    const darkPalette = [
+      new THREE.Color('#38bdf8'), // sky cyan
+      new THREE.Color('#f59e0b'), // warm gold
+      new THREE.Color('#f472b6'), // cosmic rose
+      new THREE.Color('#ffffff'), // diamond white
+      new THREE.Color('#818cf8')  // nebula violet
+    ];
+
+    const lightPalette = [
+      new THREE.Color('#d97706'), // warm amber gold
+      new THREE.Color('#0284c7'), // celestial azure
+      new THREE.Color('#7c3aed'), // ethereal purple
+      new THREE.Color('#b45309'), // warm bronze
+      new THREE.Color('#0369a1')  // sapphire sky
+    ];
+
+    const activePalette = isDark ? darkPalette : lightPalette;
+
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const i3 = i * 3;
+      positions[i3] = (Math.random() - 0.5) * 1600;
+      positions[i3 + 1] = (Math.random() - 0.5) * 1600;
+      positions[i3 + 2] = (Math.random() - 0.5) * 1600;
+
+      const col = activePalette[Math.floor(Math.random() * activePalette.length)];
+      colors[i3] = col.r;
+      colors[i3 + 1] = col.g;
+      colors[i3 + 2] = col.b;
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    starMaterial = new THREE.PointsMaterial({
+      size: isDark ? 5.5 : 4.8,
+      vertexColors: true,
+      map: createCircularStarTexture(),
+      transparent: true,
+      opacity: isDark ? 0.88 : 0.42,
+      blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
+      depthWrite: false
+    });
+
+    starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // Mouse parallax reaction
+    window.addEventListener('mousemove', (e) => {
+      targetMouseX = (e.clientX - window.innerWidth / 2) * 0.00045;
+      targetMouseY = (e.clientY - window.innerHeight / 2) * 0.00045;
+    }, { passive: true });
+
+    // Window resize handler
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }, { passive: true });
+
+    // Page visibility listener
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        pause('hidden');
+      } else {
+        resume('hidden');
+      }
+    });
+
+    // Prefers reduced motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      pause('motion');
+    }
+
+    // Dynamic Theme Adaptation
+    function setTheme(theme) {
+      const isLightMode = theme === 'light';
+      if (scene.fog) {
+        scene.fog.color.setHex(isLightMode ? 0xf6efe1 : 0x14162b);
+        scene.fog.density = isLightMode ? 0.00085 : 0.00065;
+      }
+
+      if (starMaterial) {
+        starMaterial.opacity = isLightMode ? 0.42 : 0.88;
+        starMaterial.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
+        starMaterial.needsUpdate = true;
+      }
+
+      if (starGeometry) {
+        const colorAttr = starGeometry.attributes.color;
+        const targetPalette = isLightMode ? lightPalette : darkPalette;
+        for (let i = 0; i < STAR_COUNT; i++) {
+          const i3 = i * 3;
+          const col = targetPalette[Math.floor(Math.random() * targetPalette.length)];
+          colorAttr.array[i3] = col.r;
+          colorAttr.array[i3 + 1] = col.g;
+          colorAttr.array[i3 + 2] = col.b;
+        }
+        colorAttr.needsUpdate = true;
+      }
+    }
+
+    // Render loop
+    function renderLoop(timestamp) {
+      if (pauseReasons.size > 0) {
+        animFrameId = null;
+        return;
+      }
+
+      const delta = timestamp - lastTime;
+      lastTime = timestamp;
+
+      // Parallax lerp
+      mouseX += (targetMouseX - mouseX) * 0.04;
+      mouseY += (targetMouseY - mouseY) * 0.04;
+
+      // Base orbital rotation
+      baseRotY += 0.00035;
+      baseRotX += 0.00012;
+
+      if (starField) {
+        starField.rotation.y = baseRotY + mouseX;
+        starField.rotation.x = baseRotX + mouseY;
+      }
+
+      renderer.render(scene, camera);
+      animFrameId = requestAnimationFrame(renderLoop);
+    }
+
+    // Export controller
+    window.ambientCelestialBg = {
+      setTheme,
+      pause,
+      resume
+    };
+
+    // Kick off render loop if visible
+    if (!document.hidden) {
+      animFrameId = requestAnimationFrame(renderLoop);
+    }
+  } catch (err) {
+    console.warn('Three.js celestial starfield init error:', err);
+  }
+}
+
 // ====== INIT ======
 
 initTheme();
 initLogin();
+initLenisSmoothScroll();
+initScrollScrubberRail();
+initAmbientCelestialBackground();

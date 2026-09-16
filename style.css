@@ -2,6 +2,7 @@
 :root {
   --bg: #14162B;
   --surface: #1E2140;
+  --surface-glass: rgba(30, 33, 64, 0.78);
   --surface-2: #262A52;
   --text: #F6EFE1;
   --text-muted: #B9B4A8;
@@ -25,6 +26,7 @@
 [data-theme="light"] {
   --bg: #F6EFE1;
   --surface: #FFFFFF;
+  --surface-glass: rgba(255, 255, 255, 0.82);
   --surface-2: #FBF6EA;
   --text: #14162B;
   --text-muted: #5B5646;
@@ -88,7 +90,9 @@ h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; }
 
 .card {
-  background: var(--surface);
+  background: var(--surface-glass, var(--surface));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.75rem 1.5rem;
@@ -399,7 +403,9 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: var(--surface);
+  background: var(--surface-glass, var(--surface));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 2.25rem 1.75rem;
@@ -5103,5 +5109,227 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   }
 }
 
+/* ============ AMBIENT THREE.JS 3D CANVAS ============ */
+.ambient-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.92;
+  transition: opacity 0.5s ease;
+}
 
+/* ============ VERTICAL SCROLL SCRUBBER RAIL ============ */
+.scroll-scrubber-rail {
+  position: fixed;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  touch-action: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
 
+.scroll-scrubber-rail[hidden] {
+  display: none !important;
+}
+
+.scrubber-rail-inner {
+  position: relative;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.scrubber-track {
+  position: relative;
+  width: 6px;
+  height: min(440px, 60vh);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: width 0.2s ease, background 0.25s ease;
+}
+
+[data-theme="light"] .scrubber-track {
+  background: rgba(20, 22, 43, 0.08);
+  box-shadow: 0 4px 16px rgba(20, 22, 43, 0.08);
+}
+
+.scrubber-rail-inner:hover .scrubber-track {
+  width: 8px;
+}
+
+/* Glowing Liquid Gradient Fill: #38bdf8 -> #f59e0b -> #f472b6 */
+.scrubber-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0%;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #38bdf8 0%, #f59e0b 50%, #f472b6 100%);
+  box-shadow:
+    0 0 10px rgba(56, 189, 248, 0.8),
+    0 0 18px rgba(245, 158, 11, 0.6),
+    0 0 24px rgba(244, 114, 182, 0.45);
+  transition: height 0.04s linear;
+  will-change: height;
+  pointer-events: none;
+}
+
+/* Leading Glow Thumb */
+.scrubber-glow-thumb {
+  position: absolute;
+  top: 0%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #38bdf8;
+  box-shadow:
+    0 0 8px #38bdf8,
+    0 0 16px #f59e0b,
+    0 0 22px rgba(244, 114, 182, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, top 0.04s linear, transform 0.2s ease;
+  will-change: top;
+}
+
+.scrubber-rail-inner:hover .scrubber-glow-thumb,
+.scroll-scrubber-rail.active-scrub .scrubber-glow-thumb {
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* Section Markers */
+.scrubber-markers-container {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.scrubber-marker {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease, box-shadow 0.25s ease;
+}
+
+[data-theme="light"] .scrubber-marker {
+  background: rgba(20, 22, 43, 0.25);
+}
+
+.scrubber-marker:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  background: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+}
+
+.scrubber-marker.active {
+  transform: translate(-50%, -50%) scale(1.6);
+  background: #38bdf8;
+  border-color: #ffffff;
+  box-shadow: 0 0 10px #38bdf8, 0 0 18px rgba(245, 158, 11, 0.7);
+}
+
+.scrubber-marker.active::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 1.5px solid #38bdf8;
+  animation: markerPulse 2.2s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes markerPulse {
+  0% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Tooltip on Marker */
+.scrubber-tooltip {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  background: var(--surface-glass, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  z-index: 95;
+}
+
+.scrubber-marker:hover .scrubber-tooltip,
+.scrubber-marker.show-tooltip .scrubber-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .scroll-scrubber-rail {
+    right: 6px;
+  }
+  .scrubber-rail-inner {
+    padding: 6px 8px;
+  }
+  .scrubber-track {
+    width: 4px;
+    height: min(380px, 50vh);
+  }
+  .scrubber-rail-inner:hover .scrubber-track {
+    width: 6px;
+  }
+  .scrubber-marker {
+    width: 6px;
+    height: 6px;
+  }
+  .scrubber-marker.active {
+    transform: translate(-50%, -50%) scale(1.4);
+  }
+  .scrubber-tooltip {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    right: 14px;
+  }
+}
