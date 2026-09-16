@@ -517,6 +517,7 @@ function initLogin() {
   initPasswordToggle();
   initPublicTodayPreview();
   initPublicScheduleFeatures();
+  initScriptureReader();
   const session = getSession();
   if (session) {
     showSite(session);
@@ -1856,6 +1857,160 @@ function updateHeaderLevel(leaderboard, session) {
       headerLevelEl.textContent = me.levelTitle;
     }
   }
+  renderLevelProgress(leaderboard, session);
+}
+
+// ====== LEVEL PROGRESSION HELPERS ======
+
+function toRoman(num) {
+  const map = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let result = '';
+  for (let i = 0; i < map.length; i++) {
+    while (num >= map[i][0]) {
+      result += map[i][1];
+      num -= map[i][0];
+    }
+  }
+  return result;
+}
+
+function getLevelProgressInfo(daysCompleted) {
+  const TOTAL_DAYS = 92;
+  const days = Math.max(0, Number(daysCompleted) || 0);
+
+  if (days >= TOTAL_DAYS) {
+    return {
+      currentLevelNum: 11,
+      currentLevelTitle: 'Finisher 🏆',
+      nextLevelNum: 11,
+      nextLevelTitle: 'Max Level',
+      currentTierStart: 92,
+      nextTierTarget: 92,
+      tierProgress: 2,
+      tierTotal: 2,
+      pct: 100,
+      daysRemaining: 0,
+      isMaxLevel: true
+    };
+  }
+
+  const currentTier = Math.floor(days / 10) + 1; // 1 to 10
+  const currentTitle = 'Disciple ' + toRoman(currentTier);
+
+  if (currentTier === 10) {
+    // Days 90-91: Target is Finisher 🏆 at 92 days
+    const tierStart = 90;
+    const tierTarget = 92;
+    const tierProgress = days - tierStart;
+    const tierTotal = 2;
+    const pct = Math.round((tierProgress / tierTotal) * 100);
+    const daysRemaining = tierTarget - days;
+    return {
+      currentLevelNum: 10,
+      currentLevelTitle: currentTitle,
+      nextLevelNum: 11,
+      nextLevelTitle: 'Finisher 🏆',
+      currentTierStart: tierStart,
+      nextTierTarget: tierTarget,
+      tierProgress,
+      tierTotal,
+      pct,
+      daysRemaining,
+      isMaxLevel: false
+    };
+  }
+
+  const tierStart = (currentTier - 1) * 10;
+  const tierTarget = currentTier * 10;
+  const nextTitle = 'Disciple ' + toRoman(currentTier + 1);
+  const tierProgress = days - tierStart;
+  const tierTotal = 10;
+  const pct = Math.round((tierProgress / tierTotal) * 100);
+  const daysRemaining = tierTarget - days;
+
+  return {
+    currentLevelNum: currentTier,
+    currentLevelTitle: currentTitle,
+    nextLevelNum: currentTier + 1,
+    nextLevelTitle: nextTitle,
+    currentTierStart: tierStart,
+    nextTierTarget: tierTarget,
+    tierProgress,
+    tierTotal,
+    pct,
+    daysRemaining,
+    isMaxLevel: false
+  };
+}
+
+function renderLevelProgress(rows, session) {
+  const curBadge = document.getElementById('level-current-badge');
+  const arrowEl = document.getElementById('level-arrow');
+  const nextBadge = document.getElementById('level-next-badge');
+  const progressBar = document.getElementById('level-progress-bar');
+  const progressWrap = document.getElementById('level-progressbar');
+  const statsEl = document.getElementById('level-progress-stats');
+  const remainingEl = document.getElementById('level-progress-remaining');
+  const pctEl = document.getElementById('level-progress-pct');
+
+  if (!progressBar) return;
+
+  const curSession = session || getSession();
+  const isGuest = !curSession || curSession.isGuest;
+  
+  const me = (!isGuest && rows) ? rows.find(r => curSession && r.username && r.username.toLowerCase() === curSession.username.toLowerCase()) : null;
+  const daysCompleted = me ? (me.daysCompleted || 0) : 0;
+  const info = getLevelProgressInfo(daysCompleted);
+
+  if (isGuest) {
+    if (curBadge) {
+      curBadge.textContent = 'Guest Explorer';
+      curBadge.className = 'level-badge';
+    }
+    if (arrowEl) arrowEl.hidden = false;
+    if (nextBadge) {
+      nextBadge.textContent = 'Disciple Account';
+      nextBadge.hidden = false;
+      nextBadge.className = 'level-badge next-level-pill';
+    }
+    progressBar.style.width = '0%';
+    if (progressWrap) progressWrap.setAttribute('aria-valuenow', '0');
+    if (statsEl) statsEl.textContent = 'Guest preview mode';
+    if (remainingEl) remainingEl.textContent = 'Sign in with a disciple account to track your level progression';
+    if (pctEl) pctEl.textContent = '0%';
+    return;
+  }
+
+  // Logged-in disciple
+  if (curBadge) {
+    curBadge.textContent = info.currentLevelTitle;
+    curBadge.className = 'level-badge' + (info.isMaxLevel ? ' finisher' : '');
+  }
+
+  if (info.isMaxLevel) {
+    if (arrowEl) arrowEl.hidden = true;
+    if (nextBadge) nextBadge.hidden = true;
+    progressBar.style.width = '100%';
+    if (progressWrap) progressWrap.setAttribute('aria-valuenow', '100');
+    if (statsEl) statsEl.textContent = `${TOTAL_CHALLENGE_DAYS} / ${TOTAL_CHALLENGE_DAYS} days completed`;
+    if (remainingEl) remainingEl.textContent = 'Max Level Achieved! You finished all 92 days! 🏆';
+    if (pctEl) pctEl.textContent = '100%';
+  } else {
+    if (arrowEl) arrowEl.hidden = false;
+    if (nextBadge) {
+      nextBadge.hidden = false;
+      nextBadge.textContent = info.nextLevelTitle;
+      nextBadge.className = 'level-badge next-level-pill' + (info.nextLevelTitle.includes('Finisher') ? ' finisher' : '');
+    }
+    progressBar.style.width = `${info.pct}%`;
+    if (progressWrap) progressWrap.setAttribute('aria-valuenow', String(info.pct));
+    if (statsEl) statsEl.textContent = `${info.tierProgress} / ${info.tierTotal} days in tier`;
+    if (remainingEl) {
+      const dayWord = info.daysRemaining === 1 ? 'day' : 'days';
+      remainingEl.textContent = `${info.daysRemaining} ${dayWord} until ${info.nextLevelTitle}`;
+    }
+    if (pctEl) pctEl.textContent = `${info.pct}%`;
+  }
 }
 
 // ====== YOUR READING HISTORY (HEATMAP) ======
@@ -1939,6 +2094,7 @@ function renderLeaderboard(rows, session) {
   initLeaderboardFilterTabs();
   renderSquadGauge(rows);
   renderBoysVsGirlsProgress(rows);
+  renderLevelProgress(rows, session);
   const body = document.getElementById('leaderboard-body');
   document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
@@ -4361,6 +4517,24 @@ let activeReaderDay = null;
 let activeReaderVersion = localStorage.getItem('bible_reader_version') || 'NIV';
 let activeReaderFontSize = parseFloat(localStorage.getItem('bible_reader_font_size')) || 1.05;
 
+let isScriptureReaderInitialized = false;
+
+function closeReaderModal() {
+  const modal = document.getElementById('reader-modal');
+  const backdrop = document.getElementById('reader-modal-backdrop');
+  if (!modal || !backdrop) return;
+  stopAudioPlayback();
+  modal.classList.remove('active');
+  backdrop.classList.remove('active');
+  if (window.ambientCelestialBg && typeof window.ambientCelestialBg.resume === 'function') {
+    window.ambientCelestialBg.resume('reader');
+  }
+  setTimeout(() => {
+    modal.hidden = true;
+    backdrop.hidden = true;
+  }, 300);
+}
+
 function initScriptureReader(session) {
   const modal = document.getElementById('reader-modal');
   const backdrop = document.getElementById('reader-modal-backdrop');
@@ -4370,6 +4544,12 @@ function initScriptureReader(session) {
   const fontIncBtn = document.getElementById('reader-font-increase');
   const markReadBtn = document.getElementById('reader-mark-read-btn');
   const openTodayBtn = document.getElementById('open-today-reader-btn');
+
+  if (closeBtn) closeBtn.onclick = closeReaderModal;
+  if (backdrop) backdrop.onclick = closeReaderModal;
+
+  if (isScriptureReaderInitialized) return;
+  isScriptureReaderInitialized = true;
 
   if (versionSelect) {
     versionSelect.value = activeReaderVersion;
@@ -4408,32 +4588,16 @@ function initScriptureReader(session) {
     });
   }
 
-  const closeModal = () => {
-    if (!modal || !backdrop) return;
-    stopAudioPlayback();
-    modal.classList.remove('active');
-    backdrop.classList.remove('active');
-    if (window.ambientCelestialBg && typeof window.ambientCelestialBg.resume === 'function') {
-      window.ambientCelestialBg.resume('reader');
-    }
-    setTimeout(() => {
-      modal.hidden = true;
-      backdrop.hidden = true;
-    }, 300);
-  };
-
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  if (backdrop) backdrop.addEventListener('click', closeModal);
-
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modal && !modal.hidden) {
-      closeModal();
+      closeReaderModal();
     }
   });
 
   if (markReadBtn) {
     markReadBtn.addEventListener('click', async () => {
-      if (!session || session.isGuest) {
+      const curSession = session || getSession();
+      if (!curSession || curSession.isGuest) {
         alert('Guest users are in read-only mode.');
         return;
       }
@@ -4542,8 +4706,12 @@ async function fetchChapterFromApi(version, bookId, chapter) {
 }
 
 async function openReaderModal({ portion, day, initialChapter }) {
+  initScriptureReader();
   const modal = document.getElementById('reader-modal');
   const backdrop = document.getElementById('reader-modal-backdrop');
+  const closeBtn = document.getElementById('close-reader-btn');
+  if (closeBtn) closeBtn.onclick = closeReaderModal;
+  if (backdrop) backdrop.onclick = closeReaderModal;
   const titleEl = document.getElementById('reader-portion-title');
   const dayBadge = document.getElementById('reader-day-badge');
   const extLink = document.getElementById('reader-external-link');
@@ -7227,6 +7395,7 @@ function initScrollScrubberRail() {
     { id: 'boys-vs-girls-card', label: 'Boys vs Girls' },
     { id: 'section-today', label: "Today's Portion" },
     { id: 'section-heatmap', label: 'Streak Heatmap' },
+    { id: 'section-level-progress', label: 'Level Progress' },
     { id: 'section-leaderboard', label: 'Leaderboard' },
     { id: 'section-recap', label: 'Weekly Recap' },
     { id: 'section-all-time', label: 'Hall of Fame' },
