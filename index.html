@@ -61,7 +61,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -287,7 +287,7 @@
     <!-- RETURN TO DASHBOARD BAR (Visible when accessed by logged-in users) -->
     <div id="overview-return-bar" class="overview-return-bar" hidden>
       <button type="button" id="overview-return-btn" class="btn btn-secondary btn-return-dash">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         <span>Return to Dashboard</span>
       </button>
       <div class="overview-return-actions">
@@ -499,9 +499,6 @@
               <button type="button" class="phase-chip" data-phase="5">Phase 5 (Gospels)</button>
               <button type="button" class="phase-chip" data-phase="6">Phase 6 (Epistles)</button>
             </div>
-            <button type="button" id="print-schedule-btn" class="btn btn-secondary btn-print-schedule" title="Print or Save Schedule as PDF">
-              <span>🖨️ Print / Save as PDF</span>
-            </button>
           </div>
         </div>
         <div id="public-schedule-count" class="public-schedule-count">Showing all 92 days</div>
@@ -1941,14 +1938,11 @@
           <a href="https://www.instagram.com/tg.youth_/" target="_blank" rel="noopener noreferrer me" class="public-footer-link">
             <span>📷 @tg.youth_ on Instagram</span>
           </a>
-          <a href="https://github.com/Paulzhub/Bible-in-92-Days" target="_blank" rel="noopener noreferrer me" class="public-footer-link">
-            <span>⭐ GitHub Repository</span>
-          </a>
-          <a href="#login-screen" class="public-footer-link">
+          <button type="button" id="public-back-to-signin-btn" class="public-footer-link public-footer-btn" aria-label="Back to Sign In">
             <span>↑ Back to Sign In</span>
-          </a>
+          </button>
         </div>
-        <p class="public-footer-copy">The Youth Gathering 2026 · Scriptural data via Bolls Bible API and BibleGateway</p>
+        <p class="public-footer-copy">The Youth Gathering 2026</p>
       </footer>
     </article>
 
@@ -2656,6 +2650,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

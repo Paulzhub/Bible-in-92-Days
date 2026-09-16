@@ -377,7 +377,7 @@ function initPublicTodayPreview() {
 
   if (readBtn) {
     readBtn.addEventListener('click', () => {
-      ensureSessionAndOpenReader(dayNum, portionText);
+      openReaderModal({ portion: portionText || `Day ${dayNum}`, day: dayNum });
     });
   }
 }
@@ -388,22 +388,30 @@ function initPublicScheduleFeatures() {
   const phaseChips = document.querySelectorAll('#public-phase-chips .phase-chip');
   const countEl = document.getElementById('public-schedule-count');
   const cards = document.querySelectorAll('.public-day-card');
-  const printBtn = document.getElementById('print-schedule-btn');
+  const backToSignInBtn = document.getElementById('public-back-to-signin-btn');
 
   let activePhase = 'all';
 
   function filterCards() {
-    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
-    if (searchClear) searchClear.hidden = !query;
+    const rawQuery = (searchInput ? searchInput.value : '').trim();
+    if (searchClear) searchClear.hidden = !rawQuery;
 
     let visibleCount = 0;
     cards.forEach((card) => {
-      const day = card.getAttribute('data-day') || '';
+      const day = Number(card.getAttribute('data-day'));
       const phase = card.getAttribute('data-phase') || '';
-      const text = card.textContent.toLowerCase();
+      const portionEl = card.querySelector('.public-day-portion');
+      const dateEl = card.querySelector('.public-day-date');
+      const portion = portionEl ? portionEl.textContent.trim() : '';
+      const date = dateEl ? dateEl.textContent.trim() : '';
 
       const matchesPhase = activePhase === 'all' || phase === activePhase;
-      const matchesQuery = !query || text.includes(query) || (`day ${day}`.includes(query));
+
+      let matchesQuery = true;
+      if (rawQuery) {
+        const indexItem = buildScheduleItemSearchIndex({ day, portion, date });
+        matchesQuery = matchesScheduleQuery(indexItem, rawQuery);
+      }
 
       if (matchesPhase && matchesQuery) {
         card.style.display = '';
@@ -438,20 +446,25 @@ function initPublicScheduleFeatures() {
     });
   });
 
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      window.print();
-    });
-  }
-
   document.querySelectorAll('.btn-public-read').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const day = Number(btn.getAttribute('data-day'));
       const portion = btn.getAttribute('data-portion');
-      ensureSessionAndOpenReader(day, portion);
+      openReaderModal({ portion: portion || `Day ${day}`, day });
     });
   });
+
+  if (backToSignInBtn) {
+    backToSignInBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (lenisInstance) {
+        lenisInstance.scrollTo(0, { duration: 0.8 });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  }
 }
 
 function checkUrlDeepLinks(session) {
@@ -4554,7 +4567,7 @@ async function openReaderModal({ portion, day, initialChapter }) {
 
   if (markReadBtn) {
     const curSession = getSession();
-    if (curSession && curSession.isGuest) {
+    if (!curSession || curSession.isGuest) {
       markReadBtn.disabled = true;
       markReadBtn.textContent = 'Guest View Only';
     } else {
