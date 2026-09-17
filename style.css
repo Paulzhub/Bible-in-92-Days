@@ -5540,3 +5540,536 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
     right: 14px;
   }
 }
+
+/* ============ AMBIENT CONSTELLATION SCRIPTURE HUD ============ */
+.constellation-hud {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 9999px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.constellation-hud.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.constellation-hud-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6));
+  animation: constellationPulse 3s ease-in-out infinite;
+}
+
+@keyframes constellationPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+.constellation-hud-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.constellation-hud-eyebrow {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f59e0b;
+}
+
+.constellation-hud-name {
+  font-family: 'Fraunces', serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.constellation-hud-days {
+  font-size: 0.68rem;
+  color: #94a3b8;
+}
+
+/* Light Theme Adaptations for Constellation HUD */
+[data-theme="light"] .constellation-hud {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(217, 119, 6, 0.35);
+  box-shadow: 0 8px 32px rgba(180, 83, 9, 0.15), 0 0 16px rgba(217, 119, 6, 0.1);
+}
+
+[data-theme="light"] .constellation-hud-eyebrow {
+  color: #b45309;
+}
+
+[data-theme="light"] .constellation-hud-name {
+  color: #1e293b;
+}
+
+[data-theme="light"] .constellation-hud-days {
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .constellation-hud {
+    bottom: 16px;
+    left: 16px;
+    padding: 8px 14px;
+    gap: 10px;
+  }
+  .constellation-hud-name {
+    font-size: 0.8rem;
+  }
+  .constellation-hud-days {
+    font-size: 0.62rem;
+  }
+}
+
+/* ============ INTERACTIVE LEVEL PROGRESS BADGES & 3D BUTTON ============ */
+.level-badge[role="button"] {
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+
+.level-badge[role="button"]:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35);
+}
+
+.level-badge[role="button"]:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.level-inspect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.level-inspect-btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.level-inspect-btn:active {
+  transform: translateY(0);
+}
+
+[data-theme="light"] .level-inspect-btn {
+  color: #b45309;
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+[data-theme="light"] .level-inspect-btn:hover {
+  background: rgba(217, 119, 6, 0.18);
+  border-color: rgba(217, 119, 6, 0.5);
+  color: #92400e;
+}
+
+/* ============ 3D DISCIPLESHIP LEVEL MEDALLION MODAL ============ */
+.medallion-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(6, 9, 18, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.medallion-modal-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.medallion-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 121;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s;
+}
+
+.medallion-modal.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.medallion-modal-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  max-height: 94vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.95), rgba(10, 14, 26, 0.98));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 158, 11, 0.2);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: scale(0.94) translateY(12px);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.medallion-modal.active .medallion-modal-dialog {
+  transform: scale(1) translateY(0);
+}
+
+/* Light theme for medallion modal */
+[data-theme="light"] .medallion-modal-dialog {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(248, 250, 252, 0.98));
+  border-color: rgba(217, 119, 6, 0.38);
+  box-shadow: 0 25px 50px -12px rgba(180, 83, 9, 0.2), 0 0 35px rgba(217, 119, 6, 0.15);
+}
+
+.medallion-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+}
+
+[data-theme="light"] .medallion-modal-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+.medallion-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.medallion-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  margin: 0;
+}
+
+[data-theme="light"] .medallion-eyebrow {
+  color: #b45309;
+}
+
+.medallion-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="light"] .medallion-title {
+  color: #0f172a;
+}
+
+.medallion-tier-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 10px;
+  border-radius: 9999px;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+[data-theme="light"] .medallion-tier-badge {
+  color: #475569;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.medallion-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.medallion-close-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .medallion-close-btn:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* 3D WebGL Medallion Stage */
+.medallion-stage {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0) 70%);
+  border-radius: 16px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+[data-theme="light"] .medallion-stage {
+  background: radial-gradient(circle at center, rgba(217, 119, 6, 0.12) 0%, rgba(241, 245, 249, 0) 70%);
+}
+
+.medallion-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  cursor: grab;
+  outline: none;
+}
+
+.medallion-canvas:active {
+  cursor: grabbing;
+}
+
+.medallion-stage-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: hintFadeInOut 4s ease-in-out infinite;
+}
+
+[data-theme="light"] .medallion-stage-hint {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+@keyframes hintFadeInOut {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Inscription & Scripture Box */
+.medallion-inscription-box {
+  text-align: center;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px dashed rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .medallion-inscription-box {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.medallion-verse {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin: 0 0 4px 0;
+}
+
+[data-theme="light"] .medallion-verse {
+  color: #334155;
+}
+
+.medallion-verse-ref {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+[data-theme="light"] .medallion-verse-ref {
+  color: #b45309;
+}
+
+/* Action buttons */
+.medallion-actions-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.medallion-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+/* Tier Selector Rail */
+.medallion-tiers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.medallion-tiers-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+[data-theme="light"] .medallion-tiers-label {
+  color: #64748b;
+}
+
+.medallion-tiers-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.medallion-tiers-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.medallion-tiers-scroll::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.4);
+  border-radius: 4px;
+}
+
+.medallion-tier-pill {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.medallion-tier-pill:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.medallion-tier-pill.active {
+  color: #0f172a;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border-color: #f59e0b;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+[data-theme="light"] .medallion-tier-pill {
+  color: #64748b;
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .medallion-tier-pill:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+
+[data-theme="light"] .medallion-tier-pill.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  border-color: #d97706;
+}
+
+@media (max-width: 480px) {
+  .medallion-modal-dialog {
+    padding: 16px;
+    gap: 12px;
+  }
+  .medallion-stage {
+    height: 240px;
+  }
+  .medallion-title {
+    font-size: 1.15rem;
+  }
+}
+

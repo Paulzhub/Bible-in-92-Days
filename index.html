@@ -61,7 +61,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -240,6 +240,16 @@
         <div class="scrubber-glow-thumb" id="scrubber-glow-thumb"></div>
         <div class="scrubber-markers-container" id="scrubber-markers-container"></div>
       </div>
+    </div>
+  </aside>
+
+  <!-- AMBIENT CONSTELLATION SCRIPTURE HUD -->
+  <aside id="constellation-hud" class="constellation-hud" aria-hidden="true">
+    <div class="constellation-hud-icon" id="constellation-hud-icon">✨</div>
+    <div class="constellation-hud-body">
+      <div class="constellation-hud-eyebrow" id="constellation-hud-phase">Milestone Constellation</div>
+      <div class="constellation-hud-name" id="constellation-hud-name">The Lamp of Torah</div>
+      <div class="constellation-hud-days" id="constellation-hud-days">Days 1–25 • Pentateuch</div>
     </div>
   </aside>
 
@@ -1954,7 +1964,7 @@
         <div id="nav-left" class="nav-left">
           <div class="user-badge-wrap">
             <span id="welcome-user" class="welcome-user"></span>
-            <span id="header-user-level" class="level-badge"></span>
+            <span id="header-user-level" class="level-badge" role="button" tabindex="0" title="Click to inspect interactive 3D Medallion" aria-label="Inspect 3D Level Medallion"></span>
           </div>
           <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
             <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -2233,9 +2243,13 @@
             <h2 class="level-progress-title">Progress to Next Level</h2>
           </div>
           <div class="level-progress-badges">
-            <span id="level-current-badge" class="level-badge">Disciple I</span>
+            <span id="level-current-badge" class="level-badge" role="button" tabindex="0" title="Click to inspect 3D Medallion" aria-label="Inspect 3D Level Medallion">Disciple I</span>
             <span id="level-arrow" class="level-arrow" aria-hidden="true">➔</span>
-            <span id="level-next-badge" class="level-badge next-level-pill">Disciple II</span>
+            <span id="level-next-badge" class="level-badge next-level-pill" role="button" tabindex="0" title="Preview Next Level Medallion" aria-label="Preview Next Level Medallion">Disciple II</span>
+            <button type="button" id="inspect-medallion-btn" class="level-inspect-btn" title="Inspect 3D Discipleship Medallion" aria-label="Inspect 3D Discipleship Medallion">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+              <span>3D Shield</span>
+            </button>
           </div>
         </div>
 
@@ -2664,6 +2678,54 @@
     </div>
   </aside>
 
+  <!-- 3D DISCIPLESHIP LEVEL MEDALLION MODAL -->
+  <div id="medallion-modal-backdrop" class="medallion-modal-backdrop" hidden></div>
+  <div id="medallion-modal" class="medallion-modal" role="dialog" aria-modal="true" aria-labelledby="medallion-modal-title" hidden>
+    <div class="medallion-modal-dialog">
+      <div class="medallion-modal-header">
+        <div class="medallion-header-text">
+          <p class="medallion-eyebrow">Interactive 3D Artifact</p>
+          <h3 id="medallion-modal-title" class="medallion-title">Discipleship Medallion</h3>
+          <span id="medallion-tier-badge" class="medallion-tier-badge">Disciple I • Bronze</span>
+        </div>
+        <button type="button" id="close-medallion-btn" class="medallion-close-btn" aria-label="Close 3D medallion">&times;</button>
+      </div>
+
+      <!-- 3D WebGL Medallion Viewport -->
+      <div class="medallion-stage" id="medallion-stage">
+        <canvas id="medallion-canvas" class="medallion-canvas" width="400" height="400"></canvas>
+        <div class="medallion-stage-hint" id="medallion-stage-hint">
+          <span>👆 Drag to spin in 3D • Tilt to catch metallic gleam</span>
+        </div>
+      </div>
+
+      <!-- Medallion Verse & Description -->
+      <div class="medallion-inscription-box">
+        <p id="medallion-verse-text" class="medallion-verse">"Thy word is a lamp unto my feet, and a light unto my path."</p>
+        <span id="medallion-verse-ref" class="medallion-verse-ref">Psalm 119:105</span>
+      </div>
+
+      <!-- Interactive Controls -->
+      <div class="medallion-actions-row">
+        <button type="button" id="medallion-flip-btn" class="btn btn-secondary btn-sm medallion-action-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+          <span>Flip Medallion (Reverse Scripture)</span>
+        </button>
+        <button type="button" id="medallion-my-level-btn" class="btn btn-primary btn-sm medallion-action-btn">
+          <span>My Current Level</span>
+        </button>
+      </div>
+
+      <!-- Tier Selector Rail -->
+      <div class="medallion-tiers-container">
+        <span class="medallion-tiers-label">Select Discipleship Tier to Inspect:</span>
+        <div class="medallion-tiers-scroll" id="medallion-tiers-scroll" data-lenis-prevent>
+          <!-- Buttons populated in app.js for Tiers 1-10 + Finisher -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CELEBRATION CONFETTI CANVAS -->
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
@@ -2675,6 +2737,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

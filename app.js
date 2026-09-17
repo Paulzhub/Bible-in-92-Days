@@ -1867,6 +1867,12 @@ function updateHeaderLevel(leaderboard, session) {
     if (headerLevelEl) {
       headerLevelEl.className = 'level-badge' + (me.levelTitle.includes('Finisher') ? ' finisher' : '');
       headerLevelEl.textContent = me.levelTitle;
+      headerLevelEl.onclick = () => {
+        const info = getLevelProgressInfo(me.daysCompleted || 0);
+        if (window.openLevelMedallion) {
+          window.openLevelMedallion(info.currentLevelNum || 1);
+        }
+      };
     }
   }
   renderLevelProgress(leaderboard, session);
@@ -2023,6 +2029,22 @@ function renderLevelProgress(rows, session) {
     }
     if (pctEl) pctEl.textContent = `${info.pct}%`;
   }
+
+  const inspectBtn = document.getElementById('inspect-medallion-btn');
+  const openCurrentMedallion = () => {
+    if (window.openLevelMedallion) {
+      window.openLevelMedallion(info.currentLevelNum || 1);
+    }
+  };
+  const openNextMedallion = () => {
+    if (window.openLevelMedallion) {
+      window.openLevelMedallion(info.nextLevelNum || 2);
+    }
+  };
+
+  if (curBadge) curBadge.onclick = openCurrentMedallion;
+  if (nextBadge) nextBadge.onclick = openNextMedallion;
+  if (inspectBtn) inspectBtn.onclick = openCurrentMedallion;
 }
 
 // ====== YOUR READING HISTORY (HEATMAP) ======
@@ -7918,6 +7940,267 @@ function initAmbientCelestialBackground() {
     dustField = new THREE.Points(dustGeometry, dustMaterial);
     scene.add(dustField);
 
+    // 3. RIVER OF LIGHT WARP STREAMERS (Rev 22:1 - Streamers stretching along Z-axis)
+    const WARP_STREAMER_COUNT = 160;
+    const warpGeometry = new THREE.BufferGeometry();
+    const warpPositions = new Float32Array(WARP_STREAMER_COUNT * 2 * 3);
+    const warpOrigins = [];
+
+    for (let i = 0; i < WARP_STREAMER_COUNT; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 80 + Math.random() * 520;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      const z = (Math.random() - 0.5) * 1600;
+      const len = 70 + Math.random() * 140;
+      warpOrigins.push({ x, y, z, len });
+
+      const i6 = i * 6;
+      warpPositions[i6] = x;
+      warpPositions[i6 + 1] = y;
+      warpPositions[i6 + 2] = z;
+      warpPositions[i6 + 3] = x;
+      warpPositions[i6 + 4] = y;
+      warpPositions[i6 + 5] = z - 20;
+    }
+
+    warpGeometry.setAttribute('position', new THREE.BufferAttribute(warpPositions, 3));
+    const warpMaterial = new THREE.LineBasicMaterial({
+      color: isDark ? 0x67e8f9 : 0x0284c7,
+      transparent: true,
+      opacity: 0,
+      blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
+      depthWrite: false
+    });
+    const warpStreamers = new THREE.LineSegments(warpGeometry, warpMaterial);
+    scene.add(warpStreamers);
+
+    // 4. MILESTONE CONSTELLATIONS (Star Map of Scripture)
+    const CONSTELLATIONS_DATA = [
+      {
+        id: 'torch',
+        name: 'The Lamp of Torah',
+        phase: 'Days 1–25 • Pentateuch & Torah',
+        verse: '"Thy word is a lamp unto my feet, and a light unto my path." (Psalm 119:105)',
+        icon: '🪔',
+        peak: 0.10,
+        nodes: [
+          [-28, -95, 0], [28, -95, 0], [0, -70, 0], [0, -45, 0],
+          [-48, -30, 0], [48, -30, 0], [-68, -18, 0], [62, -15, 0],
+          [52, -45, 0], [-68, -5, 0], [-72, 28, 0], [-62, 10, 0]
+        ],
+        segments: [
+          [0, 1], [0, 2], [1, 2], [2, 3], [3, 4], [3, 5], [4, 5],
+          [4, 6], [5, 7], [7, 8], [6, 9], [9, 10], [9, 11], [10, 11]
+        ]
+      },
+      {
+        id: 'harp',
+        name: 'The Harp of David',
+        phase: 'Days 26–50 • Poetry & Psalms',
+        verse: '"Awake, harp and lyre! I will awaken the dawn." (Psalm 57:8)',
+        icon: '🎵',
+        peak: 0.32,
+        nodes: [
+          [-35, -90, 0], [35, -90, 0], [-55, -50, 0], [-68, 0, 0],
+          [-62, 50, 0], [-42, 80, 0], [0, 92, 0], [42, 75, 0],
+          [62, 40, 0], [-35, 75, 0], [-25, -75, 0], [-15, 82, 0],
+          [-8, -75, 0], [5, 88, 0], [10, -75, 0], [25, 80, 0], [26, -75, 0]
+        ],
+        segments: [
+          [0, 1], [0, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 1],
+          [9, 10], [11, 12], [13, 14], [15, 16]
+        ]
+      },
+      {
+        id: 'lion',
+        name: 'The Lion of Judah',
+        phase: 'Days 51–75 • Major & Minor Prophets',
+        verse: '"The Lion of the tribe of Judah, the Root of David, has triumphed." (Rev 5:5)',
+        icon: '🦁',
+        peak: 0.54,
+        nodes: [
+          [35, -10, 0], [58, 15, 0], [52, 48, 0], [30, 68, 0],
+          [8, 62, 0], [12, 38, 0], [-18, 5, 0], [-60, 0, 0],
+          [-90, -18, 0], [-95, -75, 0], [-78, -82, 0], [38, -75, 0],
+          [55, -82, 0], [-110, 10, 0], [-102, 32, 0]
+        ],
+        segments: [
+          [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0],
+          [0, 6], [6, 7], [7, 8], [8, 9], [9, 10], [0, 11], [11, 12],
+          [8, 13], [13, 14]
+        ]
+      },
+      {
+        id: 'cross',
+        name: 'The Living Cross & Morning Star',
+        phase: 'Days 76–91 • Gospels & Epistles',
+        verse: '"I am the Root and the Offspring of David, and the bright Morning Star." (Rev 22:16)',
+        icon: '✝️',
+        peak: 0.76,
+        nodes: [
+          [0, 10, 0], [0, 105, 0], [0, -95, 0], [-65, 35, 0],
+          [65, 35, 0], [0, 45, 0], [30, 10, 0], [0, -25, 0],
+          [-30, 10, 0], [-42, 65, 0], [42, 65, 0], [42, -45, 0], [-42, -45, 0]
+        ],
+        segments: [
+          [1, 5], [5, 0], [0, 7], [7, 2], [3, 8], [8, 0], [0, 6], [6, 4],
+          [5, 6], [6, 7], [7, 8], [8, 5],
+          [0, 9], [0, 10], [0, 11], [0, 12]
+        ]
+      },
+      {
+        id: 'crown',
+        name: 'The Victor’s Crown 🏆',
+        phase: 'Day 92 • Revelation & Finisher',
+        verse: '"Now there is in store for me the crown of righteousness..." (2 Tim 4:8)',
+        icon: '👑',
+        peak: 0.95,
+        nodes: [
+          [-85, -45, 0], [-42, -52, 0], [0, -54, 0], [42, -52, 0], [85, -45, 0],
+          [-80, 10, 0], [-40, 45, 0], [0, 80, 0], [40, 45, 0], [80, 10, 0],
+          [-20, -10, 0], [20, -10, 0],
+          [-80, 18, 0], [-40, 53, 0], [0, 88, 0], [40, 53, 0], [80, 18, 0]
+        ],
+        segments: [
+          [0, 1], [1, 2], [2, 3], [3, 4],
+          [0, 5], [1, 6], [2, 7], [3, 8], [4, 9],
+          [5, 1], [6, 2], [7, 3], [8, 4],
+          [1, 10], [10, 2], [2, 11], [11, 3],
+          [5, 12], [6, 13], [7, 14], [8, 15], [9, 16]
+        ]
+      }
+    ];
+
+    const constellationsMasterGroup = new THREE.Group();
+    constellationsMasterGroup.position.z = 240;
+    scene.add(constellationsMasterGroup);
+
+    const constellationMeshes = [];
+
+    CONSTELLATIONS_DATA.forEach((data) => {
+      const cGroup = new THREE.Group();
+
+      // Nodes
+      const nodePos = new Float32Array(data.nodes.length * 3);
+      data.nodes.forEach((pt, n) => {
+        nodePos[n * 3] = pt[0];
+        nodePos[n * 3 + 1] = pt[1];
+        nodePos[n * 3 + 2] = pt[2];
+      });
+      const nodeGeom = new THREE.BufferGeometry();
+      nodeGeom.setAttribute('position', new THREE.BufferAttribute(nodePos, 3));
+      const nodeMat = new THREE.PointsMaterial({
+        size: isDark ? 14 : 11,
+        color: isDark ? 0xfffbeb : 0xd97706,
+        map: sharedStarTexture,
+        transparent: true,
+        opacity: 0,
+        blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
+        depthWrite: false
+      });
+      const nodePoints = new THREE.Points(nodeGeom, nodeMat);
+      cGroup.add(nodePoints);
+
+      // Lines
+      const linePos = new Float32Array(data.segments.length * 2 * 3);
+      data.segments.forEach((seg, s) => {
+        const p1 = data.nodes[seg[0]];
+        const p2 = data.nodes[seg[1]];
+        const s6 = s * 6;
+        linePos[s6] = p1[0];
+        linePos[s6 + 1] = p1[1];
+        linePos[s6 + 2] = p1[2];
+        linePos[s6 + 3] = p2[0];
+        linePos[s6 + 4] = p2[1];
+        linePos[s6 + 5] = p2[2];
+      });
+      const lineGeom = new THREE.BufferGeometry();
+      lineGeom.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+      const lineMat = new THREE.LineBasicMaterial({
+        color: isDark ? 0xf59e0b : 0xb45309,
+        transparent: true,
+        opacity: 0,
+        blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
+        depthWrite: false,
+        linewidth: 2
+      });
+      const lineMesh = new THREE.LineSegments(lineGeom, lineMat);
+      cGroup.add(lineMesh);
+
+      cGroup.visible = false;
+      constellationsMasterGroup.add(cGroup);
+
+      constellationMeshes.push({
+        data,
+        group: cGroup,
+        nodeMat,
+        lineMat,
+        targetOpacity: 0,
+        currentOpacity: 0
+      });
+    });
+
+    // Constellation HUD and scroll binder
+    const hudEl = document.getElementById('constellation-hud');
+    const hudIconEl = document.getElementById('constellation-hud-icon');
+    const hudNameEl = document.getElementById('constellation-hud-name');
+    const hudDaysEl = document.getElementById('constellation-hud-days');
+    let lastActiveConstellationIdx = -1;
+
+    function updateConstellationsFromScroll(progress) {
+      let maxOpacity = 0;
+      let topIdx = -1;
+
+      constellationMeshes.forEach((item, idx) => {
+        const peak = item.data.peak;
+        const halfSpan = 0.16;
+        const dist = Math.abs(progress - peak);
+        let opacity = 0;
+        if (dist < halfSpan) {
+          opacity = 1 - (dist / halfSpan);
+          opacity = opacity * opacity * (3 - 2 * opacity);
+        }
+        item.targetOpacity = opacity;
+
+        if (opacity > maxOpacity) {
+          maxOpacity = opacity;
+          topIdx = idx;
+        }
+      });
+
+      if (hudEl) {
+        if (maxOpacity > 0.18 && topIdx !== -1) {
+          hudEl.classList.add('active');
+          if (topIdx !== lastActiveConstellationIdx) {
+            lastActiveConstellationIdx = topIdx;
+            const activeData = constellationMeshes[topIdx].data;
+            if (hudIconEl) hudIconEl.textContent = activeData.icon;
+            if (hudNameEl) hudNameEl.textContent = activeData.name;
+            if (hudDaysEl) hudDaysEl.textContent = activeData.phase;
+          }
+        } else {
+          hudEl.classList.remove('active');
+        }
+      }
+    }
+
+    if (typeof ScrollTrigger !== 'undefined') {
+      ScrollTrigger.create({
+        trigger: document.body,
+        start: 'top top',
+        end: 'bottom bottom',
+        onUpdate: (self) => {
+          updateConstellationsFromScroll(self.progress);
+        }
+      });
+    }
+
+    // Velocity state
+    let smoothVelocity = 0;
+    let lastVelocityTime = performance.now();
+    let lastScrollYForVelocity = window.pageYOffset || document.documentElement.scrollTop;
+
     // Mouse parallax reaction with responsive sensitivity
     window.addEventListener('mousemove', (e) => {
       targetMouseX = (e.clientX - window.innerWidth / 2) * 0.00085;
@@ -7928,6 +8211,8 @@ function initAmbientCelestialBackground() {
     window.addEventListener('scroll', () => {
       const st = window.pageYOffset || document.documentElement.scrollTop;
       scrollTargetY = st * 0.07;
+      const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      updateConstellationsFromScroll(Math.min(1, Math.max(0, st / docHeight)));
     }, { passive: true });
 
     // Window resize handler
@@ -7975,6 +8260,12 @@ function initAmbientCelestialBackground() {
         dustMaterial.needsUpdate = true;
       }
 
+      if (warpMaterial) {
+        warpMaterial.color.setHex(isLightMode ? 0x0284c7 : 0x67e8f9);
+        warpMaterial.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
+        warpMaterial.needsUpdate = true;
+      }
+
       const targetPalette = isLightMode ? lightPalette : darkPalette;
 
       if (starGeometry) {
@@ -8000,6 +8291,15 @@ function initAmbientCelestialBackground() {
         }
         dustColAttr.needsUpdate = true;
       }
+
+      constellationMeshes.forEach((item) => {
+        item.nodeMat.color.setHex(isLightMode ? 0xd97706 : 0xfffbeb);
+        item.nodeMat.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
+        item.nodeMat.needsUpdate = true;
+        item.lineMat.color.setHex(isLightMode ? 0xb45309 : 0xf59e0b);
+        item.lineMat.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
+        item.lineMat.needsUpdate = true;
+      });
     }
 
     // Render loop
@@ -8024,15 +8324,70 @@ function initAmbientCelestialBackground() {
       baseRotY += 0.00045;
       baseRotX += 0.00015;
 
+      // Velocity tracking for River of Light Warp Streamers
+      let instantVelocity = 0;
+      if (lenisInstance && typeof lenisInstance.velocity === 'number') {
+        instantVelocity = Math.abs(lenisInstance.velocity);
+      } else {
+        const now = performance.now();
+        const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+        const dt = Math.max(1, now - lastVelocityTime);
+        instantVelocity = (Math.abs(currentScrollY - lastScrollYForVelocity) / dt) * 10;
+        lastVelocityTime = now;
+        lastScrollYForVelocity = currentScrollY;
+      }
+
+      smoothVelocity += (instantVelocity - smoothVelocity) * 0.14;
+
+      // River of Light Warp Streamers Stretch
+      if (warpMaterial && warpStreamers) {
+        const currentThemeNow = document.documentElement.getAttribute('data-theme') || 'dark';
+        const isDarkNow = currentThemeNow !== 'light';
+        const warpFactor = Math.min(smoothVelocity / 5, 1);
+        warpMaterial.opacity = warpFactor * (isDarkNow ? 0.75 : 0.45);
+        warpStreamers.scale.z = 1 + smoothVelocity * 0.22;
+
+        const posArr = warpGeometry.attributes.position.array;
+        for (let i = 0; i < WARP_STREAMER_COUNT; i++) {
+          const orig = warpOrigins[i];
+          const dynamicLen = orig.len * (1 + smoothVelocity * 0.35);
+          const i6 = i * 6;
+          posArr[i6 + 5] = orig.z - dynamicLen;
+        }
+        warpGeometry.attributes.position.needsUpdate = true;
+      }
+
+      // Particle Z stretch along scroll velocity
+      if (dustField) {
+        dustField.scale.z = 1 + smoothVelocity * 0.16;
+        dustField.rotation.y = -(baseRotY * 0.6) + mouseX * 0.5;
+        dustField.rotation.x = -(baseRotX * 0.6) + mouseY * 0.5;
+      }
+
       if (starField) {
+        starField.scale.z = 1 + smoothVelocity * 0.06;
         starField.rotation.y = baseRotY + mouseX;
         starField.rotation.x = baseRotX + mouseY;
       }
 
-      if (dustField) {
-        dustField.rotation.y = -(baseRotY * 0.6) + mouseX * 0.5;
-        dustField.rotation.x = -(baseRotX * 0.6) + mouseY * 0.5;
-      }
+      camera.position.z = 800 - Math.min(smoothVelocity * 15, 110);
+
+      // Constellation smooth fading and orbital rotation
+      const currentThemeNow = document.documentElement.getAttribute('data-theme') || 'dark';
+      const isDarkNow = currentThemeNow !== 'light';
+
+      constellationMeshes.forEach((item, idx) => {
+        item.currentOpacity += (item.targetOpacity - item.currentOpacity) * 0.08;
+        if (item.currentOpacity > 0.005) {
+          item.nodeMat.opacity = item.currentOpacity * (isDarkNow ? 0.95 : 0.75);
+          item.lineMat.opacity = item.currentOpacity * (isDarkNow ? 0.85 : 0.65);
+          item.group.visible = true;
+          item.group.rotation.y = baseRotY * 0.4 + Math.sin(timestamp * 0.0006 + idx) * 0.12;
+          item.group.rotation.x = baseRotX * 0.4 + Math.cos(timestamp * 0.0006 + idx) * 0.08;
+        } else {
+          item.group.visible = false;
+        }
+      });
 
       renderer.render(scene, camera);
       animFrameId = requestAnimationFrame(renderLoop);
@@ -8054,6 +8409,623 @@ function initAmbientCelestialBackground() {
   }
 }
 
+// ====== INTERACTIVE 3D LEVEL MEDALLION (METALLIC SHIELD & RIBBON) ======
+
+function initLevelMedallion3D() {
+  const modal = document.getElementById('medallion-modal');
+  const backdrop = document.getElementById('medallion-modal-backdrop');
+  const closeBtn = document.getElementById('close-medallion-btn');
+  const canvas = document.getElementById('medallion-canvas');
+  const titleEl = document.getElementById('medallion-modal-title');
+  const tierBadgeEl = document.getElementById('medallion-tier-badge');
+  const verseTextEl = document.getElementById('medallion-verse-text');
+  const verseRefEl = document.getElementById('medallion-verse-ref');
+  const flipBtn = document.getElementById('medallion-flip-btn');
+  const myLevelBtn = document.getElementById('medallion-my-level-btn');
+  const tiersScroll = document.getElementById('medallion-tiers-scroll');
+
+  if (!modal || !backdrop || !canvas || typeof THREE === 'undefined') {
+    return;
+  }
+
+  const MEDALLION_TIERS = [
+    { tier: 1, title: 'Disciple I', roman: 'I', days: 'Days 0–9', metal: 'bronze', verse: '"Thy word is a lamp unto my feet, and a light unto my path."', ref: 'Psalm 119:105' },
+    { tier: 2, title: 'Disciple II', roman: 'II', days: 'Days 10–19', metal: 'bronze', verse: '"The law of the Lord is perfect, refreshing the soul."', ref: 'Psalm 19:7' },
+    { tier: 3, title: 'Disciple III', roman: 'III', days: 'Days 20–29', metal: 'bronze', verse: '"Your word I have hidden in my heart, that I might not sin against You."', ref: 'Psalm 119:11' },
+    { tier: 4, title: 'Disciple IV', roman: 'IV', days: 'Days 30–39', metal: 'silver', verse: '"Awake, my soul! Awake, harp and lyre! I will awaken the dawn."', ref: 'Psalm 57:8' },
+    { tier: 5, title: 'Disciple V', roman: 'V', days: 'Days 40–49', metal: 'silver', verse: '"The Lord is my strength and my shield; my heart trusts in Him."', ref: 'Psalm 28:7' },
+    { tier: 6, title: 'Disciple VI', roman: 'VI', days: 'Days 50–59', metal: 'silver', verse: '"Those who hope in the Lord will renew their strength; they will soar on wings like eagles."', ref: 'Isaiah 40:31' },
+    { tier: 7, title: 'Disciple VII', roman: 'VII', days: 'Days 60–69', metal: 'gold', verse: '"The Lion of the tribe of Judah, the Root of David, has triumphed."', ref: 'Revelation 5:5' },
+    { tier: 8, title: 'Disciple VIII', roman: 'VIII', days: 'Days 70–79', metal: 'gold', verse: '"For I know the plans I have for you, declares the Lord, to give you hope and a future."', ref: 'Jeremiah 29:11' },
+    { tier: 9, title: 'Disciple IX', roman: 'IX', days: 'Days 80–89', metal: 'gold', verse: '"I am the light of the world. Whoever follows me will never walk in darkness."', ref: 'John 8:12' },
+    { tier: 10, title: 'Disciple X', roman: 'X', days: 'Days 90–91', metal: 'electrum', verse: '"I can do all things through Christ who gives me strength."', ref: 'Philippians 4:13' },
+    { tier: 11, title: 'Finisher 🏆', roman: '🏆', days: 'Day 92+', metal: 'finisher', verse: '"I have fought the good fight, I have finished the race, I have kept the faith."', ref: '2 Timothy 4:7' }
+  ];
+
+  let activeTierIdx = 0;
+  let animId = null;
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let lastX = 0, lastY = 0;
+  let rotX = 0.05, rotY = 0;
+  let targetRotY = 0;
+  let velX = 0, velY = 0;
+  let pointerNormX = 0, pointerNormY = 0;
+
+  // Metal Palettes
+  const METAL_PRESETS = {
+    bronze: { color: 0xcd7f32, roughness: 0.32, metalness: 0.88, specular: 0xf59e0b },
+    silver: { color: 0xe5e7eb, roughness: 0.22, metalness: 0.92, specular: 0xffffff },
+    gold: { color: 0xffd700, roughness: 0.24, metalness: 0.94, specular: 0xfef08a },
+    electrum: { color: 0xfff4b8, roughness: 0.18, metalness: 0.95, specular: 0xffffff },
+    finisher: { color: 0xffe066, roughness: 0.15, metalness: 0.96, specular: 0xffdf78 }
+  };
+
+  // High-Resolution Procedural Texture Generator
+  function createMedallionTexture(tierData, isBack) {
+    const c = document.createElement('canvas');
+    c.width = 1024;
+    c.height = 1024;
+    const ctx = c.getContext('2d');
+
+    const metal = METAL_PRESETS[tierData.metal] || METAL_PRESETS.bronze;
+    const isGold = tierData.metal === 'gold' || tierData.metal === 'electrum' || tierData.metal === 'finisher';
+    const isSilver = tierData.metal === 'silver';
+
+    // Base background radial gradient
+    const grad = ctx.createRadialGradient(512, 512, 50, 512, 512, 510);
+    if (isGold) {
+      grad.addColorStop(0, '#fef08a');
+      grad.addColorStop(0.35, '#f59e0b');
+      grad.addColorStop(0.75, '#b45309');
+      grad.addColorStop(1, '#78350f');
+    } else if (isSilver) {
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(0.35, '#e2e8f0');
+      grad.addColorStop(0.75, '#94a3b8');
+      grad.addColorStop(1, '#475569');
+    } else {
+      // Bronze
+      grad.addColorStop(0, '#fdba74');
+      grad.addColorStop(0.35, '#d97706');
+      grad.addColorStop(0.75, '#92400e');
+      grad.addColorStop(1, '#451a03');
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(512, 512, 500, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Concentric hairline etched rings
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(512, 512, 485, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(512, 512, 478, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 64 Beaded rim pearls
+    const beadCount = 64;
+    for (let b = 0; b < beadCount; b++) {
+      const angle = (b / beadCount) * Math.PI * 2;
+      const bx = 512 + Math.cos(angle) * 455;
+      const by = 512 + Math.sin(angle) * 455;
+      const beadGrad = ctx.createRadialGradient(bx - 2, by - 2, 1, bx, by, 7);
+      beadGrad.addColorStop(0, '#ffffff');
+      beadGrad.addColorStop(0.5, isGold ? '#fbbf24' : isSilver ? '#cbd5e1' : '#f97316');
+      beadGrad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = beadGrad;
+      ctx.beginPath();
+      ctx.arc(bx, by, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Inner ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(512, 512, 430, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(512, 512, 360, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Curved circular text
+    const textStr = isBack
+      ? '★ 2 TIMOTHY 4:7 ★ I HAVE KEPT THE FAITH ★ YOUTH GATHERING 2026 ★'
+      : '★ PROJECT BIBLE IN 92 DAYS ★ THE YOUTH GATHERING 2026 ★';
+
+    ctx.save();
+    ctx.font = 'bold 32px "Space Grotesk", sans-serif';
+    ctx.fillStyle = isGold ? '#fffbeb' : isSilver ? '#ffffff' : '#fef3c7';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    const angleStep = (Math.PI * 1.7) / textStr.length;
+    const startAngle = -Math.PI * 0.85;
+
+    for (let i = 0; i < textStr.length; i++) {
+      const charAngle = startAngle + i * angleStep;
+      ctx.save();
+      ctx.translate(512, 512);
+      ctx.rotate(charAngle);
+      ctx.translate(0, -395);
+      ctx.fillText(textStr[i], 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // Central Core Artwork
+    if (!isBack) {
+      // FRONT FACE: Laurel branches and large Roman numeral / trophy
+      ctx.save();
+      ctx.translate(512, 512);
+
+      // Central Roman numeral
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = tierData.roman === '🏆' ? '180px serif' : 'bold 190px "Fraunces", serif';
+      ctx.fillStyle = isGold ? '#fffdf0' : isSilver ? '#ffffff' : '#fff7ed';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+      ctx.fillText(tierData.roman, 0, -20);
+
+      // Subtitle
+      ctx.font = 'bold 36px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#e2e8f0' : '#fed7aa';
+      ctx.shadowBlur = 4;
+      ctx.fillText(tierData.title.toUpperCase(), 0, 110);
+
+      // Lower ribbon badge
+      ctx.font = '600 24px "Space Grotesk", sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillText('DISCIPLESHIP COVENANT', 0, 160);
+
+      ctx.restore();
+    } else {
+      // BACK FACE: Sacred Cross & 3-line Scripture
+      ctx.save();
+      ctx.translate(512, 512);
+
+      // Embossed Latin Cross
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#f1f5f9' : '#fed7aa';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+
+      // Vertical beam
+      ctx.fillRect(-16, -210, 32, 170);
+      // Horizontal crossbeam
+      ctx.fillRect(-80, -170, 160, 30);
+
+      // Scripture text
+      ctx.textAlign = 'center';
+      ctx.font = 'italic 500 28px "Fraunces", serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 6;
+      ctx.fillText('"I have fought the good fight,', 0, 20);
+      ctx.fillText('I have finished the race,', 0, 65);
+      ctx.fillText('I have kept the faith."', 0, 110);
+
+      ctx.font = 'bold 24px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#cbd5e1' : '#fcd34d';
+      ctx.fillText('— 2 TIMOTHY 4:7 —', 0, 170);
+
+      ctx.restore();
+    }
+
+    return new THREE.CanvasTexture(c);
+  }
+
+  // Create Bump Map Canvas for High-Relief 3D Embossing
+  function createMedallionBumpMap(tierData, isBack) {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(256, 256, 240, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#404040';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(256, 256, 220, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(256, 256);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (!isBack) {
+      ctx.font = tierData.roman === '🏆' ? '90px serif' : 'bold 95px "Fraunces", serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 6;
+      ctx.fillText(tierData.roman, 0, -10);
+    } else {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-10, -105, 20, 95);
+      ctx.fillRect(-45, -85, 90, 18);
+    }
+    ctx.restore();
+
+    return new THREE.CanvasTexture(c);
+  }
+
+  let mRenderer, mScene, mCamera;
+  let medallionGroup, frontMesh, backMesh, rimMesh, bezelMesh, bailMesh, ribbonMesh;
+  let specularLight, keyLight, rimLight;
+
+  try {
+    const width = 400;
+    const height = 400;
+
+    mRenderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    mRenderer.setSize(width, height);
+    mRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+    mScene = new THREE.Scene();
+    mCamera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+    mCamera.position.set(0, 0, 8.2);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    mScene.add(ambientLight);
+
+    keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    keyLight.position.set(3, 4, 6);
+    mScene.add(keyLight);
+
+    rimLight = new THREE.DirectionalLight(0xf59e0b, 1.2);
+    rimLight.position.set(-4, -2, -4);
+    mScene.add(rimLight);
+
+    specularLight = new THREE.PointLight(0xffffff, 2.2, 18);
+    specularLight.position.set(0, 0, 5);
+    mScene.add(specularLight);
+
+    medallionGroup = new THREE.Group();
+    mScene.add(medallionGroup);
+
+    // Geometry components
+    const coinRadius = 2.4;
+    const coinThickness = 0.22;
+
+    // Front Face Disc
+    const frontGeom = new THREE.CircleGeometry(coinRadius, 64);
+    const frontMat = new THREE.MeshStandardMaterial({
+      roughness: 0.25,
+      metalness: 0.92
+    });
+    frontMesh = new THREE.Mesh(frontGeom, frontMat);
+    frontMesh.position.z = coinThickness / 2 + 0.005;
+    medallionGroup.add(frontMesh);
+
+    // Back Face Disc
+    const backGeom = new THREE.CircleGeometry(coinRadius, 64);
+    const backMat = new THREE.MeshStandardMaterial({
+      roughness: 0.25,
+      metalness: 0.92
+    });
+    backMesh = new THREE.Mesh(backGeom, backMat);
+    backMesh.rotation.y = Math.PI;
+    backMesh.position.z = -(coinThickness / 2 + 0.005);
+    medallionGroup.add(backMesh);
+
+    // Edge Cylinder Rim
+    const rimGeom = new THREE.CylinderGeometry(coinRadius, coinRadius, coinThickness, 64, 1, true);
+    const rimMat = new THREE.MeshStandardMaterial({
+      color: 0xcd7f32,
+      roughness: 0.35,
+      metalness: 0.9
+    });
+    rimMesh = new THREE.Mesh(rimGeom, rimMat);
+    rimMesh.rotation.x = Math.PI / 2;
+    medallionGroup.add(rimMesh);
+
+    // Beaded Bezel Rim
+    const bezelGeom = new THREE.TorusGeometry(coinRadius + 0.04, 0.08, 16, 64);
+    const bezelMat = new THREE.MeshStandardMaterial({
+      color: 0xcd7f32,
+      roughness: 0.25,
+      metalness: 0.92
+    });
+    bezelMesh = new THREE.Mesh(bezelGeom, bezelMat);
+    medallionGroup.add(bezelMesh);
+
+    // Top Suspension Bail Loop
+    const bailGeom = new THREE.TorusGeometry(0.38, 0.07, 16, 32);
+    const bailMat = new THREE.MeshStandardMaterial({
+      color: 0xcd7f32,
+      roughness: 0.25,
+      metalness: 0.92
+    });
+    bailMesh = new THREE.Mesh(bailGeom, bailMat);
+    bailMesh.position.y = coinRadius + 0.32;
+    medallionGroup.add(bailMesh);
+
+    // Liturgical Split-Tail Fabric Ribbon at top
+    const ribbonGeom = new THREE.PlaneGeometry(1.6, 2.2, 8, 8);
+    const ribbonMat = new THREE.MeshStandardMaterial({
+      color: 0x881337, // deep liturgical crimson
+      roughness: 0.65,
+      metalness: 0.15,
+      side: THREE.DoubleSide
+    });
+    ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+    ribbonMesh.position.set(0, coinRadius + 1.25, -0.15);
+    medallionGroup.add(ribbonMesh);
+
+    function applyTierTextures(tierData) {
+      const frontTex = createMedallionTexture(tierData, false);
+      const backTex = createMedallionTexture(tierData, true);
+      const frontBump = createMedallionBumpMap(tierData, false);
+      const backBump = createMedallionBumpMap(tierData, true);
+
+      const metal = METAL_PRESETS[tierData.metal] || METAL_PRESETS.bronze;
+
+      frontMesh.material.map = frontTex;
+      frontMesh.material.bumpMap = frontBump;
+      frontMesh.material.bumpScale = 0.045;
+      frontMesh.material.color.setHex(metal.color);
+      frontMesh.material.roughness = metal.roughness;
+      frontMesh.material.metalness = metal.metalness;
+      frontMesh.material.needsUpdate = true;
+
+      backMesh.material.map = backTex;
+      backMesh.material.bumpMap = backBump;
+      backMesh.material.bumpScale = 0.045;
+      backMesh.material.color.setHex(metal.color);
+      backMesh.material.roughness = metal.roughness;
+      backMesh.material.metalness = metal.metalness;
+      backMesh.material.needsUpdate = true;
+
+      rimMesh.material.color.setHex(metal.color);
+      rimMesh.material.roughness = metal.roughness;
+      rimMesh.material.metalness = metal.metalness;
+      rimMesh.material.needsUpdate = true;
+
+      bezelMesh.material.color.setHex(metal.color);
+      bezelMesh.material.roughness = metal.roughness;
+      bezelMesh.material.metalness = metal.metalness;
+      bezelMesh.material.needsUpdate = true;
+
+      bailMesh.material.color.setHex(metal.color);
+      bailMesh.material.roughness = metal.roughness;
+      bailMesh.material.metalness = metal.metalness;
+      bailMesh.material.needsUpdate = true;
+
+      rimLight.color.setHex(metal.specular);
+
+      // Ribbon color: crimson for bronze/gold, royal blue for silver/electrum
+      const isBlueRibbon = tierData.metal === 'silver' || tierData.metal === 'electrum';
+      ribbonMesh.material.color.setHex(isBlueRibbon ? 0x1e3a8a : 0x881337);
+      ribbonMesh.material.needsUpdate = true;
+
+      // Update dialog text
+      if (titleEl) titleEl.textContent = `${tierData.title} Medallion`;
+      if (tierBadgeEl) {
+        tierBadgeEl.textContent = `${tierData.days} • ${tierData.metal.toUpperCase()}`;
+      }
+      if (verseTextEl) verseTextEl.textContent = tierData.verse;
+      if (verseRefEl) verseRefEl.textContent = tierData.ref;
+
+      // Update active state in tier pills
+      const allPills = tiersScroll ? tiersScroll.querySelectorAll('.medallion-tier-pill') : [];
+      allPills.forEach((p, idx) => {
+        p.classList.toggle('active', idx === activeTierIdx);
+      });
+    }
+
+    // Build Tier Selector Buttons
+    if (tiersScroll) {
+      tiersScroll.innerHTML = '';
+      MEDALLION_TIERS.forEach((item, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'medallion-tier-pill' + (idx === activeTierIdx ? ' active' : '');
+        btn.textContent = item.roman === '🏆' ? '🏆 Finisher' : `Tier ${item.roman}`;
+        btn.setAttribute('aria-label', `Inspect ${item.title}`);
+        btn.addEventListener('click', () => {
+          activeTierIdx = idx;
+          applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
+          // Subtle pulse flip
+          targetRotY = rotY + 0.4;
+        });
+        tiersScroll.appendChild(btn);
+      });
+    }
+
+    // Interactive pointer drag controls
+    function onPointerDown(e) {
+      isDragging = true;
+      startX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      startY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+      lastX = startX;
+      lastY = startY;
+      velX = 0;
+      velY = 0;
+    }
+
+    function onPointerMove(e) {
+      const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+      const rect = canvas.getBoundingClientRect();
+      pointerNormX = ((clientX - rect.left) / rect.width - 0.5) * 2;
+      pointerNormY = ((clientY - rect.top) / rect.height - 0.5) * 2;
+
+      // Position point light for dynamic metallic glint
+      specularLight.position.x = pointerNormX * 4;
+      specularLight.position.y = -pointerNormY * 4;
+
+      if (!isDragging) return;
+
+      const dx = clientX - lastX;
+      const dy = clientY - lastY;
+      lastX = clientX;
+      lastY = clientY;
+
+      velY = dx * 0.007;
+      velX = dy * 0.007;
+
+      rotY += velY;
+      rotX += velX;
+      targetRotY = rotY;
+    }
+
+    function onPointerUp() {
+      isDragging = false;
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp, { passive: true });
+
+    // Flip Medallion button
+    if (flipBtn) {
+      flipBtn.addEventListener('click', () => {
+        targetRotY += Math.PI;
+      });
+    }
+
+    // My Level button
+    if (myLevelBtn) {
+      myLevelBtn.addEventListener('click', () => {
+        const curSession = getSession();
+        let userDays = 0;
+        if (curSession && !curSession.isGuest && currentUserData) {
+          userDays = currentUserData.daysCompleted || 0;
+        }
+        const info = getLevelProgressInfo(userDays);
+        const targetIdx = Math.min(MEDALLION_TIERS.length - 1, Math.max(0, (info.currentLevelNum || 1) - 1));
+        activeTierIdx = targetIdx;
+        applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
+      });
+    }
+
+    // Medallion Animation Loop
+    function medallionRenderLoop(t) {
+      if (modal.hidden) {
+        animId = null;
+        return;
+      }
+
+      // Inertia and easing
+      if (!isDragging) {
+        rotY += (targetRotY - rotY) * 0.12;
+        rotY += velY;
+        rotX += velX;
+        velY *= 0.93;
+        velX *= 0.93;
+
+        // Gentle floating wobble when stationary
+        medallionGroup.position.y = Math.sin(t * 0.0025) * 0.08;
+      }
+
+      // Clamp X tilt
+      rotX = Math.max(-0.65, Math.min(0.65, rotX));
+
+      medallionGroup.rotation.y = rotY;
+      medallionGroup.rotation.x = rotX;
+
+      mRenderer.render(mScene, mCamera);
+      animId = requestAnimationFrame(medallionRenderLoop);
+    }
+
+    function openMedallionModal(tierNum) {
+      const idx = typeof tierNum === 'number'
+        ? Math.min(MEDALLION_TIERS.length - 1, Math.max(0, tierNum - 1))
+        : 0;
+
+      activeTierIdx = idx;
+      applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
+
+      rotX = 0.08;
+      rotY = 0;
+      targetRotY = 0;
+      velX = 0;
+      velY = 0;
+
+      modal.hidden = false;
+      backdrop.hidden = false;
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+        backdrop.classList.add('active');
+      });
+
+      if (!animId) {
+        animId = requestAnimationFrame(medallionRenderLoop);
+      }
+    }
+
+    function closeMedallionModal() {
+      modal.classList.remove('active');
+      backdrop.classList.remove('active');
+      setTimeout(() => {
+        modal.hidden = true;
+        backdrop.hidden = true;
+        if (animId) {
+          cancelAnimationFrame(animId);
+          animId = null;
+        }
+      }, 300);
+    }
+
+    if (closeBtn) closeBtn.addEventListener('click', closeMedallionModal);
+    if (backdrop) backdrop.addEventListener('click', closeMedallionModal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.hidden) {
+        closeMedallionModal();
+      } else if (!modal.hidden) {
+        if (e.key === 'ArrowLeft') {
+          targetRotY -= 0.5;
+        } else if (e.key === 'ArrowRight') {
+          targetRotY += 0.5;
+        }
+      }
+    });
+
+    // Expose global hook
+    window.openLevelMedallion = openMedallionModal;
+    window.closeLevelMedallion = closeMedallionModal;
+
+  } catch (err) {
+    console.warn('3D Medallion initialization notice:', err);
+  }
+}
+
 // ====== INIT ======
 
 initTheme();
@@ -8061,3 +9033,5 @@ initLogin();
 initLenisSmoothScroll();
 initScrollScrubberRail();
 initAmbientCelestialBackground();
+initLevelMedallion3D();
+
