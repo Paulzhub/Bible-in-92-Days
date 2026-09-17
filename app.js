@@ -8719,11 +8719,11 @@ function initLevelMedallion3D() {
 
   // Metal Palettes
   const METAL_PRESETS = {
-    bronze: { color: 0xcd7f32, roughness: 0.32, metalness: 0.88, specular: 0xf59e0b },
-    silver: { color: 0xe5e7eb, roughness: 0.22, metalness: 0.92, specular: 0xffffff },
-    gold: { color: 0xffd700, roughness: 0.24, metalness: 0.94, specular: 0xfef08a },
-    electrum: { color: 0xfff4b8, roughness: 0.18, metalness: 0.95, specular: 0xffffff },
-    finisher: { color: 0xffe066, roughness: 0.15, metalness: 0.96, specular: 0xffdf78 }
+    bronze: { color: 0xc27829, roughness: 0.32, metalness: 0.55, specular: 0xf59e0b },
+    silver: { color: 0xd1d5db, roughness: 0.28, metalness: 0.55, specular: 0xffffff },
+    gold: { color: 0xf59e0b, roughness: 0.26, metalness: 0.60, specular: 0xfef08a },
+    electrum: { color: 0xfde047, roughness: 0.22, metalness: 0.60, specular: 0xffffff },
+    finisher: { color: 0xfbbf24, roughness: 0.20, metalness: 0.62, specular: 0xffdf78 }
   };
 
   // High-Resolution Procedural Texture Generator
@@ -8733,30 +8733,29 @@ function initLevelMedallion3D() {
     c.height = 1024;
     const ctx = c.getContext('2d');
 
-    const metal = METAL_PRESETS[tierData.metal] || METAL_PRESETS.bronze;
     const isGold = tierData.metal === 'gold' || tierData.metal === 'electrum' || tierData.metal === 'finisher';
     const isSilver = tierData.metal === 'silver';
 
-    // Base background radial gradient
-    const grad = ctx.createRadialGradient(512, 512, 50, 512, 512, 510);
+    // Base background radial gradient (balanced lustrous metallic tones)
+    const grad = ctx.createRadialGradient(512, 512, 30, 512, 512, 505);
     if (isGold) {
-      grad.addColorStop(0, '#fffbeb');
-      grad.addColorStop(0.25, '#fef08a');
-      grad.addColorStop(0.55, '#f59e0b');
-      grad.addColorStop(0.85, '#d97706');
-      grad.addColorStop(1, '#92400e');
+      grad.addColorStop(0, '#fef08a');
+      grad.addColorStop(0.3, '#f59e0b');
+      grad.addColorStop(0.65, '#d97706');
+      grad.addColorStop(0.85, '#92400e');
+      grad.addColorStop(1, '#5c2409');
     } else if (isSilver) {
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.25, '#f8fafc');
-      grad.addColorStop(0.55, '#e2e8f0');
-      grad.addColorStop(0.85, '#cbd5e1');
-      grad.addColorStop(1, '#94a3b8');
+      grad.addColorStop(0, '#cbd5e1');
+      grad.addColorStop(0.28, '#94a3b8');
+      grad.addColorStop(0.62, '#64748b');
+      grad.addColorStop(0.85, '#475569');
+      grad.addColorStop(1, '#1e293b');
     } else {
-      grad.addColorStop(0, '#fff7ed');
-      grad.addColorStop(0.25, '#fed7aa');
-      grad.addColorStop(0.55, '#f59e0b');
-      grad.addColorStop(0.85, '#d97706');
-      grad.addColorStop(1, '#78350f');
+      grad.addColorStop(0, '#fed7aa');
+      grad.addColorStop(0.3, '#f59e0b');
+      grad.addColorStop(0.65, '#d97706');
+      grad.addColorStop(0.85, '#92400e');
+      grad.addColorStop(1, '#451a03');
     }
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -8764,13 +8763,13 @@ function initLevelMedallion3D() {
     ctx.fill();
 
     // Concentric hairline etched rings
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(512, 512, 485, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(512, 512, 478, 0, Math.PI * 2);
@@ -8785,24 +8784,38 @@ function initLevelMedallion3D() {
       const beadGrad = ctx.createRadialGradient(bx - 2, by - 2, 1, bx, by, 7);
       beadGrad.addColorStop(0, '#ffffff');
       beadGrad.addColorStop(0.5, isGold ? '#fbbf24' : isSilver ? '#cbd5e1' : '#f97316');
-      beadGrad.addColorStop(1, '#1e293b');
+      beadGrad.addColorStop(1, '#0f172a');
       ctx.fillStyle = beadGrad;
       ctx.beginPath();
       ctx.arc(bx, by, 7, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Inner ring
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.lineWidth = 5;
+    // Recessed Circular Legend Track for perimeter text
+    ctx.strokeStyle = isSilver ? 'rgba(15, 23, 42, 0.58)' : 'rgba(0, 0, 0, 0.52)';
+    ctx.lineWidth = 76;
     ctx.beginPath();
-    ctx.arc(512, 512, 430, 0, Math.PI * 2);
+    ctx.arc(512, 512, 396, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    // Boundary rings of legend track
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(512, 512, 434, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(512, 512, 360, 0, Math.PI * 2);
+    ctx.arc(512, 512, 358, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner field border ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(512, 512, 354, 0, Math.PI * 2);
     ctx.stroke();
 
     // Curved circular text with high-contrast outline
@@ -8813,10 +8826,10 @@ function initLevelMedallion3D() {
     ctx.save();
     ctx.font = 'bold 36px "Space Grotesk", sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-    ctx.lineWidth = 4.5;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowBlur = 8;
+    ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+    ctx.lineWidth = 6;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+    ctx.shadowBlur = 10;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
 
@@ -8828,7 +8841,7 @@ function initLevelMedallion3D() {
       ctx.save();
       ctx.translate(512, 512);
       ctx.rotate(charAngle);
-      ctx.translate(0, -395);
+      ctx.translate(0, -396);
       ctx.strokeText(textStr[i], 0, 0);
       ctx.fillText(textStr[i], 0, 0);
       ctx.restore();
@@ -8842,42 +8855,56 @@ function initLevelMedallion3D() {
 
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+
+      // Roman numeral: embossed metallic gradient
+      const numGrad = ctx.createLinearGradient(0, -110, 0, 70);
+      numGrad.addColorStop(0, '#ffffff');
+      numGrad.addColorStop(0.55, isSilver ? '#f1f5f9' : isGold ? '#fef08a' : '#fed7aa');
+      numGrad.addColorStop(1, isSilver ? '#94a3b8' : isGold ? '#f59e0b' : '#d97706');
+
       ctx.font = tierData.roman === '🏆' ? '190px serif' : 'bold 205px "Fraunces", serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.lineWidth = 6;
-      ctx.shadowColor = isGold ? 'rgba(245, 158, 11, 0.9)' : 'rgba(0, 0, 0, 0.85)';
-      ctx.shadowBlur = 14;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 3;
-      ctx.strokeText(tierData.roman, 0, -20);
-      ctx.fillText(tierData.roman, 0, -20);
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 5;
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 8.5;
+      ctx.strokeText(tierData.roman, 0, -25);
 
+      ctx.fillStyle = numGrad;
+      ctx.fillText(tierData.roman, 0, -25);
+
+      // Tier Title
       ctx.font = 'bold 42px "Space Grotesk", sans-serif';
-      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#ffffff' : '#fef3c7';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.lineWidth = 5;
-      ctx.shadowBlur = 6;
-      ctx.strokeText(tierData.title.toUpperCase(), 0, 110);
-      ctx.fillText(tierData.title.toUpperCase(), 0, 110);
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 3;
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 6;
+      ctx.strokeText(tierData.title.toUpperCase(), 0, 105);
 
-      ctx.font = '700 26px "Space Grotesk", sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.lineWidth = 4;
-      ctx.strokeText('DISCIPLESHIP COVENANT', 0, 160);
-      ctx.fillText('DISCIPLESHIP COVENANT', 0, 160);
+      ctx.fillStyle = isGold ? '#fef08a' : '#ffffff';
+      ctx.fillText(tierData.title.toUpperCase(), 0, 105);
+
+      // Subtitle
+      ctx.font = '700 24px "Space Grotesk", sans-serif';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 5;
+      ctx.strokeText('DISCIPLESHIP COVENANT', 0, 152);
+
+      ctx.fillStyle = isSilver ? '#f8fafc' : '#ffffff';
+      ctx.fillText('DISCIPLESHIP COVENANT', 0, 152);
 
       ctx.restore();
     } else {
       ctx.save();
       ctx.translate(512, 512);
 
-      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#f1f5f9' : '#fed7aa';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      ctx.shadowBlur = 10;
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#cbd5e1' : '#fed7aa';
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 5;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.shadowBlur = 12;
       ctx.shadowOffsetX = 3;
       ctx.shadowOffsetY = 3;
 
@@ -8889,9 +8916,9 @@ function initLevelMedallion3D() {
       ctx.textAlign = 'center';
       ctx.font = 'italic 600 30px "Fraunces", serif';
       ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.lineWidth = 4;
-      ctx.shadowBlur = 6;
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 5;
+      ctx.shadowBlur = 8;
 
       ctx.strokeText('"I have fought the good fight,', 0, 20);
       ctx.fillText('"I have fought the good fight,', 0, 20);
@@ -8901,7 +8928,9 @@ function initLevelMedallion3D() {
       ctx.fillText('I have kept the faith."', 0, 110);
 
       ctx.font = 'bold 26px "Space Grotesk", sans-serif';
-      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#cbd5e1' : '#fcd34d';
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#f8fafc' : '#fcd34d';
+      ctx.strokeStyle = 'rgba(2, 6, 23, 0.98)';
+      ctx.lineWidth = 4.5;
       ctx.strokeText('— 2 TIMOTHY 4:7 —', 0, 170);
       ctx.fillText('— 2 TIMOTHY 4:7 —', 0, 170);
 
@@ -9010,8 +9039,8 @@ function initLevelMedallion3D() {
     // Front Face Disc
     const frontGeom = new THREE.CircleGeometry(coinRadius, 64);
     const frontMat = new THREE.MeshStandardMaterial({
-      roughness: 0.35,
-      metalness: 0.28
+      roughness: 0.32,
+      metalness: 0.35
     });
     frontMesh = new THREE.Mesh(frontGeom, frontMat);
     frontMesh.position.z = coinThickness / 2 + 0.005;
@@ -9020,8 +9049,8 @@ function initLevelMedallion3D() {
     // Back Face Disc
     const backGeom = new THREE.CircleGeometry(coinRadius, 64);
     const backMat = new THREE.MeshStandardMaterial({
-      roughness: 0.35,
-      metalness: 0.28
+      roughness: 0.32,
+      metalness: 0.35
     });
     backMesh = new THREE.Mesh(backGeom, backMat);
     backMesh.rotation.y = Math.PI;
@@ -9032,8 +9061,8 @@ function initLevelMedallion3D() {
     const rimGeom = new THREE.CylinderGeometry(coinRadius, coinRadius, coinThickness, 64, 1, true);
     const rimMat = new THREE.MeshStandardMaterial({
       color: 0xcd7f32,
-      roughness: 0.35,
-      metalness: 0.9
+      roughness: 0.32,
+      metalness: 0.55
     });
     rimMesh = new THREE.Mesh(rimGeom, rimMat);
     rimMesh.rotation.x = Math.PI / 2;
@@ -9043,8 +9072,8 @@ function initLevelMedallion3D() {
     const bezelGeom = new THREE.TorusGeometry(coinRadius + 0.04, 0.08, 16, 64);
     const bezelMat = new THREE.MeshStandardMaterial({
       color: 0xcd7f32,
-      roughness: 0.25,
-      metalness: 0.92
+      roughness: 0.28,
+      metalness: 0.55
     });
     bezelMesh = new THREE.Mesh(bezelGeom, bezelMat);
     medallionGroup.add(bezelMesh);
@@ -9053,8 +9082,8 @@ function initLevelMedallion3D() {
     const bailGeom = new THREE.TorusGeometry(0.38, 0.07, 16, 32);
     const bailMat = new THREE.MeshStandardMaterial({
       color: 0xcd7f32,
-      roughness: 0.25,
-      metalness: 0.92
+      roughness: 0.28,
+      metalness: 0.55
     });
     bailMesh = new THREE.Mesh(bailGeom, bailMat);
     bailMesh.position.y = coinRadius + 0.32;
@@ -9082,18 +9111,18 @@ function initLevelMedallion3D() {
 
       frontMesh.material.map = frontTex;
       frontMesh.material.bumpMap = frontBump;
-      frontMesh.material.bumpScale = 0.02;
+      frontMesh.material.bumpScale = 0.025;
       frontMesh.material.color.setHex(0xffffff);
-      frontMesh.material.roughness = 0.35;
-      frontMesh.material.metalness = 0.28;
+      frontMesh.material.roughness = 0.32;
+      frontMesh.material.metalness = 0.35;
       frontMesh.material.needsUpdate = true;
 
       backMesh.material.map = backTex;
       backMesh.material.bumpMap = backBump;
-      backMesh.material.bumpScale = 0.02;
+      backMesh.material.bumpScale = 0.025;
       backMesh.material.color.setHex(0xffffff);
-      backMesh.material.roughness = 0.35;
-      backMesh.material.metalness = 0.28;
+      backMesh.material.roughness = 0.32;
+      backMesh.material.metalness = 0.35;
       backMesh.material.needsUpdate = true;
 
       rimMesh.material.color.setHex(metal.color);
@@ -9302,31 +9331,46 @@ function initLevelMedallion3D() {
       ctx.fillStyle = '#fef08a';
       ctx.fillText(pillText, 540, 201);
 
-      // 4. Medallion Glow & Snapshot
+      // 4. Medallion Ambient Halo Glow & Snapshot
+      const isSilverMedal = tierData.metal === 'silver';
+      const isBronzeMedal = tierData.metal === 'bronze';
       const glowGrad = ctx.createRadialGradient(540, 475, 40, 540, 475, 275);
-      glowGrad.addColorStop(0, 'rgba(254, 240, 138, 0.45)');
-      glowGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.25)');
-      glowGrad.addColorStop(0.75, 'rgba(245, 158, 11, 0.08)');
+      if (isSilverMedal) {
+        glowGrad.addColorStop(0, 'rgba(147, 197, 253, 0.30)');
+        glowGrad.addColorStop(0.4, 'rgba(96, 165, 250, 0.14)');
+        glowGrad.addColorStop(0.75, 'rgba(30, 58, 138, 0.05)');
+      } else if (isBronzeMedal) {
+        glowGrad.addColorStop(0, 'rgba(251, 146, 60, 0.35)');
+        glowGrad.addColorStop(0.4, 'rgba(217, 119, 6, 0.18)');
+        glowGrad.addColorStop(0.75, 'rgba(120, 53, 15, 0.05)');
+      } else {
+        glowGrad.addColorStop(0, 'rgba(254, 240, 138, 0.35)');
+        glowGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.18)');
+        glowGrad.addColorStop(0.75, 'rgba(146, 64, 14, 0.05)');
+      }
       glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = glowGrad;
       ctx.beginPath();
       ctx.arc(540, 475, 275, 0, Math.PI * 2);
       ctx.fill();
 
-      // Ensure crisp, bright, front-facing rendering for the share card
+      // Ensure crisp, radiant, front-facing middle-ground rendering for the share card
       const savedMedRotX = medallionGroup.rotation.x;
       const savedMedRotY = medallionGroup.rotation.y;
       const savedMedRotZ = medallionGroup.rotation.z;
       const savedAmbInt = ambientLight.intensity;
       const savedKeyInt = keyLight.intensity;
+      const savedKeyPos = keyLight.position.clone();
       const savedSpecInt = specularLight.intensity;
+      const savedSpecPos = specularLight.position.clone();
 
-      // Position medal front-facing with optimal lighting
-      medallionGroup.rotation.set(0.04, 0, 0);
-      ambientLight.intensity = 1.7;
-      keyLight.intensity = 2.2;
-      specularLight.intensity = 2.4;
-      specularLight.position.set(0, 0.5, 6);
+      // Position medal front-facing with calibrated middle-ground lighting
+      medallionGroup.rotation.set(0.04, -0.02, 0);
+      ambientLight.intensity = 0.55;
+      keyLight.intensity = 0.95;
+      keyLight.position.set(2.5, 3.5, 4.5);
+      specularLight.intensity = 0.45;
+      specularLight.position.set(1.6, 2.0, 4.5);
 
       try {
         mRenderer.setSize(800, 800, false);
@@ -9346,7 +9390,9 @@ function initLevelMedallion3D() {
         medallionGroup.rotation.set(savedMedRotX, savedMedRotY, savedMedRotZ);
         ambientLight.intensity = savedAmbInt;
         keyLight.intensity = savedKeyInt;
+        keyLight.position.copy(savedKeyPos);
         specularLight.intensity = savedSpecInt;
+        specularLight.position.copy(savedSpecPos);
       }
 
       // 5. Inscribed Scripture Verse
