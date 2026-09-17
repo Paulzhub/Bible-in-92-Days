@@ -8217,53 +8217,226 @@ function initAmbientCelestialBackground() {
     const hudPhaseEl = document.getElementById('constellation-hud-phase');
     const hudNameEl = document.getElementById('constellation-hud-name');
     const hudDaysEl = document.getElementById('constellation-hud-days');
-
-    function updateConstellationHUD(days, idx) {
-      if (!hudEl) return;
-      const activeData = CONSTELLATIONS_DATA[idx];
-      if (!activeData) return;
-
-      if (hudIconEl) hudIconEl.textContent = activeData.icon;
-      if (hudPhaseEl) hudPhaseEl.textContent = 'Active Milestone Constellation';
-      if (hudNameEl) hudNameEl.textContent = activeData.name;
-
-      if (hudDaysEl) {
-        if (idx === 0) {
-          const inM = Math.min(25, days);
-          const pct = Math.round((inM / 25) * 100);
-          hudDaysEl.textContent = `Days 1–25 • ${inM} / 25 Days in Milestone (${pct}%)`;
-        } else if (idx === 1) {
-          const inM = Math.max(0, Math.min(25, days - 25));
-          const pct = Math.round((inM / 25) * 100);
-          hudDaysEl.textContent = `Days 26–50 • ${inM} / 25 Days in Milestone (${pct}%)`;
-        } else if (idx === 2) {
-          const inM = Math.max(0, Math.min(25, days - 50));
-          const pct = Math.round((inM / 25) * 100);
-          hudDaysEl.textContent = `Days 51–75 • ${inM} / 25 Days in Milestone (${pct}%)`;
-        } else if (idx === 3) {
-          const inM = Math.max(0, Math.min(16, days - 75));
-          const pct = Math.round((inM / 16) * 100);
-          hudDaysEl.textContent = `Days 76–91 • ${inM} / 16 Days in Milestone (${pct}%)`;
-        } else {
-          hudDaysEl.textContent = `Day 92 • Completed Challenge 🏆 (100%)`;
-        }
-      }
-      hudEl.classList.add('active');
-    }
+    const hudPrevBtn = document.getElementById('constellation-prev-btn');
+    const hudNextBtn = document.getElementById('constellation-next-btn');
+    const hudMenuBtn = document.getElementById('constellation-menu-btn');
+    const pickerMenuEl = document.getElementById('constellation-picker-menu');
+    const pickerCloseBtn = document.getElementById('constellation-picker-close');
+    const pickerListEl = document.getElementById('constellation-picker-list');
+    const pickerResetBtn = document.getElementById('constellation-reset-current');
 
     let activeMilestoneDays = getUserDaysCompleted();
     let activeMilestoneIdx = getMilestoneConstellationIndex(activeMilestoneDays);
+    let selectedConstellationIdx = activeMilestoneIdx;
+
+    function updateConstellationHUD(days, displayedIdx, progressIdx) {
+      if (!hudEl) return;
+      const activeData = CONSTELLATIONS_DATA[displayedIdx];
+      if (!activeData) return;
+
+      if (hudIconEl) hudIconEl.textContent = activeData.icon;
+      if (hudPhaseEl) {
+        if (displayedIdx === progressIdx) {
+          hudPhaseEl.textContent = 'Active Milestone Constellation';
+        } else {
+          hudPhaseEl.textContent = 'Viewing Milestone • Past Unlocked';
+        }
+      }
+      if (hudNameEl) hudNameEl.textContent = activeData.name;
+
+      if (hudDaysEl) {
+        if (displayedIdx === progressIdx) {
+          if (displayedIdx === 0) {
+            const inM = Math.min(25, days);
+            const pct = Math.round((inM / 25) * 100);
+            hudDaysEl.textContent = `Days 1–25 • ${inM} / 25 Days in Milestone (${pct}%)`;
+          } else if (displayedIdx === 1) {
+            const inM = Math.max(0, Math.min(25, days - 25));
+            const pct = Math.round((inM / 25) * 100);
+            hudDaysEl.textContent = `Days 26–50 • ${inM} / 25 Days in Milestone (${pct}%)`;
+          } else if (displayedIdx === 2) {
+            const inM = Math.max(0, Math.min(25, days - 50));
+            const pct = Math.round((inM / 25) * 100);
+            hudDaysEl.textContent = `Days 51–75 • ${inM} / 25 Days in Milestone (${pct}%)`;
+          } else if (displayedIdx === 3) {
+            const inM = Math.max(0, Math.min(16, days - 75));
+            const pct = Math.round((inM / 16) * 100);
+            hudDaysEl.textContent = `Days 76–91 • ${inM} / 16 Days in Milestone (${pct}%)`;
+          } else {
+            hudDaysEl.textContent = `Day 92 • Completed Challenge 🏆 (100%)`;
+          }
+        } else {
+          hudDaysEl.textContent = `${activeData.phase} • Unlocked ✓`;
+        }
+      }
+
+      if (hudPrevBtn) {
+        hudPrevBtn.disabled = (displayedIdx <= 0);
+      }
+      if (hudNextBtn) {
+        hudNextBtn.disabled = (displayedIdx >= progressIdx);
+      }
+
+      hudEl.classList.add('active');
+    }
+
+    function applyDisplayedConstellation(idx, showToast = false) {
+      const targetIdx = Math.max(0, Math.min(activeMilestoneIdx, Number(idx) || 0));
+      selectedConstellationIdx = targetIdx;
+
+      // Exclusively activate target constellation
+      constellationMeshes.forEach((item, i) => {
+        item.targetOpacity = (i === selectedConstellationIdx) ? 1.0 : 0.0;
+      });
+
+      updateConstellationHUD(activeMilestoneDays, selectedConstellationIdx, activeMilestoneIdx);
+      renderConstellationPickerMenu();
+
+      if (showToast && typeof showNudgeToast === 'function') {
+        const itemData = CONSTELLATIONS_DATA[selectedConstellationIdx];
+        if (selectedConstellationIdx === activeMilestoneIdx) {
+          showNudgeToast(`✨ Illuminating current milestone: ${itemData.name}`);
+        } else {
+          showNudgeToast(`✨ Illuminating unlocked milestone: ${itemData.name}`);
+        }
+      }
+    }
+
+    function renderConstellationPickerMenu() {
+      if (!pickerListEl) return;
+      pickerListEl.innerHTML = '';
+
+      CONSTELLATIONS_DATA.forEach((item, idx) => {
+        const isUnlocked = (idx <= activeMilestoneIdx);
+        const isActive = (idx === selectedConstellationIdx);
+        const isCurrentProgress = (idx === activeMilestoneIdx);
+
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = `constellation-picker-item ${isUnlocked ? 'unlocked' : 'locked'} ${isActive ? 'active' : ''}`;
+
+        let badgeHtml = '';
+        if (isActive) {
+          badgeHtml = `<span class="constellation-picker-item-badge">Active ✨</span>`;
+        } else if (isCurrentProgress) {
+          badgeHtml = `<span class="constellation-picker-item-badge" style="background: rgba(245, 158, 11, 0.2); color: #fef08a;">Current</span>`;
+        } else if (isUnlocked) {
+          badgeHtml = `<span class="constellation-picker-item-badge">Unlocked ✓</span>`;
+        } else {
+          const reqDay = idx === 1 ? 26 : idx === 2 ? 51 : idx === 3 ? 76 : 92;
+          badgeHtml = `<span class="constellation-picker-item-badge">🔒 Day ${reqDay}</span>`;
+        }
+
+        row.innerHTML = `
+          <div class="constellation-picker-item-icon">${item.icon}</div>
+          <div class="constellation-picker-item-info">
+            <div class="constellation-picker-item-title">${item.name}</div>
+            <div class="constellation-picker-item-sub">${item.phase}</div>
+          </div>
+          ${badgeHtml}
+        `;
+
+        row.addEventListener('click', () => {
+          if (isUnlocked) {
+            applyDisplayedConstellation(idx, true);
+            closeConstellationPickerMenu();
+          } else {
+            const reqDay = idx === 1 ? 26 : idx === 2 ? 51 : idx === 3 ? 76 : 92;
+            if (typeof showNudgeToast === 'function') {
+              showNudgeToast(`🔒 ${item.name} is locked. Complete ${reqDay} reading days to unlock this constellation!`, true);
+            }
+          }
+        });
+
+        pickerListEl.appendChild(row);
+      });
+    }
+
+    function openConstellationPickerMenu() {
+      if (!pickerMenuEl) return;
+      renderConstellationPickerMenu();
+      pickerMenuEl.removeAttribute('hidden');
+      if (hudMenuBtn) hudMenuBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeConstellationPickerMenu() {
+      if (!pickerMenuEl) return;
+      pickerMenuEl.setAttribute('hidden', '');
+      if (hudMenuBtn) hudMenuBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    // Navigation & Dropdown Click Handlers
+    if (hudPrevBtn) {
+      hudPrevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (selectedConstellationIdx > 0) {
+          applyDisplayedConstellation(selectedConstellationIdx - 1, true);
+        }
+      });
+    }
+
+    if (hudNextBtn) {
+      hudNextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (selectedConstellationIdx < activeMilestoneIdx) {
+          applyDisplayedConstellation(selectedConstellationIdx + 1, true);
+        }
+      });
+    }
+
+    if (hudMenuBtn) {
+      hudMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (pickerMenuEl && pickerMenuEl.hasAttribute('hidden')) {
+          openConstellationPickerMenu();
+        } else {
+          closeConstellationPickerMenu();
+        }
+      });
+    }
+
+    if (pickerCloseBtn) {
+      pickerCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeConstellationPickerMenu();
+      });
+    }
+
+    if (pickerResetBtn) {
+      pickerResetBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyDisplayedConstellation(activeMilestoneIdx, true);
+        closeConstellationPickerMenu();
+      });
+    }
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (pickerMenuEl && !pickerMenuEl.hasAttribute('hidden')) {
+        if (!pickerMenuEl.contains(e.target) && !hudEl.contains(e.target)) {
+          closeConstellationPickerMenu();
+        }
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && pickerMenuEl && !pickerMenuEl.hasAttribute('hidden')) {
+        closeConstellationPickerMenu();
+      }
+    });
 
     function setDaysCompleted(days) {
       activeMilestoneDays = Math.max(0, Number(days) || 0);
-      activeMilestoneIdx = getMilestoneConstellationIndex(activeMilestoneDays);
+      const newActiveIdx = getMilestoneConstellationIndex(activeMilestoneDays);
 
-      // Exclusively activate the user's active milestone constellation
-      constellationMeshes.forEach((item, idx) => {
-        item.targetOpacity = (idx === activeMilestoneIdx) ? 1.0 : 0.0;
-      });
+      // Advance selection if user leveled up
+      if (newActiveIdx !== activeMilestoneIdx) {
+        activeMilestoneIdx = newActiveIdx;
+        selectedConstellationIdx = activeMilestoneIdx;
+      }
 
-      updateConstellationHUD(activeMilestoneDays, activeMilestoneIdx);
+      applyDisplayedConstellation(selectedConstellationIdx);
     }
 
     // Initialize with current user progress
@@ -8486,6 +8659,8 @@ function initAmbientCelestialBackground() {
     window.ambientCelestialBg = {
       setTheme,
       setDaysCompleted,
+      selectConstellation: (idx) => applyDisplayedConstellation(idx, true),
+      resetToCurrentMilestone: () => applyDisplayedConstellation(activeMilestoneIdx, true),
       pause,
       resume
     };
@@ -8565,20 +8740,23 @@ function initLevelMedallion3D() {
     // Base background radial gradient
     const grad = ctx.createRadialGradient(512, 512, 50, 512, 512, 510);
     if (isGold) {
-      grad.addColorStop(0, '#fef08a');
-      grad.addColorStop(0.35, '#f59e0b');
-      grad.addColorStop(0.75, '#b45309');
-      grad.addColorStop(1, '#78350f');
+      grad.addColorStop(0, '#fffbeb');
+      grad.addColorStop(0.25, '#fef08a');
+      grad.addColorStop(0.55, '#f59e0b');
+      grad.addColorStop(0.85, '#d97706');
+      grad.addColorStop(1, '#92400e');
     } else if (isSilver) {
       grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.35, '#e2e8f0');
-      grad.addColorStop(0.75, '#94a3b8');
-      grad.addColorStop(1, '#475569');
+      grad.addColorStop(0.25, '#f8fafc');
+      grad.addColorStop(0.55, '#e2e8f0');
+      grad.addColorStop(0.85, '#cbd5e1');
+      grad.addColorStop(1, '#94a3b8');
     } else {
-      grad.addColorStop(0, '#fdba74');
-      grad.addColorStop(0.35, '#d97706');
-      grad.addColorStop(0.75, '#92400e');
-      grad.addColorStop(1, '#451a03');
+      grad.addColorStop(0, '#fff7ed');
+      grad.addColorStop(0.25, '#fed7aa');
+      grad.addColorStop(0.55, '#f59e0b');
+      grad.addColorStop(0.85, '#d97706');
+      grad.addColorStop(1, '#78350f');
     }
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -8586,7 +8764,7 @@ function initLevelMedallion3D() {
     ctx.fill();
 
     // Concentric hairline etched rings
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(512, 512, 485, 0, Math.PI * 2);
@@ -8615,28 +8793,30 @@ function initLevelMedallion3D() {
     }
 
     // Inner ring
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.arc(512, 512, 430, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(512, 512, 360, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Curved circular text
+    // Curved circular text with high-contrast outline
     const textStr = isBack
       ? '★ 2 TIMOTHY 4:7 ★ I HAVE KEPT THE FAITH ★ YOUTH GATHERING 2026 ★'
       : '★ PROJECT BIBLE IN 92 DAYS ★ THE YOUTH GATHERING 2026 ★';
 
     ctx.save();
-    ctx.font = 'bold 32px "Space Grotesk", sans-serif';
-    ctx.fillStyle = isGold ? '#fffbeb' : isSilver ? '#ffffff' : '#fef3c7';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    ctx.shadowBlur = 6;
+    ctx.font = 'bold 36px "Space Grotesk", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.lineWidth = 4.5;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 8;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
 
@@ -8649,6 +8829,7 @@ function initLevelMedallion3D() {
       ctx.translate(512, 512);
       ctx.rotate(charAngle);
       ctx.translate(0, -395);
+      ctx.strokeText(textStr[i], 0, 0);
       ctx.fillText(textStr[i], 0, 0);
       ctx.restore();
     }
@@ -8661,21 +8842,30 @@ function initLevelMedallion3D() {
 
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = tierData.roman === '🏆' ? '180px serif' : 'bold 190px "Fraunces", serif';
-      ctx.fillStyle = isGold ? '#fffdf0' : isSilver ? '#ffffff' : '#fff7ed';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctx.shadowBlur = 12;
-      ctx.shadowOffsetX = 4;
-      ctx.shadowOffsetY = 4;
+      ctx.font = tierData.roman === '🏆' ? '190px serif' : 'bold 205px "Fraunces", serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.lineWidth = 6;
+      ctx.shadowColor = isGold ? 'rgba(245, 158, 11, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = 14;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+      ctx.strokeText(tierData.roman, 0, -20);
       ctx.fillText(tierData.roman, 0, -20);
 
-      ctx.font = 'bold 36px "Space Grotesk", sans-serif';
-      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#e2e8f0' : '#fed7aa';
-      ctx.shadowBlur = 4;
+      ctx.font = 'bold 42px "Space Grotesk", sans-serif';
+      ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#ffffff' : '#fef3c7';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.lineWidth = 5;
+      ctx.shadowBlur = 6;
+      ctx.strokeText(tierData.title.toUpperCase(), 0, 110);
       ctx.fillText(tierData.title.toUpperCase(), 0, 110);
 
-      ctx.font = '600 24px "Space Grotesk", sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.font = '700 26px "Space Grotesk", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.lineWidth = 4;
+      ctx.strokeText('DISCIPLESHIP COVENANT', 0, 160);
       ctx.fillText('DISCIPLESHIP COVENANT', 0, 160);
 
       ctx.restore();
@@ -8684,24 +8874,35 @@ function initLevelMedallion3D() {
       ctx.translate(512, 512);
 
       ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#f1f5f9' : '#fed7aa';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.lineWidth = 4;
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = 10;
       ctx.shadowOffsetX = 3;
       ctx.shadowOffsetY = 3;
 
+      ctx.strokeRect(-16, -210, 32, 170);
       ctx.fillRect(-16, -210, 32, 170);
+      ctx.strokeRect(-80, -170, 160, 30);
       ctx.fillRect(-80, -170, 160, 30);
 
       ctx.textAlign = 'center';
-      ctx.font = 'italic 500 28px "Fraunces", serif';
+      ctx.font = 'italic 600 30px "Fraunces", serif';
       ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.lineWidth = 4;
       ctx.shadowBlur = 6;
+
+      ctx.strokeText('"I have fought the good fight,', 0, 20);
       ctx.fillText('"I have fought the good fight,', 0, 20);
+      ctx.strokeText('I have finished the race,', 0, 65);
       ctx.fillText('I have finished the race,', 0, 65);
+      ctx.strokeText('I have kept the faith."', 0, 110);
       ctx.fillText('I have kept the faith."', 0, 110);
 
-      ctx.font = 'bold 24px "Space Grotesk", sans-serif';
+      ctx.font = 'bold 26px "Space Grotesk", sans-serif';
       ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#cbd5e1' : '#fcd34d';
+      ctx.strokeText('— 2 TIMOTHY 4:7 —', 0, 170);
       ctx.fillText('— 2 TIMOTHY 4:7 —', 0, 170);
 
       ctx.restore();
@@ -8809,8 +9010,8 @@ function initLevelMedallion3D() {
     // Front Face Disc
     const frontGeom = new THREE.CircleGeometry(coinRadius, 64);
     const frontMat = new THREE.MeshStandardMaterial({
-      roughness: 0.25,
-      metalness: 0.92
+      roughness: 0.35,
+      metalness: 0.28
     });
     frontMesh = new THREE.Mesh(frontGeom, frontMat);
     frontMesh.position.z = coinThickness / 2 + 0.005;
@@ -8819,8 +9020,8 @@ function initLevelMedallion3D() {
     // Back Face Disc
     const backGeom = new THREE.CircleGeometry(coinRadius, 64);
     const backMat = new THREE.MeshStandardMaterial({
-      roughness: 0.25,
-      metalness: 0.92
+      roughness: 0.35,
+      metalness: 0.28
     });
     backMesh = new THREE.Mesh(backGeom, backMat);
     backMesh.rotation.y = Math.PI;
@@ -8881,18 +9082,18 @@ function initLevelMedallion3D() {
 
       frontMesh.material.map = frontTex;
       frontMesh.material.bumpMap = frontBump;
-      frontMesh.material.bumpScale = 0.045;
-      frontMesh.material.color.setHex(metal.color);
-      frontMesh.material.roughness = metal.roughness;
-      frontMesh.material.metalness = metal.metalness;
+      frontMesh.material.bumpScale = 0.02;
+      frontMesh.material.color.setHex(0xffffff);
+      frontMesh.material.roughness = 0.35;
+      frontMesh.material.metalness = 0.28;
       frontMesh.material.needsUpdate = true;
 
       backMesh.material.map = backTex;
       backMesh.material.bumpMap = backBump;
-      backMesh.material.bumpScale = 0.045;
-      backMesh.material.color.setHex(metal.color);
-      backMesh.material.roughness = metal.roughness;
-      backMesh.material.metalness = metal.metalness;
+      backMesh.material.bumpScale = 0.02;
+      backMesh.material.color.setHex(0xffffff);
+      backMesh.material.roughness = 0.35;
+      backMesh.material.metalness = 0.28;
       backMesh.material.needsUpdate = true;
 
       rimMesh.material.color.setHex(metal.color);
@@ -9102,23 +9303,50 @@ function initLevelMedallion3D() {
       ctx.fillText(pillText, 540, 201);
 
       // 4. Medallion Glow & Snapshot
-      const glowGrad = ctx.createRadialGradient(540, 475, 40, 540, 475, 260);
-      glowGrad.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
-      glowGrad.addColorStop(0.7, 'rgba(245, 158, 11, 0.08)');
+      const glowGrad = ctx.createRadialGradient(540, 475, 40, 540, 475, 275);
+      glowGrad.addColorStop(0, 'rgba(254, 240, 138, 0.45)');
+      glowGrad.addColorStop(0.4, 'rgba(245, 158, 11, 0.25)');
+      glowGrad.addColorStop(0.75, 'rgba(245, 158, 11, 0.08)');
       glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = glowGrad;
       ctx.beginPath();
-      ctx.arc(540, 475, 260, 0, Math.PI * 2);
+      ctx.arc(540, 475, 275, 0, Math.PI * 2);
       ctx.fill();
 
+      // Ensure crisp, bright, front-facing rendering for the share card
+      const savedMedRotX = medallionGroup.rotation.x;
+      const savedMedRotY = medallionGroup.rotation.y;
+      const savedMedRotZ = medallionGroup.rotation.z;
+      const savedAmbInt = ambientLight.intensity;
+      const savedKeyInt = keyLight.intensity;
+      const savedSpecInt = specularLight.intensity;
+
+      // Position medal front-facing with optimal lighting
+      medallionGroup.rotation.set(0.04, 0, 0);
+      ambientLight.intensity = 1.7;
+      keyLight.intensity = 2.2;
+      specularLight.intensity = 2.4;
+      specularLight.position.set(0, 0.5, 6);
+
       try {
+        mRenderer.setSize(800, 800, false);
+        mCamera.aspect = 1;
+        mCamera.updateProjectionMatrix();
         mRenderer.render(mScene, mCamera);
-        ctx.drawImage(canvas, 540 - 230, 475 - 230, 460, 460);
+        ctx.drawImage(canvas, 540 - 240, 475 - 240, 480, 480);
       } catch (e) {
         const fallbackTex = createMedallionTexture(tierData, false).image;
         if (fallbackTex) {
-          ctx.drawImage(fallbackTex, 540 - 200, 475 - 200, 400, 400);
+          ctx.drawImage(fallbackTex, 540 - 220, 475 - 220, 440, 440);
         }
+      } finally {
+        mRenderer.setSize(400, 400, false);
+        mCamera.aspect = 1;
+        mCamera.updateProjectionMatrix();
+        medallionGroup.rotation.set(savedMedRotX, savedMedRotY, savedMedRotZ);
+        ambientLight.intensity = savedAmbInt;
+        keyLight.intensity = savedKeyInt;
+        specularLight.intensity = savedSpecInt;
       }
 
       // 5. Inscribed Scripture Verse
@@ -9152,14 +9380,14 @@ function initLevelMedallion3D() {
       ctx.fillStyle = '#f59e0b';
       ctx.fillText(`— ${tierData.ref} —`, 540, curY + 12);
 
-      // 6. Footer Stats & URL
+      // 6. Footer Stats & URL (clean URL without redundant verse)
       ctx.font = '600 20px "Space Grotesk", sans-serif';
       ctx.fillStyle = '#94a3b8';
       ctx.fillText(`${curDays} of 92 Days Completed • August 10 – November 9, 2026`, 540, 975);
 
       ctx.font = '500 16px "Space Grotesk", sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.fillText('paulzhub.github.io/Bible-in-92-Days • 2 Timothy 4:7', 540, 1005);
+      ctx.fillText('paulzhub.github.io/Bible-in-92-Days', 540, 1005);
 
       // 7. Output / Native Web Share or Download
       shareCanvas.toBlob(async (blob) => {
