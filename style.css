@@ -572,17 +572,44 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 
 @media (max-width: 580px) {
   .overview-return-bar {
-    padding: 0.5rem 0.75rem;
-    gap: 0.6rem 0.75rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    padding: 0.45rem 0.65rem;
+    gap: 0.4rem 0.65rem;
   }
   .overview-return-actions {
-    margin-left: 0;
+    display: contents;
+  }
+  .btn-return-dash {
+    grid-column: 1;
+    grid-row: 1;
     width: 100%;
-    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 0.28rem 0.55rem;
+    min-height: 30px;
+    font-size: 0.76rem;
+    justify-content: center;
+    text-align: center;
   }
   .overview-return-user {
-    flex: 1;
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.28rem 0.55rem;
+    min-height: 30px;
     font-size: 0.76rem;
+    justify-content: center;
+    text-align: center;
+  }
+  .overview-theme-toggle-btn {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-self: center;
+    margin: auto 0;
   }
 }
 
@@ -1174,9 +1201,11 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   gap: 1rem;
   max-height: 620px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-right: 0.35rem;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent) transparent;
+  scrollbar-color: var(--accent) var(--surface-2);
 }
 
 .public-day-card {
@@ -4135,7 +4164,7 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .sidebar-portions-list::-webkit-scrollbar,
 .public-schedule-grid::-webkit-scrollbar,
 .reader-content::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .sidebar-portions-list::-webkit-scrollbar-track,

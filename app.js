@@ -1751,6 +1751,9 @@ async function loadInitialData(session, retryCount = 0) {
   try {
     if (res.comments && res.comments.success) {
       commentsCache = res.comments.comments || [];
+      if (session && session.username) {
+        mergePersistedReactions(commentsCache, 'comments', activeCommentsDate || formatDDMMYY(new Date()), session.username, REACTIONS.map(r => r.type));
+      }
       renderComments(session);
       updateCommentFormVisibility(session);
     } else {
@@ -1761,6 +1764,9 @@ async function loadInitialData(session, retryCount = 0) {
   try {
     if (res.prayers && res.prayers.success) {
       prayersCache = res.prayers.prayers || [];
+      if (session && session.username) {
+        mergePersistedReactions(prayersCache, 'prayers', activePrayersDate || formatDDMMYY(new Date()), session.username, PRAYER_REACTIONS_MAP.map(r => r.key));
+      }
       renderPrayers(session);
       updatePrayerFormVisibility(session);
     } else {
@@ -1823,6 +1829,9 @@ async function loadUpdates(session) {
     try {
       if (res.comments && res.comments.success && isViewingTodayComments) {
         commentsCache = res.comments.comments || [];
+        if (session && session.username) {
+          mergePersistedReactions(commentsCache, 'comments', todayStr, session.username, REACTIONS.map(r => r.type));
+        }
         renderComments(session);
         updateCommentFormVisibility(session);
       }
@@ -1832,6 +1841,9 @@ async function loadUpdates(session) {
     try {
       if (res.prayers && res.prayers.success && isViewingTodayPrayers) {
         prayersCache = res.prayers.prayers || [];
+        if (session && session.username) {
+          mergePersistedReactions(prayersCache, 'prayers', todayStr, session.username, PRAYER_REACTIONS_MAP.map(r => r.key));
+        }
         renderPrayers(session);
         updatePrayerFormVisibility(session);
       }
@@ -2523,6 +2535,58 @@ function renderAllTimeStats(allTimeStats, leaderboard) {
   }
 }
 
+// ====== REACTION PERSISTENCE HELPERS (COMMENTS & PRAYERS) ======
+function getPersistedReactionMap(category, dateStr, username) {
+  if (!username || !dateStr) return {};
+  try {
+    const key = `bible92_reactions_${category}_${dateStr}_${username.toLowerCase()}`;
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function persistReaction(category, dateStr, username, targetUsername, reactionType) {
+  if (!username || !dateStr || !targetUsername) return;
+  try {
+    const key = `bible92_reactions_${category}_${dateStr}_${username.toLowerCase()}`;
+    const map = getPersistedReactionMap(category, dateStr, username);
+    if (reactionType) {
+      map[targetUsername] = reactionType;
+    } else {
+      map[targetUsername] = null;
+    }
+    localStorage.setItem(key, JSON.stringify(map));
+  } catch (e) {}
+}
+
+function mergePersistedReactions(items, category, dateStr, username, allReactionTypes) {
+  if (!items || !items.length || !username || !dateStr) return items;
+  const map = getPersistedReactionMap(category, dateStr, username);
+  if (!map || Object.keys(map).length === 0) return items;
+
+  items.forEach(item => {
+    if (!item || !item.username) return;
+    if (!item.reactions) item.reactions = {};
+    allReactionTypes.forEach(t => {
+      if (!item.reactions[t]) item.reactions[t] = [];
+    });
+
+    const targetUser = item.username;
+    if (Object.prototype.hasOwnProperty.call(map, targetUser)) {
+      const userSavedType = map[targetUser];
+      allReactionTypes.forEach(t => {
+        item.reactions[t] = (item.reactions[t] || []).filter(u => u !== username);
+      });
+      if (userSavedType && item.reactions[userSavedType]) {
+        item.reactions[userSavedType].push(username);
+      }
+    }
+  });
+  return items;
+}
+
 // ====== SECTION 4: COMMENTS ======
 
 const REACTIONS = [
@@ -2611,9 +2675,15 @@ function handleReactionClick(targetUsername, type, session, reactionsRow) {
     if (!targetObj[r.type]) targetObj[r.type] = [];
     targetObj[r.type] = targetObj[r.type].filter(u => u !== session.username);
   });
+
+  let newType = null;
   if (!wasActiveInThisType) {
     targetObj[type].push(session.username);
+    newType = type;
   }
+
+  const activeDate = activeCommentsDate || formatDDMMYY(new Date());
+  persistReaction('comments', activeDate, session.username, targetUsername, newType);
 
   const btnEls = reactionsRow.querySelectorAll('.reaction-btn');
   REACTIONS.forEach(({ type: rType, label }, idx) => {
@@ -2633,8 +2703,17 @@ function handleReactionClick(targetUsername, type, session, reactionsRow) {
     reactorUsername: session.username,
     password: session.password,
     targetUsername,
-    type
-  }).catch(() => {});
+    type,
+    date: activeDate
+  }).then(res => {
+    if (res && res.success && res.reactions) {
+      comment.reactions = res.reactions;
+      const serverActiveType = Object.keys(res.reactions).find(t => (res.reactions[t] || []).includes(session.username)) || null;
+      persistReaction('comments', activeDate, session.username, targetUsername, serverActiveType);
+    }
+  }).catch((err) => {
+    console.warn('Silent notice: Comment reaction synced locally; backend sync notice:', err);
+  });
 }
 
 function getCharAndWordCount(text) {
@@ -3096,6 +3175,9 @@ async function fetchCommentsForDate(ddmmyy, session) {
     const res = await apiGet({ action: 'getComments', date: ddmmyy });
     if (res.success) {
       commentsCache = res.comments || [];
+      if (session && session.username) {
+        mergePersistedReactions(commentsCache, 'comments', ddmmyy, session.username, REACTIONS.map(r => r.type));
+      }
       renderComments(session);
       
       if (!isToday) {
@@ -3171,6 +3253,9 @@ async function fetchPrayersForDate(ddmmyy, session) {
     const res = await apiGet({ action: 'getPrayers', date: ddmmyy });
     if (res.success) {
       prayersCache = res.prayers || [];
+      if (session && session.username) {
+        mergePersistedReactions(prayersCache, 'prayers', ddmmyy, session.username, PRAYER_REACTIONS_MAP.map(r => r.key));
+      }
       renderPrayers(session);
       updatePrayerFormVisibility(session);
     } else {
@@ -3300,8 +3385,8 @@ function buildPrayerElement(prayer, session) {
     }
 
     if (session && !session.isGuest) {
-      chip.addEventListener('click', () => {
-        togglePrayerReaction(prayer.username, reaction.key, session);
+      chip.addEventListener('click', (e) => {
+        togglePrayerReaction(prayer.username, reaction.key, session, e);
       });
     } else {
       chip.disabled = true;
@@ -3312,6 +3397,63 @@ function buildPrayerElement(prayer, session) {
 
   item.append(head, text, reactionsRow);
   return item;
+}
+
+async function togglePrayerReaction(targetUsername, type, session, clickEvent) {
+  if (!session || session.isGuest) {
+    alert('Guest users are in read-only mode.');
+    return;
+  }
+  const prayer = prayersCache.find(p => p.username === targetUsername);
+  if (!prayer) return;
+
+  const prayerReactionKeys = PRAYER_REACTIONS_MAP.map(r => r.key);
+  if (!prayer.reactions) {
+    prayer.reactions = {};
+    prayerReactionKeys.forEach(k => { prayer.reactions[k] = []; });
+  }
+
+  const targetList = prayer.reactions[type] || [];
+  const wasActive = targetList.includes(session.username);
+
+  prayerReactionKeys.forEach(k => {
+    if (!prayer.reactions[k]) prayer.reactions[k] = [];
+    prayer.reactions[k] = prayer.reactions[k].filter(u => u !== session.username);
+  });
+
+  let newType = null;
+  if (!wasActive) {
+    prayer.reactions[type].push(session.username);
+    newType = type;
+    const matchObj = PRAYER_REACTIONS_MAP.find(r => r.key === type);
+    if (matchObj) {
+      spawnFloatingEmoji(clickEvent, matchObj.icon);
+    }
+  }
+
+  const activeDate = activePrayersDate || formatDDMMYY(new Date());
+  persistReaction('prayers', activeDate, session.username, targetUsername, newType);
+
+  renderPrayers(session);
+
+  try {
+    const res = await apiGet({
+      action: 'reactPrayer',
+      reactorUsername: session.username,
+      password: session.password,
+      targetUsername: targetUsername,
+      type: type,
+      date: activeDate
+    });
+    if (res && res.success && res.reactions) {
+      prayer.reactions = res.reactions;
+      const serverActiveType = Object.keys(res.reactions).find(k => (res.reactions[k] || []).includes(session.username)) || null;
+      persistReaction('prayers', activeDate, session.username, targetUsername, serverActiveType);
+      renderPrayers(session);
+    }
+  } catch (err) {
+    console.warn('Silent notice: Prayer reaction synced locally; backend sync notice:', err);
+  }
 }
 
 function startEditingPrayer(cardEl, prayer, session) {
