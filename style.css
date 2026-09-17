@@ -6060,6 +6060,52 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   border-color: #d97706;
 }
 
+.medallion-tier-pill.locked {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.medallion-tier-pill.locked:hover {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: none;
+  box-shadow: none;
+}
+
+[data-theme="light"] .medallion-tier-pill.locked {
+  opacity: 0.45;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .medallion-tier-pill.locked:hover {
+  color: #64748b;
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.medallion-share-btn {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  border: 1px solid #f59e0b !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+  transition: all 0.2s ease;
+}
+
+.medallion-share-btn:hover {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5);
+}
+
+.medallion-share-btn:active {
+  transform: translateY(0);
+}
+
 @media (max-width: 480px) {
   .medallion-modal-dialog {
     padding: 16px;

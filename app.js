@@ -1878,6 +1878,17 @@ function updateHeaderLevel(leaderboard, session) {
   renderLevelProgress(leaderboard, session);
 }
 
+let currentUserCompletedDays = 0;
+
+function getUserDaysCompleted() {
+  const session = getSession();
+  if (!session || session.isGuest) return 0;
+  if (currentUserData && typeof currentUserData.daysCompleted === 'number') {
+    return currentUserData.daysCompleted;
+  }
+  return currentUserCompletedDays;
+}
+
 // ====== LEVEL PROGRESSION HELPERS ======
 
 function toRoman(num) {
@@ -2045,6 +2056,14 @@ function renderLevelProgress(rows, session) {
   if (curBadge) curBadge.onclick = openCurrentMedallion;
   if (nextBadge) nextBadge.onclick = openNextMedallion;
   if (inspectBtn) inspectBtn.onclick = openCurrentMedallion;
+
+  currentUserCompletedDays = daysCompleted;
+  if (window.ambientCelestialBg && typeof window.ambientCelestialBg.setDaysCompleted === 'function') {
+    window.ambientCelestialBg.setDaysCompleted(daysCompleted);
+  }
+  if (window.updateMedallionUnlockedTiers) {
+    window.updateMedallionUnlockedTiers();
+  }
 }
 
 // ====== YOUR READING HISTORY (HEATMAP) ======
@@ -7940,11 +7959,36 @@ function initAmbientCelestialBackground() {
     dustField = new THREE.Points(dustGeometry, dustMaterial);
     scene.add(dustField);
 
-    // 3. RIVER OF LIGHT WARP STREAMERS (Rev 22:1 - Streamers stretching along Z-axis)
+    // 3. RIVER OF LIGHT WARP STREAMERS (Rev 22:1 - Multi-hued theme light streamers)
     const WARP_STREAMER_COUNT = 160;
     const warpGeometry = new THREE.BufferGeometry();
     const warpPositions = new Float32Array(WARP_STREAMER_COUNT * 2 * 3);
+    const warpColors = new Float32Array(WARP_STREAMER_COUNT * 2 * 3);
     const warpOrigins = [];
+
+    const WARP_THEME_COLORS_DARK = [
+      new THREE.Color('#f59e0b'), // warm gold
+      new THREE.Color('#38bdf8'), // sky cyan
+      new THREE.Color('#a78bfa'), // celestial purple
+      new THREE.Color('#f472b6'), // cosmic rose
+      new THREE.Color('#34d399'), // river mint
+      new THREE.Color('#ffffff'), // diamond white
+      new THREE.Color('#fbbf24'), // radiant amber
+      new THREE.Color('#67e8f9')  // azure light
+    ];
+
+    const WARP_THEME_COLORS_LIGHT = [
+      new THREE.Color('#d97706'), // warm bronze
+      new THREE.Color('#0284c7'), // sapphire azure
+      new THREE.Color('#7c3aed'), // royal purple
+      new THREE.Color('#db2777'), // deep rose
+      new THREE.Color('#059669'), // river emerald
+      new THREE.Color('#b45309'), // rich amber
+      new THREE.Color('#0891b2'), // deep cyan
+      new THREE.Color('#475569')  // slate
+    ];
+
+    const activeWarpPalette = isDark ? WARP_THEME_COLORS_DARK : WARP_THEME_COLORS_LIGHT;
 
     for (let i = 0; i < WARP_STREAMER_COUNT; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -7962,11 +8006,21 @@ function initAmbientCelestialBackground() {
       warpPositions[i6 + 3] = x;
       warpPositions[i6 + 4] = y;
       warpPositions[i6 + 5] = z - 20;
+
+      const col = activeWarpPalette[i % activeWarpPalette.length];
+      warpColors[i6] = col.r;
+      warpColors[i6 + 1] = col.g;
+      warpColors[i6 + 2] = col.b;
+      warpColors[i6 + 3] = col.r;
+      warpColors[i6 + 4] = col.g;
+      warpColors[i6 + 5] = col.b;
     }
 
     warpGeometry.setAttribute('position', new THREE.BufferAttribute(warpPositions, 3));
+    warpGeometry.setAttribute('color', new THREE.BufferAttribute(warpColors, 3));
+
     const warpMaterial = new THREE.LineBasicMaterial({
-      color: isDark ? 0x67e8f9 : 0x0284c7,
+      vertexColors: true,
       transparent: true,
       opacity: 0,
       blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
@@ -7975,7 +8029,7 @@ function initAmbientCelestialBackground() {
     const warpStreamers = new THREE.LineSegments(warpGeometry, warpMaterial);
     scene.add(warpStreamers);
 
-    // 4. MILESTONE CONSTELLATIONS (Star Map of Scripture)
+    // 4. MILESTONE CONSTELLATIONS (Star Map of Scripture - Centered in Viewport & Progress-Bound)
     const CONSTELLATIONS_DATA = [
       {
         id: 'torch',
@@ -7983,7 +8037,6 @@ function initAmbientCelestialBackground() {
         phase: 'Days 1–25 • Pentateuch & Torah',
         verse: '"Thy word is a lamp unto my feet, and a light unto my path." (Psalm 119:105)',
         icon: '🪔',
-        peak: 0.10,
         nodes: [
           [-28, -95, 0], [28, -95, 0], [0, -70, 0], [0, -45, 0],
           [-48, -30, 0], [48, -30, 0], [-68, -18, 0], [62, -15, 0],
@@ -8000,7 +8053,6 @@ function initAmbientCelestialBackground() {
         phase: 'Days 26–50 • Poetry & Psalms',
         verse: '"Awake, harp and lyre! I will awaken the dawn." (Psalm 57:8)',
         icon: '🎵',
-        peak: 0.32,
         nodes: [
           [-35, -90, 0], [35, -90, 0], [-55, -50, 0], [-68, 0, 0],
           [-62, 50, 0], [-42, 80, 0], [0, 92, 0], [42, 75, 0],
@@ -8018,7 +8070,6 @@ function initAmbientCelestialBackground() {
         phase: 'Days 51–75 • Major & Minor Prophets',
         verse: '"The Lion of the tribe of Judah, the Root of David, has triumphed." (Rev 5:5)',
         icon: '🦁',
-        peak: 0.54,
         nodes: [
           [35, -10, 0], [58, 15, 0], [52, 48, 0], [30, 68, 0],
           [8, 62, 0], [12, 38, 0], [-18, 5, 0], [-60, 0, 0],
@@ -8037,7 +8088,6 @@ function initAmbientCelestialBackground() {
         phase: 'Days 76–91 • Gospels & Epistles',
         verse: '"I am the Root and the Offspring of David, and the bright Morning Star." (Rev 22:16)',
         icon: '✝️',
-        peak: 0.76,
         nodes: [
           [0, 10, 0], [0, 105, 0], [0, -95, 0], [-65, 35, 0],
           [65, 35, 0], [0, 45, 0], [30, 10, 0], [0, -25, 0],
@@ -8055,7 +8105,6 @@ function initAmbientCelestialBackground() {
         phase: 'Day 92 • Revelation & Finisher',
         verse: '"Now there is in store for me the crown of righteousness..." (2 Tim 4:8)',
         icon: '👑',
-        peak: 0.95,
         nodes: [
           [-85, -45, 0], [-42, -52, 0], [0, -54, 0], [42, -52, 0], [85, -45, 0],
           [-80, 10, 0], [-40, 45, 0], [0, 80, 0], [40, 45, 0], [80, 10, 0],
@@ -8078,12 +8127,24 @@ function initAmbientCelestialBackground() {
 
     const constellationMeshes = [];
 
+    // Construct each constellation centered mathematically at local origin (0, 0, 0)
     CONSTELLATIONS_DATA.forEach((data) => {
       const cGroup = new THREE.Group();
 
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      data.nodes.forEach(pt => {
+        minX = Math.min(minX, pt[0]);
+        maxX = Math.max(maxX, pt[0]);
+        minY = Math.min(minY, pt[1]);
+        maxY = Math.max(maxY, pt[1]);
+      });
+      const midX = (minX + maxX) / 2;
+      const midY = (minY + maxY) / 2;
+      const centeredNodes = data.nodes.map(pt => [pt[0] - midX, pt[1] - midY, pt[2] || 0]);
+
       // Nodes
-      const nodePos = new Float32Array(data.nodes.length * 3);
-      data.nodes.forEach((pt, n) => {
+      const nodePos = new Float32Array(centeredNodes.length * 3);
+      centeredNodes.forEach((pt, n) => {
         nodePos[n * 3] = pt[0];
         nodePos[n * 3 + 1] = pt[1];
         nodePos[n * 3 + 2] = pt[2];
@@ -8091,7 +8152,7 @@ function initAmbientCelestialBackground() {
       const nodeGeom = new THREE.BufferGeometry();
       nodeGeom.setAttribute('position', new THREE.BufferAttribute(nodePos, 3));
       const nodeMat = new THREE.PointsMaterial({
-        size: isDark ? 14 : 11,
+        size: isDark ? 15 : 12,
         color: isDark ? 0xfffbeb : 0xd97706,
         map: sharedStarTexture,
         transparent: true,
@@ -8105,8 +8166,8 @@ function initAmbientCelestialBackground() {
       // Lines
       const linePos = new Float32Array(data.segments.length * 2 * 3);
       data.segments.forEach((seg, s) => {
-        const p1 = data.nodes[seg[0]];
-        const p2 = data.nodes[seg[1]];
+        const p1 = centeredNodes[seg[0]];
+        const p2 = centeredNodes[seg[1]];
         const s6 = s * 6;
         linePos[s6] = p1[0];
         linePos[s6 + 1] = p1[1];
@@ -8123,7 +8184,7 @@ function initAmbientCelestialBackground() {
         opacity: 0,
         blending: isDark ? THREE.AdditiveBlending : THREE.NormalBlending,
         depthWrite: false,
-        linewidth: 2
+        linewidth: 2.2
       });
       const lineMesh = new THREE.LineSegments(lineGeom, lineMat);
       cGroup.add(lineMesh);
@@ -8141,60 +8202,72 @@ function initAmbientCelestialBackground() {
       });
     });
 
-    // Constellation HUD and scroll binder
+    // Milestone calculation and HUD sync
+    function getMilestoneConstellationIndex(days) {
+      const d = Math.max(0, Number(days) || 0);
+      if (d >= 92) return 4; // Day 92: The Victor's Crown 🏆
+      if (d >= 76) return 3; // Days 76–91: The Living Cross & Morning Star
+      if (d >= 51) return 2; // Days 51–75: The Lion of Judah
+      if (d >= 26) return 1; // Days 26–50: The Harp of David
+      return 0;              // Days 1–25: The Lamp of Torah
+    }
+
     const hudEl = document.getElementById('constellation-hud');
     const hudIconEl = document.getElementById('constellation-hud-icon');
+    const hudPhaseEl = document.getElementById('constellation-hud-phase');
     const hudNameEl = document.getElementById('constellation-hud-name');
     const hudDaysEl = document.getElementById('constellation-hud-days');
-    let lastActiveConstellationIdx = -1;
 
-    function updateConstellationsFromScroll(progress) {
-      let maxOpacity = 0;
-      let topIdx = -1;
+    function updateConstellationHUD(days, idx) {
+      if (!hudEl) return;
+      const activeData = CONSTELLATIONS_DATA[idx];
+      if (!activeData) return;
 
-      constellationMeshes.forEach((item, idx) => {
-        const peak = item.data.peak;
-        const halfSpan = 0.16;
-        const dist = Math.abs(progress - peak);
-        let opacity = 0;
-        if (dist < halfSpan) {
-          opacity = 1 - (dist / halfSpan);
-          opacity = opacity * opacity * (3 - 2 * opacity);
-        }
-        item.targetOpacity = opacity;
+      if (hudIconEl) hudIconEl.textContent = activeData.icon;
+      if (hudPhaseEl) hudPhaseEl.textContent = 'Active Milestone Constellation';
+      if (hudNameEl) hudNameEl.textContent = activeData.name;
 
-        if (opacity > maxOpacity) {
-          maxOpacity = opacity;
-          topIdx = idx;
-        }
-      });
-
-      if (hudEl) {
-        if (maxOpacity > 0.18 && topIdx !== -1) {
-          hudEl.classList.add('active');
-          if (topIdx !== lastActiveConstellationIdx) {
-            lastActiveConstellationIdx = topIdx;
-            const activeData = constellationMeshes[topIdx].data;
-            if (hudIconEl) hudIconEl.textContent = activeData.icon;
-            if (hudNameEl) hudNameEl.textContent = activeData.name;
-            if (hudDaysEl) hudDaysEl.textContent = activeData.phase;
-          }
+      if (hudDaysEl) {
+        if (idx === 0) {
+          const inM = Math.min(25, days);
+          const pct = Math.round((inM / 25) * 100);
+          hudDaysEl.textContent = `Days 1–25 • ${inM} / 25 Days in Milestone (${pct}%)`;
+        } else if (idx === 1) {
+          const inM = Math.max(0, Math.min(25, days - 25));
+          const pct = Math.round((inM / 25) * 100);
+          hudDaysEl.textContent = `Days 26–50 • ${inM} / 25 Days in Milestone (${pct}%)`;
+        } else if (idx === 2) {
+          const inM = Math.max(0, Math.min(25, days - 50));
+          const pct = Math.round((inM / 25) * 100);
+          hudDaysEl.textContent = `Days 51–75 • ${inM} / 25 Days in Milestone (${pct}%)`;
+        } else if (idx === 3) {
+          const inM = Math.max(0, Math.min(16, days - 75));
+          const pct = Math.round((inM / 16) * 100);
+          hudDaysEl.textContent = `Days 76–91 • ${inM} / 16 Days in Milestone (${pct}%)`;
         } else {
-          hudEl.classList.remove('active');
+          hudDaysEl.textContent = `Day 92 • Completed Challenge 🏆 (100%)`;
         }
       }
+      hudEl.classList.add('active');
     }
 
-    if (typeof ScrollTrigger !== 'undefined') {
-      ScrollTrigger.create({
-        trigger: document.body,
-        start: 'top top',
-        end: 'bottom bottom',
-        onUpdate: (self) => {
-          updateConstellationsFromScroll(self.progress);
-        }
+    let activeMilestoneDays = getUserDaysCompleted();
+    let activeMilestoneIdx = getMilestoneConstellationIndex(activeMilestoneDays);
+
+    function setDaysCompleted(days) {
+      activeMilestoneDays = Math.max(0, Number(days) || 0);
+      activeMilestoneIdx = getMilestoneConstellationIndex(activeMilestoneDays);
+
+      // Exclusively activate the user's active milestone constellation
+      constellationMeshes.forEach((item, idx) => {
+        item.targetOpacity = (idx === activeMilestoneIdx) ? 1.0 : 0.0;
       });
+
+      updateConstellationHUD(activeMilestoneDays, activeMilestoneIdx);
     }
+
+    // Initialize with current user progress
+    setDaysCompleted(activeMilestoneDays);
 
     // Velocity state
     let smoothVelocity = 0;
@@ -8211,8 +8284,6 @@ function initAmbientCelestialBackground() {
     window.addEventListener('scroll', () => {
       const st = window.pageYOffset || document.documentElement.scrollTop;
       scrollTargetY = st * 0.07;
-      const docHeight = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      updateConstellationsFromScroll(Math.min(1, Math.max(0, st / docHeight)));
     }, { passive: true });
 
     // Window resize handler
@@ -8260,8 +8331,20 @@ function initAmbientCelestialBackground() {
         dustMaterial.needsUpdate = true;
       }
 
-      if (warpMaterial) {
-        warpMaterial.color.setHex(isLightMode ? 0x0284c7 : 0x67e8f9);
+      if (warpMaterial && warpGeometry) {
+        const targetWarpPalette = isLightMode ? WARP_THEME_COLORS_LIGHT : WARP_THEME_COLORS_DARK;
+        const warpColorArr = warpGeometry.attributes.color.array;
+        for (let i = 0; i < WARP_STREAMER_COUNT; i++) {
+          const col = targetWarpPalette[i % targetWarpPalette.length];
+          const i6 = i * 6;
+          warpColorArr[i6] = col.r;
+          warpColorArr[i6 + 1] = col.g;
+          warpColorArr[i6 + 2] = col.b;
+          warpColorArr[i6 + 3] = col.r;
+          warpColorArr[i6 + 4] = col.g;
+          warpColorArr[i6 + 5] = col.b;
+        }
+        warpGeometry.attributes.color.needsUpdate = true;
         warpMaterial.blending = isLightMode ? THREE.NormalBlending : THREE.AdditiveBlending;
         warpMaterial.needsUpdate = true;
       }
@@ -8339,7 +8422,7 @@ function initAmbientCelestialBackground() {
 
       smoothVelocity += (instantVelocity - smoothVelocity) * 0.14;
 
-      // River of Light Warp Streamers Stretch
+      // Multi-hued River of Light Warp Streamers Stretch
       if (warpMaterial && warpStreamers) {
         const currentThemeNow = document.documentElement.getAttribute('data-theme') || 'dark';
         const isDarkNow = currentThemeNow !== 'light';
@@ -8372,7 +8455,14 @@ function initAmbientCelestialBackground() {
 
       camera.position.z = 800 - Math.min(smoothVelocity * 15, 110);
 
-      // Constellation smooth fading and orbital rotation
+      // CENTER IN VIEWPORT: Synchronize constellation position with camera.position.y
+      if (constellationsMasterGroup) {
+        constellationsMasterGroup.position.set(0, camera.position.y, 240);
+        constellationsMasterGroup.rotation.y = baseRotY * 0.35 + mouseX * 0.4;
+        constellationsMasterGroup.rotation.x = baseRotX * 0.35 + mouseY * 0.4;
+      }
+
+      // Constellation smooth fading and subtle breathing
       const currentThemeNow = document.documentElement.getAttribute('data-theme') || 'dark';
       const isDarkNow = currentThemeNow !== 'light';
 
@@ -8382,8 +8472,7 @@ function initAmbientCelestialBackground() {
           item.nodeMat.opacity = item.currentOpacity * (isDarkNow ? 0.95 : 0.75);
           item.lineMat.opacity = item.currentOpacity * (isDarkNow ? 0.85 : 0.65);
           item.group.visible = true;
-          item.group.rotation.y = baseRotY * 0.4 + Math.sin(timestamp * 0.0006 + idx) * 0.12;
-          item.group.rotation.x = baseRotX * 0.4 + Math.cos(timestamp * 0.0006 + idx) * 0.08;
+          item.group.rotation.z = Math.sin(timestamp * 0.0008) * 0.03;
         } else {
           item.group.visible = false;
         }
@@ -8396,6 +8485,7 @@ function initAmbientCelestialBackground() {
     // Export controller
     window.ambientCelestialBg = {
       setTheme,
+      setDaysCompleted,
       pause,
       resume
     };
@@ -8421,7 +8511,7 @@ function initLevelMedallion3D() {
   const verseTextEl = document.getElementById('medallion-verse-text');
   const verseRefEl = document.getElementById('medallion-verse-ref');
   const flipBtn = document.getElementById('medallion-flip-btn');
-  const myLevelBtn = document.getElementById('medallion-my-level-btn');
+  const shareBtn = document.getElementById('medallion-share-btn');
   const tiersScroll = document.getElementById('medallion-tiers-scroll');
 
   if (!modal || !backdrop || !canvas || typeof THREE === 'undefined') {
@@ -8485,7 +8575,6 @@ function initLevelMedallion3D() {
       grad.addColorStop(0.75, '#94a3b8');
       grad.addColorStop(1, '#475569');
     } else {
-      // Bronze
       grad.addColorStop(0, '#fdba74');
       grad.addColorStop(0.35, '#d97706');
       grad.addColorStop(0.75, '#92400e');
@@ -8567,11 +8656,9 @@ function initLevelMedallion3D() {
 
     // Central Core Artwork
     if (!isBack) {
-      // FRONT FACE: Laurel branches and large Roman numeral / trophy
       ctx.save();
       ctx.translate(512, 512);
 
-      // Central Roman numeral
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = tierData.roman === '🏆' ? '180px serif' : 'bold 190px "Fraunces", serif';
@@ -8582,36 +8669,29 @@ function initLevelMedallion3D() {
       ctx.shadowOffsetY = 4;
       ctx.fillText(tierData.roman, 0, -20);
 
-      // Subtitle
       ctx.font = 'bold 36px "Space Grotesk", sans-serif';
       ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#e2e8f0' : '#fed7aa';
       ctx.shadowBlur = 4;
       ctx.fillText(tierData.title.toUpperCase(), 0, 110);
 
-      // Lower ribbon badge
       ctx.font = '600 24px "Space Grotesk", sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.fillText('DISCIPLESHIP COVENANT', 0, 160);
 
       ctx.restore();
     } else {
-      // BACK FACE: Sacred Cross & 3-line Scripture
       ctx.save();
       ctx.translate(512, 512);
 
-      // Embossed Latin Cross
       ctx.fillStyle = isGold ? '#fef08a' : isSilver ? '#f1f5f9' : '#fed7aa';
       ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = 10;
       ctx.shadowOffsetX = 3;
       ctx.shadowOffsetY = 3;
 
-      // Vertical beam
       ctx.fillRect(-16, -210, 32, 170);
-      // Horizontal crossbeam
       ctx.fillRect(-80, -170, 160, 30);
 
-      // Scripture text
       ctx.textAlign = 'center';
       ctx.font = 'italic 500 28px "Fraunces", serif';
       ctx.fillStyle = '#ffffff';
@@ -8677,6 +8757,14 @@ function initLevelMedallion3D() {
   let medallionGroup, frontMesh, backMesh, rimMesh, bezelMesh, bailMesh, ribbonMesh;
   let specularLight, keyLight, rimLight;
 
+  function getMaxUnlockedTier() {
+    const session = getSession();
+    if (!session || session.isGuest) return 1;
+    const days = getUserDaysCompleted();
+    const info = getLevelProgressInfo(days);
+    return info.currentLevelNum || 1;
+  }
+
   try {
     const width = 400;
     const height = 400;
@@ -8685,6 +8773,7 @@ function initLevelMedallion3D() {
       canvas: canvas,
       alpha: true,
       antialias: true,
+      preserveDrawingBuffer: true,
       powerPreference: 'high-performance'
     });
     mRenderer.setSize(width, height);
@@ -8773,7 +8862,7 @@ function initLevelMedallion3D() {
     // Liturgical Split-Tail Fabric Ribbon at top
     const ribbonGeom = new THREE.PlaneGeometry(1.6, 2.2, 8, 8);
     const ribbonMat = new THREE.MeshStandardMaterial({
-      color: 0x881337, // deep liturgical crimson
+      color: 0x881337,
       roughness: 0.65,
       metalness: 0.15,
       side: THREE.DoubleSide
@@ -8823,12 +8912,10 @@ function initLevelMedallion3D() {
 
       rimLight.color.setHex(metal.specular);
 
-      // Ribbon color: crimson for bronze/gold, royal blue for silver/electrum
       const isBlueRibbon = tierData.metal === 'silver' || tierData.metal === 'electrum';
       ribbonMesh.material.color.setHex(isBlueRibbon ? 0x1e3a8a : 0x881337);
       ribbonMesh.material.needsUpdate = true;
 
-      // Update dialog text
       if (titleEl) titleEl.textContent = `${tierData.title} Medallion`;
       if (tierBadgeEl) {
         tierBadgeEl.textContent = `${tierData.days} • ${tierData.metal.toUpperCase()}`;
@@ -8836,31 +8923,50 @@ function initLevelMedallion3D() {
       if (verseTextEl) verseTextEl.textContent = tierData.verse;
       if (verseRefEl) verseRefEl.textContent = tierData.ref;
 
-      // Update active state in tier pills
       const allPills = tiersScroll ? tiersScroll.querySelectorAll('.medallion-tier-pill') : [];
       allPills.forEach((p, idx) => {
-        p.classList.toggle('active', idx === activeTierIdx);
+        if (!p.classList.contains('locked')) {
+          p.classList.toggle('active', idx === activeTierIdx);
+        }
       });
     }
 
-    // Build Tier Selector Buttons
-    if (tiersScroll) {
+    // Build Tier Selector with strict access gating
+    function buildTierSelector() {
+      if (!tiersScroll) return;
       tiersScroll.innerHTML = '';
+      const maxUnlocked = getMaxUnlockedTier();
+
       MEDALLION_TIERS.forEach((item, idx) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'medallion-tier-pill' + (idx === activeTierIdx ? ' active' : '');
-        btn.textContent = item.roman === '🏆' ? '🏆 Finisher' : `Tier ${item.roman}`;
-        btn.setAttribute('aria-label', `Inspect ${item.title}`);
-        btn.addEventListener('click', () => {
-          activeTierIdx = idx;
-          applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
-          // Subtle pulse flip
-          targetRotY = rotY + 0.4;
-        });
+        const isUnlocked = (item.tier <= maxUnlocked);
+
+        if (isUnlocked) {
+          btn.className = 'medallion-tier-pill' + (idx === activeTierIdx ? ' active' : '');
+          btn.textContent = item.roman === '🏆' ? '🏆 Finisher' : `Tier ${item.roman}`;
+          btn.setAttribute('aria-label', `Inspect ${item.title}`);
+          btn.addEventListener('click', () => {
+            activeTierIdx = idx;
+            applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
+            targetRotY = rotY + 0.4;
+          });
+        } else {
+          btn.className = 'medallion-tier-pill locked';
+          btn.textContent = item.roman === '🏆' ? '🔒 Finisher' : `🔒 Tier ${item.roman}`;
+          const reqDays = item.tier === 11 ? 92 : (item.tier - 1) * 10;
+          btn.title = `Locked: Complete ${reqDays} days of reading to unlock`;
+          btn.setAttribute('aria-label', `Locked: ${item.title} requires ${reqDays} days`);
+          btn.addEventListener('click', () => {
+            showNudgeToast(`🔒 ${item.title} is locked! Complete ${reqDays} reading days to unlock this medallion.`, true);
+          });
+        }
         tiersScroll.appendChild(btn);
       });
     }
+
+    buildTierSelector();
+    window.updateMedallionUnlockedTiers = buildTierSelector;
 
     // Interactive pointer drag controls
     function onPointerDown(e) {
@@ -8881,7 +8987,6 @@ function initLevelMedallion3D() {
       pointerNormX = ((clientX - rect.left) / rect.width - 0.5) * 2;
       pointerNormY = ((clientY - rect.top) / rect.height - 0.5) * 2;
 
-      // Position point light for dynamic metallic glint
       specularLight.position.x = pointerNormX * 4;
       specularLight.position.y = -pointerNormY * 4;
 
@@ -8919,19 +9024,177 @@ function initLevelMedallion3D() {
       });
     }
 
-    // My Level button
-    if (myLevelBtn) {
-      myLevelBtn.addEventListener('click', () => {
-        const curSession = getSession();
-        let userDays = 0;
-        if (curSession && !curSession.isGuest && currentUserData) {
-          userDays = currentUserData.daysCompleted || 0;
+    // Share Medallion as High-Resolution Image Card (Vanilla Canvas 2D)
+    async function shareMedallionCard() {
+      const tierData = MEDALLION_TIERS[activeTierIdx];
+      const curDays = getUserDaysCompleted();
+      const session = getSession();
+      const discipleName = (session && !session.isGuest && session.username) ? session.username : 'Youth Disciple';
+
+      const shareCanvas = document.createElement('canvas');
+      shareCanvas.width = 1080;
+      shareCanvas.height = 1080;
+      const ctx = shareCanvas.getContext('2d');
+
+      // 1. Deep Celestial Space Gradient Background
+      const bgGrad = ctx.createRadialGradient(540, 480, 80, 540, 540, 720);
+      bgGrad.addColorStop(0, '#1e1b4b');
+      bgGrad.addColorStop(0.4, '#0f172a');
+      bgGrad.addColorStop(0.85, '#070913');
+      bgGrad.addColorStop(1, '#020408');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // 2. Decorative Double Gold Frame
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(36, 36, 1008, 1008);
+
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.15)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(46, 46, 988, 988);
+
+      const drawCorner = (x, y, sx, sy) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(sx, sy);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 32);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(32, 0);
+        ctx.stroke();
+        ctx.restore();
+      };
+      drawCorner(36, 36, 1, 1);
+      drawCorner(1044, 36, -1, 1);
+      drawCorner(36, 1044, 1, -1);
+      drawCorner(1044, 1044, -1, -1);
+
+      // 3. Top Branding & Header
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 22px "Space Grotesk", sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('THE YOUTH GATHERING 2026', 540, 95);
+
+      ctx.font = 'bold 40px "Fraunces", serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Project Bible in 92 Days', 540, 145);
+
+      // Disciple Milestone Pill
+      const pillText = `${discipleName.toUpperCase()} • ${tierData.title.toUpperCase()}`;
+      ctx.font = '600 20px "Space Grotesk", sans-serif';
+      const pWidth = ctx.measureText(pillText).width + 44;
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(540 - pWidth / 2, 175, pWidth, 38, 19);
+      } else {
+        ctx.rect(540 - pWidth / 2, 175, pWidth, 38);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fef08a';
+      ctx.fillText(pillText, 540, 201);
+
+      // 4. Medallion Glow & Snapshot
+      const glowGrad = ctx.createRadialGradient(540, 475, 40, 540, 475, 260);
+      glowGrad.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
+      glowGrad.addColorStop(0.7, 'rgba(245, 158, 11, 0.08)');
+      glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(540, 475, 260, 0, Math.PI * 2);
+      ctx.fill();
+
+      try {
+        mRenderer.render(mScene, mCamera);
+        ctx.drawImage(canvas, 540 - 230, 475 - 230, 460, 460);
+      } catch (e) {
+        const fallbackTex = createMedallionTexture(tierData, false).image;
+        if (fallbackTex) {
+          ctx.drawImage(fallbackTex, 540 - 200, 475 - 200, 400, 400);
         }
-        const info = getLevelProgressInfo(userDays);
-        const targetIdx = Math.min(MEDALLION_TIERS.length - 1, Math.max(0, (info.currentLevelNum || 1) - 1));
-        activeTierIdx = targetIdx;
-        applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
+      }
+
+      // 5. Inscribed Scripture Verse
+      ctx.font = 'italic 28px "Fraunces", serif';
+      ctx.fillStyle = '#f8fafc';
+      const wrapText = (text, maxWidth) => {
+        const words = text.split(' ');
+        const lines = [];
+        let curLine = '';
+        words.forEach(w => {
+          const testLine = curLine ? curLine + ' ' + w : w;
+          if (ctx.measureText(testLine).width > maxWidth) {
+            lines.push(curLine);
+            curLine = w;
+          } else {
+            curLine = testLine;
+          }
+        });
+        if (curLine) lines.push(curLine);
+        return lines;
+      };
+
+      const verseLines = wrapText(tierData.verse, 860);
+      let curY = 760;
+      verseLines.forEach(vl => {
+        ctx.fillText(vl, 540, curY);
+        curY += 38;
       });
+
+      ctx.font = 'bold 22px "Space Grotesk", sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`— ${tierData.ref} —`, 540, curY + 12);
+
+      // 6. Footer Stats & URL
+      ctx.font = '600 20px "Space Grotesk", sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`${curDays} of 92 Days Completed • August 10 – November 9, 2026`, 540, 975);
+
+      ctx.font = '500 16px "Space Grotesk", sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.fillText('paulzhub.github.io/Bible-in-92-Days • 2 Timothy 4:7', 540, 1005);
+
+      // 7. Output / Native Web Share or Download
+      shareCanvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const fileName = `Bible92-Medallion-${tierData.title.replace(/\s+/g, '-')}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              title: `${tierData.title} Discipleship Medallion`,
+              text: `I've unlocked the ${tierData.title} on Project Bible in 92 Days! ${tierData.verse} (${tierData.ref})`,
+              files: [file]
+            });
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError') return;
+          }
+        }
+
+        // Fallback file download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        showNudgeToast(`✓ Medallion card downloaded! Share it with your squad.`);
+      }, 'image/png');
+    }
+
+    if (shareBtn) {
+      shareBtn.addEventListener('click', shareMedallionCard);
     }
 
     // Medallion Animation Loop
@@ -8941,7 +9204,6 @@ function initLevelMedallion3D() {
         return;
       }
 
-      // Inertia and easing
       if (!isDragging) {
         rotY += (targetRotY - rotY) * 0.12;
         rotY += velY;
@@ -8949,11 +9211,9 @@ function initLevelMedallion3D() {
         velY *= 0.93;
         velX *= 0.93;
 
-        // Gentle floating wobble when stationary
         medallionGroup.position.y = Math.sin(t * 0.0025) * 0.08;
       }
 
-      // Clamp X tilt
       rotX = Math.max(-0.65, Math.min(0.65, rotX));
 
       medallionGroup.rotation.y = rotY;
@@ -8964,11 +9224,16 @@ function initLevelMedallion3D() {
     }
 
     function openMedallionModal(tierNum) {
-      const idx = typeof tierNum === 'number'
-        ? Math.min(MEDALLION_TIERS.length - 1, Math.max(0, tierNum - 1))
-        : 0;
+      const maxUnlocked = getMaxUnlockedTier();
+      let targetTier = typeof tierNum === 'number' ? tierNum : maxUnlocked;
+      if (targetTier > maxUnlocked) {
+        targetTier = maxUnlocked;
+      }
 
+      const idx = Math.min(MEDALLION_TIERS.length - 1, Math.max(0, targetTier - 1));
       activeTierIdx = idx;
+
+      buildTierSelector();
       applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
 
       rotX = 0.08;
