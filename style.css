@@ -3427,7 +3427,9 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .boys-vs-girls-card {
   margin: 1.5rem 0;
   padding: 1.5rem 1.5rem;
-  background: var(--surface);
+  background: var(--surface-glass, var(--surface));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -6455,4 +6457,140 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
     font-size: 1.15rem;
   }
 }
+
+/* ============ 3D KINETIC CARD TILT & DYNAMIC SPECULAR SHEEN ============ */
+.kinetic-tilt-card {
+  position: relative;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform: perspective(1000px) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)) translateZ(var(--tilt-tz, 0px));
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.kinetic-tilt-card > *:not(.kinetic-sheen) {
+  position: relative;
+  z-index: 1;
+}
+
+.kinetic-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--sheen-opacity, 0);
+  background: radial-gradient(
+    circle 380px at var(--sheen-x, 50%) var(--sheen-y, 50%),
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(232, 169, 59, 0.10) 35%,
+    transparent 70%
+  );
+  mix-blend-mode: overlay;
+  transition: opacity 0.3s ease;
+}
+
+[data-theme="light"] .kinetic-sheen {
+  background: radial-gradient(
+    circle 380px at var(--sheen-x, 50%) var(--sheen-y, 50%),
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(217, 146, 43, 0.14) 40%,
+    transparent 75%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.kinetic-tilt-card.is-hovered {
+  border-color: rgba(232, 169, 59, 0.32);
+}
+
+/* ============ "LIVING INK" SCRIPTURE TYPOGRAPHY REVEAL ============ */
+.key-verse-box {
+  overflow: hidden;
+}
+
+.key-verse-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.key-verse-box-header .key-verse-eyebrow {
+  margin-bottom: 0;
+}
+
+.re-ink-verse-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.re-ink-verse-btn:hover {
+  color: var(--accent);
+  background: rgba(232, 169, 59, 0.12);
+  border-color: rgba(232, 169, 59, 0.3);
+  transform: scale(1.05);
+}
+
+.living-ink-word {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.living-ink-char {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+  vertical-align: baseline;
+}
+
+.living-ink-space {
+  display: inline;
+}
+
+.living-ink-quill {
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.85em;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.9)) drop-shadow(0 0 12px rgba(232, 169, 59, 0.6));
+  animation: quillGlowPulse 0.8s ease-in-out infinite alternate;
+  vertical-align: baseline;
+  pointer-events: none;
+}
+
+@keyframes quillGlowPulse {
+  from { transform: scale(0.9) translateY(0); opacity: 0.8; }
+  to { transform: scale(1.2) translateY(-2px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-tilt-card {
+    transform: none !important;
+    transition: none !important;
+  }
+  .kinetic-sheen {
+    display: none !important;
+  }
+  .living-ink-char {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .living-ink-quill {
+    display: none !important;
+  }
+}
+
 

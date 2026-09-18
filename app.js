@@ -5156,8 +5156,24 @@ function renderTodayPortionDetail(portionText, dayNum, session) {
   }
 
   const kv = getKeyVerseForPortion(portionText, dayNum);
-  if (keyVerseText) keyVerseText.textContent = `"${kv.text}"`;
-  if (keyVerseRef) keyVerseRef.textContent = `— ${kv.ref}`;
+  if (keyVerseText) {
+    keyVerseText.textContent = `"${kv.text}"`;
+    keyVerseText.setAttribute('data-raw-verse', `"${kv.text}"`);
+  }
+  if (keyVerseRef) {
+    keyVerseRef.textContent = `— ${kv.ref}`;
+  }
+
+  if (typeof triggerLivingInkVerseReveal === 'function') {
+    const kvBox = document.getElementById('key-verse-box');
+    if (kvBox && !detailCard.hidden) {
+      const rect = kvBox.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (inView) {
+        triggerLivingInkVerseReveal(keyVerseText, keyVerseRef, true);
+      }
+    }
+  }
 
   if (chipsContainer) {
     chipsContainer.innerHTML = '';
@@ -9566,6 +9582,365 @@ function initLevelMedallion3D() {
   }
 }
 
+// ====== 3D PERSPECTIVE GYRO CARD TILT & DYNAMIC SPECULAR SHEEN ======
+
+function initKineticCardTilt() {
+  const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) return;
+
+  const cardSelectors = [
+    '#section-today',
+    '#section-level-progress',
+    '#boys-vs-girls-card',
+    '#public-today-preview'
+  ];
+
+  const cards = [];
+  cardSelectors.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (el) {
+      let sheen = el.querySelector('.kinetic-sheen');
+      if (!sheen) {
+        sheen = document.createElement('div');
+        sheen.className = 'kinetic-sheen';
+        sheen.setAttribute('aria-hidden', 'true');
+        el.insertBefore(sheen, el.firstChild);
+      }
+      if (!el.classList.contains('kinetic-tilt-card')) {
+        el.classList.add('kinetic-tilt-card');
+      }
+      cards.push({
+        el,
+        sheen,
+        isHovered: false,
+        targetRx: 0,
+        targetRy: 0,
+        targetTz: 0,
+        targetSheenX: 50,
+        targetSheenY: 50,
+        targetSheenOpacity: 0,
+        currentRx: 0,
+        currentRy: 0,
+        currentTz: 0,
+        currentSheenX: 50,
+        currentSheenY: 50,
+        currentSheenOpacity: 0,
+        scrollPitchX: 0,
+        needsUpdate: false
+      });
+    }
+  });
+
+  if (cards.length === 0) return;
+
+  let gyroPitchX = 0;
+  let gyroRollY = 0;
+  let hasGyro = false;
+
+  if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission !== 'function') {
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.gamma !== null && e.beta !== null) {
+        hasGyro = true;
+        const roll = Math.max(-1, Math.min(1, e.gamma / 22));
+        const pitch = Math.max(-1, Math.min(1, (e.beta - 45) / 25));
+        gyroRollY = roll * 5.5;
+        gyroPitchX = -pitch * 4.5;
+        cards.forEach((card) => { card.needsUpdate = true; });
+      }
+    }, { passive: true });
+  }
+
+  cards.forEach((c) => {
+    const el = c.el;
+
+    function handlePointerMove(e) {
+      c.isHovered = true;
+      el.classList.add('is-hovered');
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const normX = (x / rect.width) * 2 - 1;
+      const normY = (y / rect.height) * 2 - 1;
+
+      const maxTilt = 7.0;
+      c.targetRx = -normY * maxTilt;
+      c.targetRy = normX * maxTilt;
+      c.targetTz = 6;
+      c.targetSheenX = (x / rect.width) * 100;
+      c.targetSheenY = (y / rect.height) * 100;
+      c.targetSheenOpacity = 1;
+      c.needsUpdate = true;
+    }
+
+    function handlePointerLeave() {
+      c.isHovered = false;
+      el.classList.remove('is-hovered');
+      c.targetRx = 0;
+      c.targetRy = 0;
+      c.targetTz = 0;
+      c.targetSheenOpacity = 0;
+      c.needsUpdate = true;
+    }
+
+    el.addEventListener('pointerenter', handlePointerMove, { passive: true });
+    el.addEventListener('pointermove', handlePointerMove, { passive: true });
+    el.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+  });
+
+  function updateScrollParallax() {
+    const vhHalf = window.innerHeight / 2;
+    cards.forEach((c) => {
+      const rect = c.el.getBoundingClientRect();
+      if (rect.bottom >= -100 && rect.top <= window.innerHeight + 100) {
+        const cardCenterY = rect.top + rect.height / 2;
+        const normDist = (cardCenterY - vhHalf) / vhHalf;
+        const clampedDist = Math.max(-1, Math.min(1, normDist));
+        c.scrollPitchX = clampedDist * -2.2;
+        c.needsUpdate = true;
+      }
+    });
+  }
+
+  if (typeof lenisInstance !== 'undefined' && lenisInstance) {
+    lenisInstance.on('scroll', updateScrollParallax);
+  } else {
+    window.addEventListener('scroll', updateScrollParallax, { passive: true });
+  }
+
+  const lerpFactor = 0.12;
+  const sheenLerp = 0.15;
+
+  function tick() {
+    cards.forEach((c) => {
+      const effectiveRx = c.targetRx + c.scrollPitchX + (hasGyro && !c.isHovered ? gyroPitchX : 0);
+      const effectiveRy = c.targetRy + (hasGyro && !c.isHovered ? gyroRollY : 0);
+      const effectiveTz = c.targetTz;
+      const effectiveSheenOpacity = c.targetSheenOpacity;
+
+      const diffRx = effectiveRx - c.currentRx;
+      const diffRy = effectiveRy - c.currentRy;
+      const diffTz = effectiveTz - c.currentTz;
+      const diffSheenOp = effectiveSheenOpacity - c.currentSheenOpacity;
+      const diffSheenX = c.targetSheenX - c.currentSheenX;
+      const diffSheenY = c.targetSheenY - c.currentSheenY;
+
+      const isMoving = Math.abs(diffRx) > 0.01 || Math.abs(diffRy) > 0.01 ||
+                       Math.abs(diffTz) > 0.05 || Math.abs(diffSheenOp) > 0.005 ||
+                       Math.abs(diffSheenX) > 0.1 || Math.abs(diffSheenY) > 0.1;
+
+      if (isMoving || c.needsUpdate) {
+        c.currentRx += diffRx * lerpFactor;
+        c.currentRy += diffRy * lerpFactor;
+        c.currentTz += diffTz * lerpFactor;
+        c.currentSheenOpacity += diffSheenOp * sheenLerp;
+        c.currentSheenX += diffSheenX * sheenLerp;
+        c.currentSheenY += diffSheenY * sheenLerp;
+
+        const rx = c.currentRx.toFixed(2);
+        const ry = c.currentRy.toFixed(2);
+        const tz = c.currentTz.toFixed(1);
+        const sx = c.currentSheenX.toFixed(1);
+        const sy = c.currentSheenY.toFixed(1);
+        const sop = c.currentSheenOpacity.toFixed(3);
+
+        c.el.style.setProperty('--tilt-rx', `${rx}deg`);
+        c.el.style.setProperty('--tilt-ry', `${ry}deg`);
+        c.el.style.setProperty('--tilt-tz', `${tz}px`);
+        c.el.style.setProperty('--sheen-x', `${sx}%`);
+        c.el.style.setProperty('--sheen-y', `${sy}%`);
+        c.el.style.setProperty('--sheen-opacity', sop);
+
+        const shadowX = (-ry * 1.2).toFixed(1);
+        const shadowY = (rx * 1.2 + 18).toFixed(1);
+        const shadowBlur = (25 + Math.abs(tz * 2)).toFixed(0);
+        c.el.style.boxShadow = `${shadowX}px ${shadowY}px ${shadowBlur}px -12px rgba(0, 0, 0, 0.55)`;
+
+        if (!isMoving && !c.isHovered && !hasGyro) {
+          c.needsUpdate = false;
+        }
+      }
+    });
+  }
+
+  if (typeof gsap !== 'undefined' && gsap.ticker) {
+    gsap.ticker.add(tick);
+  } else {
+    function loop() {
+      tick();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  window.kineticTiltCards = cards;
+}
+
+// ====== "LIVING INK" SCRIPTURE TYPOGRAPHY REVEAL ======
+
+let livingInkTimeline = null;
+
+function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
+  if (!verseEl) verseEl = document.getElementById('key-verse-text');
+  if (!refEl) refEl = document.getElementById('key-verse-ref');
+  if (!verseEl) return;
+
+  const rawText = (verseEl.getAttribute('data-raw-verse') || verseEl.textContent || '').trim();
+  if (!rawText) return;
+
+  verseEl.setAttribute('aria-label', rawText.replace(/^"|"$/g, ''));
+  verseEl.setAttribute('data-raw-verse', rawText);
+
+  const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) {
+    verseEl.textContent = rawText;
+    if (refEl) {
+      refEl.style.opacity = '1';
+      refEl.style.transform = 'none';
+      refEl.style.filter = 'none';
+    }
+    return;
+  }
+
+  if (livingInkTimeline) {
+    livingInkTimeline.kill();
+    livingInkTimeline = null;
+  }
+
+  verseEl.innerHTML = '';
+  const tokens = rawText.split(/(\s+)/);
+  const charSpans = [];
+
+  tokens.forEach((token) => {
+    if (/^\s+$/.test(token)) {
+      const spaceSpan = document.createElement('span');
+      spaceSpan.className = 'living-ink-space';
+      spaceSpan.innerHTML = token.replace(/ /g, '&nbsp;');
+      verseEl.appendChild(spaceSpan);
+    } else {
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'living-ink-word';
+      for (let i = 0; i < token.length; i++) {
+        const charSpan = document.createElement('span');
+        charSpan.className = 'living-ink-char';
+        charSpan.textContent = token[i];
+        charSpan.style.opacity = '0';
+        charSpan.style.filter = 'blur(4px)';
+        charSpan.style.transform = 'translateY(3px) scale(0.95)';
+        wordSpan.appendChild(charSpan);
+        charSpans.push(charSpan);
+      }
+      verseEl.appendChild(wordSpan);
+    }
+  });
+
+  const quill = document.createElement('span');
+  quill.className = 'living-ink-quill';
+  quill.innerHTML = '✦';
+  quill.setAttribute('aria-hidden', 'true');
+  verseEl.appendChild(quill);
+
+  if (refEl) {
+    refEl.style.opacity = '0';
+    refEl.style.transform = 'translateX(10px)';
+    refEl.style.filter = 'blur(4px)';
+  }
+
+  if (typeof gsap !== 'undefined') {
+    livingInkTimeline = gsap.timeline({
+      onComplete: () => {
+        gsap.to(quill, {
+          opacity: 0,
+          scale: 0.5,
+          duration: 0.4,
+          onComplete: () => { if (quill.parentNode) quill.parentNode.removeChild(quill); }
+        });
+      }
+    });
+
+    livingInkTimeline.to(charSpans, {
+      opacity: 1,
+      filter: 'blur(0px)',
+      y: 0,
+      scale: 1,
+      duration: 0.35,
+      stagger: 0.022,
+      ease: 'power2.out'
+    });
+
+    if (refEl) {
+      livingInkTimeline.to(refEl, {
+        opacity: 1,
+        x: 0,
+        filter: 'blur(0px)',
+        duration: 0.65,
+        ease: 'power2.out'
+      }, '-=0.1');
+    }
+  } else {
+    charSpans.forEach((cs) => {
+      cs.style.opacity = '1';
+      cs.style.filter = 'none';
+      cs.style.transform = 'none';
+    });
+    if (quill.parentNode) quill.parentNode.removeChild(quill);
+    if (refEl) {
+      refEl.style.opacity = '1';
+      refEl.style.transform = 'none';
+      refEl.style.filter = 'none';
+    }
+  }
+}
+
+function initLivingInkKeyVerse() {
+  const box = document.getElementById('key-verse-box');
+  const verseEl = document.getElementById('key-verse-text');
+  const refEl = document.getElementById('key-verse-ref');
+  const replayBtn = document.getElementById('re-ink-verse-btn');
+
+  if (!box || !verseEl) return;
+
+  if (replayBtn) {
+    replayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerLivingInkVerseReveal(verseEl, refEl, true);
+    });
+  }
+
+  let hasTriggered = false;
+
+  function onEnterViewport() {
+    if (hasTriggered) return;
+    hasTriggered = true;
+    triggerLivingInkVerseReveal(verseEl, refEl);
+  }
+
+  if (typeof ScrollTrigger !== 'undefined' && typeof gsap !== 'undefined') {
+    ScrollTrigger.create({
+      trigger: box,
+      start: 'top 88%',
+      onEnter: onEnterViewport,
+      once: true
+    });
+  } else if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          onEnterViewport();
+          observer.disconnect();
+        }
+      });
+    }, { threshold: 0.2 });
+    observer.observe(box);
+  } else {
+    onEnterViewport();
+  }
+}
+
+// Global hooks
+window.initKineticCardTilt = initKineticCardTilt;
+window.triggerLivingInkVerseReveal = triggerLivingInkVerseReveal;
+window.initLivingInkKeyVerse = initLivingInkKeyVerse;
+
 // ====== INIT ======
 
 initTheme();
@@ -9574,4 +9949,7 @@ initLenisSmoothScroll();
 initScrollScrubberRail();
 initAmbientCelestialBackground();
 initLevelMedallion3D();
+initKineticCardTilt();
+initLivingInkKeyVerse();
+
 
