@@ -61,7 +61,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -2073,6 +2073,7 @@
           <div class="bvg-segmented-bar" id="bvg-segmented-bar" role="progressbar" aria-label="Boys vs Girls Segmented Progress">
             <div id="bvg-bar-boys" class="bvg-segment bvg-boys-segment" style="width: 50%;"></div>
             <div id="bvg-bar-girls" class="bvg-segment bvg-girls-segment" style="width: 50%;"></div>
+            <div id="bvg-tug-seam-glow" class="bvg-tug-seam-glow" aria-hidden="true"></div>
           </div>
         </div>
 
@@ -2595,8 +2596,29 @@
 
   <!-- SCRIPTURE READER MODAL -->
   <div id="reader-modal-backdrop" class="reader-modal-backdrop" hidden></div>
-  <div id="reader-modal" class="reader-modal" role="dialog" aria-modal="true" aria-labelledby="reader-portion-title" data-lenis-prevent hidden>
-    <div class="reader-modal-dialog">
+  <div id="reader-modal" class="reader-modal parchment-scroll-mode" role="dialog" aria-modal="true" aria-labelledby="reader-portion-title" data-lenis-prevent hidden>
+    <div class="parchment-scroll-container" id="parchment-scroll-container">
+      <!-- LEFT GOLDEN ROLLER ROD (ETZ CHAYIM) -->
+      <div class="scroll-roller roller-left" id="scroll-roller-left" aria-hidden="true">
+        <div class="roller-finial finial-top">
+          <div class="finial-knop"></div>
+          <div class="finial-collar"></div>
+        </div>
+        <div class="roller-shaft">
+          <div class="roller-highlight"></div>
+        </div>
+        <div class="roller-finial finial-bottom">
+          <div class="finial-collar"></div>
+          <div class="finial-knop"></div>
+        </div>
+      </div>
+
+      <!-- CENTER PARCHMENT SCROLL BODY -->
+      <div class="reader-modal-dialog parchment-sheet" id="reader-modal-dialog">
+        <!-- 3D CURL SHADOW CREASES -->
+        <div class="parchment-crease-shadow crease-left" aria-hidden="true"></div>
+        <div class="parchment-crease-shadow crease-right" aria-hidden="true"></div>
+        <div class="parchment-center-fold" aria-hidden="true"></div>
       <!-- HEADER TOOLBAR -->
       <div class="reader-header">
         <div class="reader-title-wrap">
@@ -2688,6 +2710,21 @@
           ✓ Mark Today as Read
         </button>
       </div>
+
+      <!-- RIGHT GOLDEN ROLLER ROD (ETZ CHAYIM) -->
+      <div class="scroll-roller roller-right" id="scroll-roller-right" aria-hidden="true">
+        <div class="roller-finial finial-top">
+          <div class="finial-knop"></div>
+          <div class="finial-collar"></div>
+        </div>
+        <div class="roller-shaft">
+          <div class="roller-highlight"></div>
+        </div>
+        <div class="roller-finial finial-bottom">
+          <div class="finial-collar"></div>
+          <div class="finial-knop"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2774,6 +2811,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

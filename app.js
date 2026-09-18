@@ -1031,6 +1031,158 @@ function hasReadOnCurrentDay(row) {
   return false;
 }
 
+function spawnBvgParticleBurst(container, xPct, yPct, themeColor) {
+  if (!container) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const emitter = document.createElement('div');
+  emitter.className = 'bvg-particle-emitter';
+
+  const colorPalettes = {
+    boys: ['#38bdf8', '#7dd3fc', '#bae6fd', '#ffffff', '#0284c7'],
+    girls: ['#f472b6', '#fb7185', '#fda4af', '#ffffff', '#e11d48'],
+    tie: ['#e8a93b', '#fbbf24', '#fde68a', '#ffffff', '#f59e0b'],
+    mixed: ['#38bdf8', '#f472b6', '#e8a93b', '#ffffff', '#bae6fd', '#fbcfe8']
+  };
+
+  const palette = colorPalettes[themeColor] || colorPalettes.mixed;
+  const particleCount = 14;
+
+  for (let i = 0; i < particleCount; i++) {
+    const p = document.createElement('span');
+    const isStar = Math.random() > 0.6;
+    p.className = 'bvg-micro-particle' + (isStar ? ' shape-star' : '');
+
+    const size = isStar ? Math.floor(Math.random() * 4 + 6) : Math.floor(Math.random() * 3 + 4);
+    const color = palette[Math.floor(Math.random() * palette.length)];
+
+    const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.4;
+    const distance = Math.floor(Math.random() * 30 + 14);
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance - Math.random() * 10;
+    const rot = Math.floor((Math.random() - 0.5) * 360);
+
+    p.style.width = `${size}px`;
+    p.style.height = `${size}px`;
+    p.style.left = `calc(${xPct}% - ${size / 2}px)`;
+    p.style.top = `calc(${yPct}% - ${size / 2}px)`;
+    p.style.backgroundColor = color;
+    p.style.boxShadow = `0 0 ${size}px ${color}`;
+    p.style.setProperty('--p-tx', `${tx}px`);
+    p.style.setProperty('--p-ty', `${ty}px`);
+    p.style.setProperty('--p-rot', `${rot}deg`);
+
+    emitter.appendChild(p);
+  }
+
+  container.appendChild(emitter);
+  setTimeout(() => {
+    if (emitter.parentNode) emitter.remove();
+  }, 800);
+}
+
+function triggerBvgShockwave({ force = false, isScroll = false } = {}) {
+  const card = document.getElementById('boys-vs-girls-card');
+  if (!card) return;
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const now = Date.now();
+  if (!force && now - (window._lastBvgShockwaveTime || 0) < 3000) return;
+  window._lastBvgShockwaveTime = now;
+
+  const leadIndicator = document.getElementById('bvg-lead-indicator');
+  const barBoys = document.getElementById('bvg-bar-boys');
+  const barGirls = document.getElementById('bvg-bar-girls');
+  const boysSingleBar = document.getElementById('bvg-boys-single-bar');
+  const girlsSingleBar = document.getElementById('bvg-girls-single-bar');
+  const seamGlow = document.getElementById('bvg-tug-seam-glow');
+  const segBarWrap = document.querySelector('.bvg-segmented-bar-wrap');
+  const boysCard = document.querySelector('.bvg-boys-card');
+  const girlsCard = document.querySelector('.bvg-girls-card');
+
+  // 1. Energetic pulse on lead indicator
+  if (leadIndicator) {
+    leadIndicator.classList.remove('lead-pulse-shockwave');
+    void leadIndicator.offsetWidth; // force reflow
+    leadIndicator.classList.add('lead-pulse-shockwave');
+    setTimeout(() => leadIndicator.classList.remove('lead-pulse-shockwave'), 1200);
+  }
+
+  // 2. Seam glow shockwave
+  if (seamGlow) {
+    seamGlow.classList.remove('active');
+    void seamGlow.offsetWidth;
+    seamGlow.classList.add('active');
+    setTimeout(() => seamGlow.classList.remove('active'), 1200);
+  }
+
+  // 3. Elastic spring overshoot on first scroll-into-view
+  const bvgData = window._currentBvgData || { boysPct: 0, girlsPct: 0, segBoysWidth: 50, segGirlsWidth: 50, leader: 'tie' };
+  if (isScroll && !window._bvgHasScrolledIntoView) {
+    window._bvgHasScrolledIntoView = true;
+    if (barBoys && barGirls && boysSingleBar && girlsSingleBar) {
+      barBoys.style.transition = 'none';
+      barGirls.style.transition = 'none';
+      boysSingleBar.style.transition = 'none';
+      girlsSingleBar.style.transition = 'none';
+
+      barBoys.style.width = '50%';
+      barGirls.style.width = '50%';
+      boysSingleBar.style.width = '0%';
+      girlsSingleBar.style.width = '0%';
+
+      void barBoys.offsetWidth; // force reflow
+
+      barBoys.style.transition = '';
+      barGirls.style.transition = '';
+      boysSingleBar.style.transition = '';
+      girlsSingleBar.style.transition = '';
+
+      requestAnimationFrame(() => {
+        barBoys.style.width = `${bvgData.segBoysWidth.toFixed(1)}%`;
+        barGirls.style.width = `${bvgData.segGirlsWidth.toFixed(1)}%`;
+        boysSingleBar.style.width = `${bvgData.boysPct.toFixed(1)}%`;
+        girlsSingleBar.style.width = `${bvgData.girlsPct.toFixed(1)}%`;
+      });
+    }
+  }
+
+  // 4. Micro Particle Bursts at the Leading Edge
+  setTimeout(() => {
+    // A. At the Tug-of-War seam
+    if (segBarWrap) {
+      spawnBvgParticleBurst(segBarWrap, bvgData.segBoysWidth, 50, 'mixed');
+    }
+
+    // B. At the leading edge of the single progress bar
+    if (bvgData.leader === 'boys' && boysCard) {
+      spawnBvgParticleBurst(boysCard, Math.min(95, Math.max(10, bvgData.boysPct)), 50, 'boys');
+    } else if (bvgData.leader === 'girls' && girlsCard) {
+      spawnBvgParticleBurst(girlsCard, Math.min(95, Math.max(10, bvgData.girlsPct)), 50, 'girls');
+    } else if (boysCard && girlsCard) {
+      spawnBvgParticleBurst(boysCard, Math.min(95, Math.max(10, bvgData.boysPct)), 50, 'tie');
+      spawnBvgParticleBurst(girlsCard, Math.min(95, Math.max(10, bvgData.girlsPct)), 50, 'tie');
+    }
+  }, 220);
+}
+
+function initBoysVsGirlsRivalryObserver() {
+  const card = document.getElementById('boys-vs-girls-card');
+  if (!card) return;
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          triggerBvgShockwave({ isScroll: true });
+        }
+      });
+    }, { threshold: 0.25 });
+    observer.observe(card);
+  }
+}
+
 function renderBoysVsGirlsProgress(rows) {
   const card = document.getElementById('boys-vs-girls-card');
   if (!card) return;
@@ -1067,13 +1219,15 @@ function renderBoysVsGirlsProgress(rows) {
   if (boysSingleBar) boysSingleBar.style.width = `${boysPct}%`;
   if (girlsSingleBar) girlsSingleBar.style.width = `${girlsPct}%`;
 
+  let segBoysWidth = 50;
+  let segGirlsWidth = 50;
   const barBoys = document.getElementById('bvg-bar-boys');
   const barGirls = document.getElementById('bvg-bar-girls');
   if (barBoys && barGirls) {
     const totalCurrentPct = boysPct + girlsPct;
     if (totalCurrentPct > 0) {
-      const segBoysWidth = (boysPct / totalCurrentPct) * 100;
-      const segGirlsWidth = (girlsPct / totalCurrentPct) * 100;
+      segBoysWidth = (boysPct / totalCurrentPct) * 100;
+      segGirlsWidth = (girlsPct / totalCurrentPct) * 100;
       barBoys.style.width = `${segBoysWidth.toFixed(1)}%`;
       barGirls.style.width = `${segGirlsWidth.toFixed(1)}%`;
     } else {
@@ -1082,6 +1236,12 @@ function renderBoysVsGirlsProgress(rows) {
     }
   }
 
+  const seamGlow = document.getElementById('bvg-tug-seam-glow');
+  if (seamGlow) {
+    seamGlow.style.left = `${segBoysWidth.toFixed(1)}%`;
+  }
+
+  let leader = 'tie';
   const leadIndicator = document.getElementById('bvg-lead-indicator');
   const leadIcon = document.getElementById('bvg-lead-icon');
   const leadText = document.getElementById('bvg-lead-text');
@@ -1092,15 +1252,25 @@ function renderBoysVsGirlsProgress(rows) {
       leadIndicator.classList.add('lead-boys');
       if (leadIcon) leadIcon.textContent = '🏃‍♂️';
       leadText.textContent = 'Boys are in the Lead!';
+      leader = 'boys';
     } else if (girlsPct > boysPct) {
       leadIndicator.classList.add('lead-girls');
       if (leadIcon) leadIcon.textContent = '🏃‍♀️';
       leadText.textContent = 'Girls are in the Lead!';
+      leader = 'girls';
     } else {
       leadIndicator.classList.add('lead-tie');
       if (leadIcon) leadIcon.textContent = '🤝';
       leadText.textContent = "It's a Tie!";
+      leader = 'tie';
     }
+  }
+
+  const prevData = window._currentBvgData;
+  window._currentBvgData = { boysPct, girlsPct, segBoysWidth, segGirlsWidth, leader };
+
+  if (prevData && (prevData.boysPct !== boysPct || prevData.girlsPct !== girlsPct || prevData.leader !== leader)) {
+    triggerBvgShockwave({ force: true });
   }
 
   // Update roster pills with active reader badges in respective themes
@@ -4717,7 +4887,7 @@ function closeReaderModal() {
   setTimeout(() => {
     modal.hidden = true;
     backdrop.hidden = true;
-  }, 300);
+  }, 380);
 }
 
 function initScriptureReader(session) {
@@ -10052,6 +10222,8 @@ window.initKineticCardTilt = initKineticCardTilt;
 window.primeLivingInkVerse = primeLivingInkVerse;
 window.triggerLivingInkVerseReveal = triggerLivingInkVerseReveal;
 window.initLivingInkKeyVerse = initLivingInkKeyVerse;
+window.triggerBvgShockwave = triggerBvgShockwave;
+window.initBoysVsGirlsRivalryObserver = initBoysVsGirlsRivalryObserver;
 
 // ====== INIT ======
 
@@ -10063,5 +10235,7 @@ initAmbientCelestialBackground();
 initLevelMedallion3D();
 initKineticCardTilt();
 initLivingInkKeyVerse();
+initBoysVsGirlsRivalryObserver();
+
 
 
