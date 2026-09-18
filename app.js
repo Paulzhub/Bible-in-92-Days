@@ -5161,20 +5161,14 @@ function renderTodayPortionDetail(portionText, dayNum, session) {
   if (keyVerseText) {
     keyVerseText.textContent = `"${kv.text}"`;
     keyVerseText.setAttribute('data-raw-verse', `"${kv.text}"`);
+    if (window._livingInkHasRevealedOnce && typeof triggerLivingInkVerseReveal === 'function') {
+      triggerLivingInkVerseReveal(keyVerseText, keyVerseRef, true);
+    } else if (typeof primeLivingInkVerse === 'function') {
+      primeLivingInkVerse(keyVerseText, keyVerseRef);
+    }
   }
   if (keyVerseRef) {
     keyVerseRef.textContent = `— ${kv.ref}`;
-  }
-
-  if (typeof triggerLivingInkVerseReveal === 'function') {
-    const kvBox = document.getElementById('key-verse-box');
-    if (kvBox && !detailCard.hidden) {
-      const rect = kvBox.getBoundingClientRect();
-      const inView = rect.top < window.innerHeight && rect.bottom > 0;
-      if (inView) {
-        triggerLivingInkVerseReveal(keyVerseText, keyVerseRef, true);
-      }
-    }
   }
 
   if (chipsContainer) {
@@ -9803,8 +9797,20 @@ function initKineticCardTilt() {
 // ====== "LIVING INK" SCRIPTURE TYPOGRAPHY REVEAL ======
 
 let livingInkTimeline = null;
+let livingInkHasTriggered = false;
+let userHasInitiatedScroll = false;
 
-function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
+window._livingInkHasRevealedOnce = false;
+
+function onLivingInkUserScroll() {
+  userHasInitiatedScroll = true;
+}
+window.addEventListener('scroll', onLivingInkUserScroll, { passive: true });
+if (typeof lenisInstance !== 'undefined' && lenisInstance) {
+  lenisInstance.on('scroll', onLivingInkUserScroll);
+}
+
+function primeLivingInkVerse(verseEl, refEl) {
   if (!verseEl) verseEl = document.getElementById('key-verse-text');
   if (!refEl) refEl = document.getElementById('key-verse-ref');
   if (!verseEl) return;
@@ -9864,6 +9870,7 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
   quill.className = 'living-ink-quill';
   quill.innerHTML = '✦';
   quill.setAttribute('aria-hidden', 'true');
+  quill.style.opacity = '0';
 
   if (charSpans.length > 0) {
     charSpans[0].before(quill);
@@ -9876,19 +9883,62 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
     refEl.style.transform = 'translateX(10px)';
     refEl.style.filter = 'blur(4px)';
   }
+}
+
+function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
+  if (!verseEl) verseEl = document.getElementById('key-verse-text');
+  if (!refEl) refEl = document.getElementById('key-verse-ref');
+  if (!verseEl) return;
+
+  const rawText = (verseEl.getAttribute('data-raw-verse') || verseEl.textContent || '').trim();
+  if (!rawText) return;
+
+  const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) {
+    verseEl.textContent = rawText;
+    if (refEl) {
+      refEl.style.opacity = '1';
+      refEl.style.transform = 'none';
+      refEl.style.filter = 'none';
+    }
+    window._livingInkHasRevealedOnce = true;
+    return;
+  }
+
+  let charSpans = Array.from(verseEl.querySelectorAll('.living-ink-char'));
+  let quill = verseEl.querySelector('.living-ink-quill');
+
+  if (charSpans.length === 0 || force) {
+    primeLivingInkVerse(verseEl, refEl);
+    charSpans = Array.from(verseEl.querySelectorAll('.living-ink-char'));
+    quill = verseEl.querySelector('.living-ink-quill');
+  }
+
+  if (livingInkTimeline) {
+    livingInkTimeline.kill();
+    livingInkTimeline = null;
+  }
+
+  window._livingInkHasRevealedOnce = true;
+
+  if (quill) {
+    quill.style.opacity = '1';
+  }
 
   if (typeof gsap !== 'undefined') {
     livingInkTimeline = gsap.timeline({
       onComplete: () => {
-        gsap.to(quill, {
-          opacity: 0,
-          scale: 0.2,
-          duration: 0.35,
-          ease: 'power2.in',
-          onComplete: () => {
-            if (quill.parentNode) quill.parentNode.removeChild(quill);
-          }
-        });
+        if (quill) {
+          gsap.to(quill, {
+            opacity: 0,
+            scale: 0.2,
+            duration: 0.35,
+            ease: 'power2.in',
+            onComplete: () => {
+              if (quill.parentNode) quill.parentNode.removeChild(quill);
+            }
+          });
+        }
       }
     });
 
@@ -9905,7 +9955,7 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
         duration: 0.32,
         ease: 'power2.out',
         onStart: () => {
-          charSpan.after(quill);
+          if (quill) charSpan.after(quill);
         }
       }, startTime);
     });
@@ -9928,7 +9978,7 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
       cs.style.color = 'inherit';
       cs.style.textShadow = 'none';
     });
-    if (quill.parentNode) quill.parentNode.removeChild(quill);
+    if (quill && quill.parentNode) quill.parentNode.removeChild(quill);
     if (refEl) {
       refEl.style.opacity = '1';
       refEl.style.transform = 'none';
@@ -9952,40 +10002,54 @@ function initLivingInkKeyVerse() {
     });
   }
 
-  let hasTriggered = false;
+  // Prime verse at startup
+  primeLivingInkVerse(verseEl, refEl);
 
-  function onEnterViewport() {
-    if (hasTriggered) return;
-    hasTriggered = true;
-    triggerLivingInkVerseReveal(verseEl, refEl);
+  function checkAndTrigger() {
+    if (livingInkHasTriggered) return;
+
+    if (!userHasInitiatedScroll && window.scrollY < 20) {
+      return;
+    }
+
+    const rect = box.getBoundingClientRect();
+    if (rect.top <= window.innerHeight * 0.82 && rect.bottom >= 0) {
+      livingInkHasTriggered = true;
+      triggerLivingInkVerseReveal(verseEl, refEl);
+    }
+  }
+
+  function onScrollCheck() {
+    userHasInitiatedScroll = true;
+    checkAndTrigger();
+  }
+
+  window.addEventListener('scroll', onScrollCheck, { passive: true });
+  if (typeof lenisInstance !== 'undefined' && lenisInstance) {
+    lenisInstance.on('scroll', onScrollCheck);
   }
 
   if (typeof ScrollTrigger !== 'undefined' && typeof gsap !== 'undefined') {
     ScrollTrigger.create({
       trigger: box,
-      start: 'top 90%',
-      onEnter: onEnterViewport,
+      start: 'top 82%',
+      onEnter: () => {
+        if (!userHasInitiatedScroll && window.scrollY < 20) {
+          return;
+        }
+        if (!livingInkHasTriggered) {
+          livingInkHasTriggered = true;
+          triggerLivingInkVerseReveal(verseEl, refEl);
+        }
+      },
       once: true
     });
-  }
-
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          onEnterViewport();
-          observer.disconnect();
-        }
-      });
-    }, { threshold: 0.15 });
-    observer.observe(box);
-  } else {
-    onEnterViewport();
   }
 }
 
 // Global hooks
 window.initKineticCardTilt = initKineticCardTilt;
+window.primeLivingInkVerse = primeLivingInkVerse;
 window.triggerLivingInkVerseReveal = triggerLivingInkVerseReveal;
 window.initLivingInkKeyVerse = initLivingInkKeyVerse;
 
