@@ -9593,10 +9593,22 @@ function initKineticCardTilt() {
   const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (prefersReduced) return;
 
+  // Ensure section-today is cleared of tilt and sheen
+  const sectionToday = document.getElementById('section-today');
+  if (sectionToday) {
+    sectionToday.classList.remove('kinetic-tilt-card', 'is-hovered');
+    sectionToday.style.transform = '';
+    sectionToday.style.boxShadow = '';
+    const oldSheen = sectionToday.querySelector('.kinetic-sheen');
+    if (oldSheen) oldSheen.remove();
+  }
+
   const cardSelectors = [
-    '#section-today',
-    '#section-level-progress',
+    '#squad-gauge-card',
     '#boys-vs-girls-card',
+    '#section-level-progress',
+    '#section-heatmap',
+    '#section-all-time',
     '#public-today-preview'
   ];
 
