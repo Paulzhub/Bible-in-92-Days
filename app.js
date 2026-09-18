@@ -758,6 +758,8 @@ function showSite(session) {
   siteEl.hidden = false;
   siteEl.classList.add('fade-in', 'site-ease-in');
   if (window.refreshScrollScrubber) setTimeout(window.refreshScrollScrubber, 120);
+  if (typeof initKineticCardTilt === 'function') setTimeout(initKineticCardTilt, 80);
+  if (typeof ScrollTrigger !== 'undefined') setTimeout(() => { ScrollTrigger.refresh(); }, 150);
   
   const userGreetingSuffix = session.isAdmin ? ' (🛡️ Admin)' : (session.isGuest ? ' (Guest)' : '');
   document.getElementById('welcome-user').textContent = `Hi, ${session.username}` + userGreetingSuffix;
@@ -9584,6 +9586,9 @@ function initLevelMedallion3D() {
 
 // ====== 3D PERSPECTIVE GYRO CARD TILT & DYNAMIC SPECULAR SHEEN ======
 
+let kineticCardsList = [];
+let kineticTiltInitialized = false;
+
 function initKineticCardTilt() {
   const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (prefersReduced) return;
@@ -9595,21 +9600,25 @@ function initKineticCardTilt() {
     '#public-today-preview'
   ];
 
-  const cards = [];
   cardSelectors.forEach((sel) => {
     const el = document.querySelector(sel);
-    if (el) {
-      let sheen = el.querySelector('.kinetic-sheen');
-      if (!sheen) {
-        sheen = document.createElement('div');
-        sheen.className = 'kinetic-sheen';
-        sheen.setAttribute('aria-hidden', 'true');
-        el.insertBefore(sheen, el.firstChild);
-      }
-      if (!el.classList.contains('kinetic-tilt-card')) {
-        el.classList.add('kinetic-tilt-card');
-      }
-      cards.push({
+    if (!el) return;
+
+    let existing = kineticCardsList.find(c => c.el === el);
+    let sheen = el.querySelector('.kinetic-sheen');
+    if (!sheen) {
+      sheen = document.createElement('div');
+      sheen.className = 'kinetic-sheen';
+      sheen.setAttribute('aria-hidden', 'true');
+      el.insertBefore(sheen, el.firstChild);
+    }
+
+    if (!el.classList.contains('kinetic-tilt-card')) {
+      el.classList.add('kinetic-tilt-card');
+    }
+
+    if (!existing) {
+      const cardObj = {
         el,
         sheen,
         isHovered: false,
@@ -9626,12 +9635,53 @@ function initKineticCardTilt() {
         currentSheenY: 50,
         currentSheenOpacity: 0,
         scrollPitchX: 0,
-        needsUpdate: false
-      });
+        needsUpdate: true
+      };
+
+      const maxTilt = 10.5;
+
+      function handlePointerMove(e) {
+        cardObj.isHovered = true;
+        el.classList.add('is-hovered');
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const normX = (x / rect.width) * 2 - 1;
+        const normY = (y / rect.height) * 2 - 1;
+
+        cardObj.targetRx = -normY * maxTilt;
+        cardObj.targetRy = normX * maxTilt;
+        cardObj.targetTz = 8;
+        cardObj.targetSheenX = (x / rect.width) * 100;
+        cardObj.targetSheenY = (y / rect.height) * 100;
+        cardObj.targetSheenOpacity = 1;
+        cardObj.needsUpdate = true;
+      }
+
+      function handlePointerLeave() {
+        cardObj.isHovered = false;
+        el.classList.remove('is-hovered');
+        cardObj.targetRx = 0;
+        cardObj.targetRy = 0;
+        cardObj.targetTz = 0;
+        cardObj.targetSheenOpacity = 0;
+        cardObj.needsUpdate = true;
+      }
+
+      el.addEventListener('pointerenter', handlePointerMove, { passive: true });
+      el.addEventListener('pointermove', handlePointerMove, { passive: true });
+      el.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+
+      kineticCardsList.push(cardObj);
+    } else {
+      existing.sheen = sheen;
+      existing.needsUpdate = true;
     }
   });
 
-  if (cards.length === 0) return;
+  if (kineticTiltInitialized) return;
+  kineticTiltInitialized = true;
 
   let gyroPitchX = 0;
   let gyroRollY = 0;
@@ -9641,61 +9691,24 @@ function initKineticCardTilt() {
     window.addEventListener('deviceorientation', (e) => {
       if (e.gamma !== null && e.beta !== null) {
         hasGyro = true;
-        const roll = Math.max(-1, Math.min(1, e.gamma / 22));
+        const roll = Math.max(-1, Math.min(1, e.gamma / 20));
         const pitch = Math.max(-1, Math.min(1, (e.beta - 45) / 25));
-        gyroRollY = roll * 5.5;
-        gyroPitchX = -pitch * 4.5;
-        cards.forEach((card) => { card.needsUpdate = true; });
+        gyroRollY = roll * 6.5;
+        gyroPitchX = -pitch * 5.0;
+        kineticCardsList.forEach((card) => { card.needsUpdate = true; });
       }
     }, { passive: true });
   }
 
-  cards.forEach((c) => {
-    const el = c.el;
-
-    function handlePointerMove(e) {
-      c.isHovered = true;
-      el.classList.add('is-hovered');
-      const rect = el.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const normX = (x / rect.width) * 2 - 1;
-      const normY = (y / rect.height) * 2 - 1;
-
-      const maxTilt = 7.0;
-      c.targetRx = -normY * maxTilt;
-      c.targetRy = normX * maxTilt;
-      c.targetTz = 6;
-      c.targetSheenX = (x / rect.width) * 100;
-      c.targetSheenY = (y / rect.height) * 100;
-      c.targetSheenOpacity = 1;
-      c.needsUpdate = true;
-    }
-
-    function handlePointerLeave() {
-      c.isHovered = false;
-      el.classList.remove('is-hovered');
-      c.targetRx = 0;
-      c.targetRy = 0;
-      c.targetTz = 0;
-      c.targetSheenOpacity = 0;
-      c.needsUpdate = true;
-    }
-
-    el.addEventListener('pointerenter', handlePointerMove, { passive: true });
-    el.addEventListener('pointermove', handlePointerMove, { passive: true });
-    el.addEventListener('pointerleave', handlePointerLeave, { passive: true });
-  });
-
   function updateScrollParallax() {
     const vhHalf = window.innerHeight / 2;
-    cards.forEach((c) => {
+    kineticCardsList.forEach((c) => {
       const rect = c.el.getBoundingClientRect();
       if (rect.bottom >= -100 && rect.top <= window.innerHeight + 100) {
         const cardCenterY = rect.top + rect.height / 2;
         const normDist = (cardCenterY - vhHalf) / vhHalf;
         const clampedDist = Math.max(-1, Math.min(1, normDist));
-        c.scrollPitchX = clampedDist * -2.2;
+        c.scrollPitchX = clampedDist * -2.5;
         c.needsUpdate = true;
       }
     });
@@ -9706,12 +9719,13 @@ function initKineticCardTilt() {
   } else {
     window.addEventListener('scroll', updateScrollParallax, { passive: true });
   }
+  updateScrollParallax();
 
-  const lerpFactor = 0.12;
-  const sheenLerp = 0.15;
+  const lerpFactor = 0.14;
+  const sheenLerp = 0.18;
 
   function tick() {
-    cards.forEach((c) => {
+    kineticCardsList.forEach((c) => {
       const effectiveRx = c.targetRx + c.scrollPitchX + (hasGyro && !c.isHovered ? gyroPitchX : 0);
       const effectiveRy = c.targetRy + (hasGyro && !c.isHovered ? gyroRollY : 0);
       const effectiveTz = c.targetTz;
@@ -9743,17 +9757,16 @@ function initKineticCardTilt() {
         const sy = c.currentSheenY.toFixed(1);
         const sop = c.currentSheenOpacity.toFixed(3);
 
-        c.el.style.setProperty('--tilt-rx', `${rx}deg`);
-        c.el.style.setProperty('--tilt-ry', `${ry}deg`);
-        c.el.style.setProperty('--tilt-tz', `${tz}px`);
-        c.el.style.setProperty('--sheen-x', `${sx}%`);
-        c.el.style.setProperty('--sheen-y', `${sy}%`);
-        c.el.style.setProperty('--sheen-opacity', sop);
+        c.el.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(${tz}px)`;
 
-        const shadowX = (-ry * 1.2).toFixed(1);
-        const shadowY = (rx * 1.2 + 18).toFixed(1);
-        const shadowBlur = (25 + Math.abs(tz * 2)).toFixed(0);
-        c.el.style.boxShadow = `${shadowX}px ${shadowY}px ${shadowBlur}px -12px rgba(0, 0, 0, 0.55)`;
+        c.sheen.style.setProperty('--sheen-x', `${sx}%`);
+        c.sheen.style.setProperty('--sheen-y', `${sy}%`);
+        c.sheen.style.opacity = sop;
+
+        const shadowX = (-ry * 1.3).toFixed(1);
+        const shadowY = (rx * 1.3 + 18).toFixed(1);
+        const shadowBlur = (26 + Math.abs(tz * 2)).toFixed(0);
+        c.el.style.boxShadow = `${shadowX}px ${shadowY}px ${shadowBlur}px -12px rgba(0, 0, 0, 0.58)`;
 
         if (!isMoving && !c.isHovered && !hasGyro) {
           c.needsUpdate = false;
@@ -9772,7 +9785,7 @@ function initKineticCardTilt() {
     requestAnimationFrame(loop);
   }
 
-  window.kineticTiltCards = cards;
+  window.kineticTiltCards = kineticCardsList;
 }
 
 // ====== "LIVING INK" SCRIPTURE TYPOGRAPHY REVEAL ======
@@ -9826,6 +9839,8 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
         charSpan.style.opacity = '0';
         charSpan.style.filter = 'blur(4px)';
         charSpan.style.transform = 'translateY(3px) scale(0.95)';
+        charSpan.style.color = '#FDE68A';
+        charSpan.style.textShadow = '0 0 10px rgba(245, 158, 11, 0.9), 0 0 20px rgba(232, 169, 59, 0.5)';
         wordSpan.appendChild(charSpan);
         charSpans.push(charSpan);
       }
@@ -9837,7 +9852,12 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
   quill.className = 'living-ink-quill';
   quill.innerHTML = '✦';
   quill.setAttribute('aria-hidden', 'true');
-  verseEl.appendChild(quill);
+
+  if (charSpans.length > 0) {
+    charSpans[0].before(quill);
+  } else {
+    verseEl.appendChild(quill);
+  }
 
   if (refEl) {
     refEl.style.opacity = '0';
@@ -9850,37 +9870,51 @@ function triggerLivingInkVerseReveal(verseEl, refEl, force = false) {
       onComplete: () => {
         gsap.to(quill, {
           opacity: 0,
-          scale: 0.5,
-          duration: 0.4,
-          onComplete: () => { if (quill.parentNode) quill.parentNode.removeChild(quill); }
+          scale: 0.2,
+          duration: 0.35,
+          ease: 'power2.in',
+          onComplete: () => {
+            if (quill.parentNode) quill.parentNode.removeChild(quill);
+          }
         });
       }
     });
 
-    livingInkTimeline.to(charSpans, {
-      opacity: 1,
-      filter: 'blur(0px)',
-      y: 0,
-      scale: 1,
-      duration: 0.35,
-      stagger: 0.022,
-      ease: 'power2.out'
+    const charStagger = 0.024;
+    charSpans.forEach((charSpan, idx) => {
+      const startTime = idx * charStagger;
+      livingInkTimeline.to(charSpan, {
+        opacity: 1,
+        filter: 'blur(0px)',
+        y: 0,
+        scale: 1,
+        color: 'inherit',
+        textShadow: '0 0 0px transparent',
+        duration: 0.32,
+        ease: 'power2.out',
+        onStart: () => {
+          charSpan.after(quill);
+        }
+      }, startTime);
     });
 
     if (refEl) {
+      const finishTime = charSpans.length * charStagger + 0.08;
       livingInkTimeline.to(refEl, {
         opacity: 1,
         x: 0,
         filter: 'blur(0px)',
         duration: 0.65,
         ease: 'power2.out'
-      }, '-=0.1');
+      }, finishTime);
     }
   } else {
     charSpans.forEach((cs) => {
       cs.style.opacity = '1';
       cs.style.filter = 'none';
       cs.style.transform = 'none';
+      cs.style.color = 'inherit';
+      cs.style.textShadow = 'none';
     });
     if (quill.parentNode) quill.parentNode.removeChild(quill);
     if (refEl) {
@@ -9917,11 +9951,13 @@ function initLivingInkKeyVerse() {
   if (typeof ScrollTrigger !== 'undefined' && typeof gsap !== 'undefined') {
     ScrollTrigger.create({
       trigger: box,
-      start: 'top 88%',
+      start: 'top 90%',
       onEnter: onEnterViewport,
       once: true
     });
-  } else if ('IntersectionObserver' in window) {
+  }
+
+  if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
@@ -9929,7 +9965,7 @@ function initLivingInkKeyVerse() {
           observer.disconnect();
         }
       });
-    }, { threshold: 0.2 });
+    }, { threshold: 0.15 });
     observer.observe(box);
   } else {
     onEnterViewport();
