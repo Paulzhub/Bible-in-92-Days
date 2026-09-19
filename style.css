@@ -3496,10 +3496,14 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .sun-core {
-  font-size: 1.4rem;
-  color: #78350f;
+  font-size: 1.45rem;
+  color: #6b2804;
   line-height: 1;
   font-weight: 700;
+  text-shadow: 0 0 10px rgba(255, 235, 150, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sun-label {
@@ -3550,14 +3554,14 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .playground-circle.squash {
-  animation: orbSquash 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  animation: orbSquash 0.22s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 
 @keyframes orbSquash {
-  0% { transform: scale(1); }
-  35% { transform: scale(1.18, 0.84); }
-  70% { transform: scale(0.92, 1.08); }
-  100% { transform: scale(1); }
+  0% { scale: 1; }
+  35% { scale: 1.15 0.86; }
+  70% { scale: 0.94 1.05; }
+  100% { scale: 1; }
 }
 
 .playground-circle .circle-name {

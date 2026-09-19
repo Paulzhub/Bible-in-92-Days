@@ -4403,7 +4403,8 @@ function updatePlaygroundPhysics(dt) {
       const cy = h * 0.5;
       const dx = (item.x + item.radius) - cx;
       const dy = (item.y + item.radius) - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) dist = 1;
 
       // Desired orbital radius based on assigned ring
       const targetR = item.orbitRadius || (Math.min(w, h) * 0.32);
@@ -4419,6 +4420,14 @@ function updatePlaygroundPhysics(dt) {
 
       item.vx += (normalX * radialForce + tangentX * orbitSpeed * 0.2) * dt;
       item.vy += (normalY * radialForce + tangentY * orbitSpeed * 0.2) * dt;
+
+      // Gentle central cushion around the Word cross (sun radius ~29px)
+      const sunCushion = 32 + item.radius;
+      if (dist < sunCushion) {
+        const push = (sunCushion - dist) * 0.18;
+        item.vx += normalX * push * dt;
+        item.vy += normalY * push * dt;
+      }
     }
 
     // Apply tilt or mouse gravity
@@ -4450,38 +4459,38 @@ function updatePlaygroundPhysics(dt) {
     item.x += item.vx * dt;
     item.y += item.vy * dt;
 
-    // Wall Collisions
-    const maxX = w - item.size;
-    const maxY = h - item.size;
+    // Wall Collisions with inward-directed bounce
+    const maxX = Math.max(0, w - item.size);
+    const maxY = Math.max(0, h - item.size);
 
     let hitWall = false;
     let hitSpeed = 0;
 
-    if (item.x < 0) {
+    if (item.x <= 0) {
       item.x = 0;
       hitSpeed = Math.abs(item.vx);
-      item.vx = -item.vx * restitution;
+      item.vx = Math.abs(item.vx) * restitution;
       hitWall = true;
-    } else if (item.x > maxX) {
+    } else if (item.x >= maxX) {
       item.x = maxX;
       hitSpeed = Math.abs(item.vx);
-      item.vx = -item.vx * restitution;
+      item.vx = -Math.abs(item.vx) * restitution;
       hitWall = true;
     }
 
-    if (item.y < 0) {
+    if (item.y <= 0) {
       item.y = 0;
       hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
-      item.vy = -item.vy * restitution;
+      item.vy = Math.abs(item.vy) * restitution;
       hitWall = true;
-    } else if (item.y > maxY) {
+    } else if (item.y >= maxY) {
       item.y = maxY;
       hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
-      item.vy = -item.vy * restitution;
+      item.vy = -Math.abs(item.vy) * restitution;
       hitWall = true;
     }
 
-    if (hitWall && hitSpeed > 2.2) {
+    if (hitWall && hitSpeed > 2.0) {
       item.el.classList.remove('squash');
       void item.el.offsetWidth;
       item.el.classList.add('squash');
@@ -4495,17 +4504,18 @@ function updatePlaygroundPhysics(dt) {
     for (let j = i + 1; j < entries.length; j++) {
       const b = entries[j];
 
-      const cAx = a.x + a.radius;
-      const cAy = a.y + a.radius;
-      const cBx = b.x + b.radius;
-      const cBy = b.y + b.radius;
-
-      const dx = cBx - cAx;
-      const dy = cBy - cAy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      let dx = (b.x + b.radius) - (a.x + a.radius);
+      let dy = (b.y + b.radius) - (a.y + a.radius);
+      let dist = Math.sqrt(dx * dx + dy * dy);
       const minDist = a.radius + b.radius;
 
-      if (dist < minDist && dist > 0) {
+      if (dist < minDist) {
+        if (dist < 0.001) {
+          dx = (Math.random() - 0.5) * 2 || 1;
+          dy = (Math.random() - 0.5) * 2 || 1;
+          dist = Math.sqrt(dx * dx + dy * dy);
+        }
+
         // Overlap separation
         const overlap = minDist - dist;
         const nx = dx / dist;
@@ -4533,7 +4543,7 @@ function updatePlaygroundPhysics(dt) {
         const rvy = a.vy - b.vy;
         const velAlongNormal = rvx * nx + rvy * ny;
 
-        // Do not resolve if velocities are separating
+        // Positive velAlongNormal means circles are approaching each other
         if (velAlongNormal > 0) {
           const impulse = -(1 + restitution) * velAlongNormal / (1 / a.mass + 1 / b.mass);
           if (!a.isDragging) {
@@ -4558,8 +4568,23 @@ function updatePlaygroundPhysics(dt) {
     }
   }
 
-  // 3. Render Positions
+  // 3. Coordinate Sanitization, Clamping & Rendering
   entries.forEach(item => {
+    const maxX = Math.max(0, w - item.size);
+    const maxY = Math.max(0, h - item.size);
+
+    if (!Number.isFinite(item.x) || !Number.isFinite(item.y)) {
+      item.x = maxX / 2;
+      item.y = maxY / 2;
+      item.vx = 0;
+      item.vy = 0;
+    }
+    if (!Number.isFinite(item.vx)) item.vx = 0;
+    if (!Number.isFinite(item.vy)) item.vy = 0;
+
+    item.x = Math.max(0, Math.min(maxX, item.x));
+    item.y = Math.max(0, Math.min(maxY, item.y));
+
     item.el.style.transform = `translate3d(${Math.round(item.x)}px, ${Math.round(item.y)}px, 0)`;
   });
 }
@@ -4640,6 +4665,12 @@ function renderPlayground(rows) {
         orbitRadius: orbitRadius,
         orbitSpeed: orbitSpeed
       };
+
+      el.addEventListener('animationend', (e) => {
+        if (e.animationName === 'orbSquash') {
+          el.classList.remove('squash');
+        }
+      });
 
       makeEnhancedDraggable(entry, container);
       container.appendChild(el);
