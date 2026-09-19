@@ -1627,6 +1627,10 @@ function initBoysVsGirlsShareModal() {
 function celebrateTier(tier) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+  if (typeof playMedallionChime === 'function') {
+    playMedallionChime();
+  }
+
   if ('vibrate' in navigator && tier.haptic) {
     try { navigator.vibrate(tier.haptic); } catch (e) {}
   }
@@ -2317,6 +2321,10 @@ function initLeaderboardFilterTabs() {
 
 function renderLeaderboard(rows, session) {
   initLeaderboardFilterTabs();
+  const readCount = (rows || []).filter(r => r.readToday).length;
+  if (readCount >= 2) {
+    checkSquadMilestoneCelebration(readCount);
+  }
   renderSquadGauge(rows);
   renderBoysVsGirlsProgress(rows);
   renderLevelProgress(rows, session);
@@ -2505,6 +2513,8 @@ function renderLeaderboard(rows, session) {
 
 function renderWeeklyRecap(recap) {
   if (!recap || !recap.stats) return;
+  const recapSection = document.getElementById('section-recap');
+  if (!recapSection) return;
 
   const select = document.getElementById('recap-week-select');
   const matrixSelect = document.getElementById('squad-matrix-week-select');
@@ -5113,6 +5123,9 @@ async function openReaderModal({ portion, day, initialChapter }) {
   requestAnimationFrame(() => {
     modal.classList.add('active');
     backdrop.classList.add('active');
+    if (typeof playScrollUnfurlHarp === 'function') {
+      playScrollUnfurlHarp();
+    }
   });
 
   await renderReaderPassageContent(portion, activeReaderVersion, initialChapter);
@@ -7068,7 +7081,7 @@ function filterSidebarPortions(query) {
 // ====== SECTION SCROLL TRANSITIONS ======
 
 function initScrollTransitions() {
-  const sections = document.querySelectorAll('main section, .squad-gauge-card');
+  const sections = document.querySelectorAll('main section');
   sections.forEach(sec => sec.classList.add('scroll-animate'));
 
   const observer = new IntersectionObserver((entries) => {
@@ -7085,6 +7098,160 @@ function initScrollTransitions() {
 
   sections.forEach(sec => observer.observe(sec));
 }
+
+// ====== PROCEDURAL WEB AUDIO HARMONICS (ANCIENT HARP & CELESTIAL CHIME) ======
+
+let proceduralAudioCtx = null;
+let lastHarpSoundTime = 0;
+let lastMedallionSoundTime = 0;
+
+function getProceduralAudioContext() {
+  try {
+    if (localStorage.getItem('bible92_sound_muted') === 'true') {
+      return null;
+    }
+    if (!proceduralAudioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      proceduralAudioCtx = new AudioContextClass();
+    }
+    if (proceduralAudioCtx.state === 'suspended') {
+      proceduralAudioCtx.resume().catch(() => {});
+    }
+    return proceduralAudioCtx;
+  } catch (err) {
+    return null;
+  }
+}
+
+function playPluckedHarpString(ctx, masterGain, freq, startTime, duration = 1.4, noteGainVal = 0.12) {
+  try {
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const noteGain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, startTime);
+
+    // Warm triangle partial with subtle detuning (+0.2%) for wood-chamber acoustic chorusing
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(freq * 1.002, startTime);
+
+    filter.type = 'lowpass';
+    filter.Q.setValueAtTime(2.4, startTime);
+    // Initial bright pluck transient settling rapidly into warm string resonance
+    filter.frequency.setValueAtTime(Math.min(freq * 6, 2800), startTime);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(freq * 0.9, 320), startTime + duration * 0.7);
+
+    // Dynamic amplitude envelope: crisp 3ms pluck attack, followed by smooth exponential decay
+    noteGain.gain.setValueAtTime(0.0001, startTime);
+    noteGain.gain.linearRampToValueAtTime(noteGainVal, startTime + 0.004);
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(noteGain);
+    noteGain.connect(masterGain);
+
+    osc1.start(startTime);
+    osc2.start(startTime);
+    osc1.stop(startTime + duration);
+    osc2.stop(startTime + duration);
+  } catch (err) {}
+}
+
+function playBellHarmonic(ctx, masterGain, freq, startTime, duration, vol) {
+  try {
+    if (freq > 8000) return;
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(freq, startTime);
+    filter.Q.setValueAtTime(6.0, startTime);
+
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(vol, startTime + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  } catch (err) {}
+}
+
+// Ancient Davidic Harp (Kinnor) arpeggio on Scripture Reader Parchment Scroll unfurl
+function playScrollUnfurlHarp() {
+  try {
+    const ctx = getProceduralAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    if (now - lastHarpSoundTime < 0.4) return;
+    lastHarpSoundTime = now;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.18, now);
+    masterGain.connect(ctx.destination);
+
+    // Ancient Davidic Pentatonic modal scale: D4, F#4, A4, B4, D5 (luminous biblical chord)
+    const harpNotes = [
+      { freq: 293.66, delay: 0.000, dur: 1.5, vol: 0.11 }, // D4
+      { freq: 369.99, delay: 0.042, dur: 1.5, vol: 0.13 }, // F#4
+      { freq: 440.00, delay: 0.084, dur: 1.6, vol: 0.14 }, // A4
+      { freq: 493.88, delay: 0.126, dur: 1.6, vol: 0.13 }, // B4
+      { freq: 587.33, delay: 0.168, dur: 1.8, vol: 0.12 }  // D5
+    ];
+
+    harpNotes.forEach(({ freq, delay, dur, vol }) => {
+      playPluckedHarpString(ctx, masterGain, freq, now + delay, dur, vol);
+    });
+  } catch (err) {
+    // Silent fail
+  }
+}
+
+// Radiant Celestial Medallion chime on 3D inspection or level unlock
+function playMedallionChime() {
+  try {
+    const ctx = getProceduralAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    if (now - lastMedallionSoundTime < 0.35) return;
+    lastMedallionSoundTime = now;
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.16, now);
+    masterGain.connect(ctx.destination);
+
+    const chord = [
+      { freq: 293.66, delay: 0.00, dur: 1.8, vol: 0.09 }, // D4
+      { freq: 440.00, delay: 0.03, dur: 2.0, vol: 0.11 }, // A4
+      { freq: 587.33, delay: 0.06, dur: 2.2, vol: 0.13 }, // D5
+      { freq: 739.99, delay: 0.09, dur: 2.4, vol: 0.12 }, // F#5
+      { freq: 880.00, delay: 0.12, dur: 2.5, vol: 0.10 }, // A5
+      { freq: 1174.66, delay: 0.16, dur: 2.6, vol: 0.08 }  // D6
+    ];
+
+    chord.forEach(({ freq, delay, dur, vol }) => {
+      const t = now + delay;
+      playPluckedHarpString(ctx, masterGain, freq, t, dur, vol);
+      playBellHarmonic(ctx, masterGain, freq * 2, t, dur * 0.8, vol * 0.35);
+    });
+  } catch (err) {
+    // Silent fail
+  }
+}
+
+window.playScrollUnfurlHarp = playScrollUnfurlHarp;
+window.playMedallionChime = playMedallionChime;
 
 // ====== AUDIO BIBLE NARRATOR CONTROLLER ======
 
@@ -7756,13 +7923,11 @@ function initScrollScrubberRail() {
   }
 
   const DASHBOARD_SECTIONS = [
-    { id: 'squad-gauge-card', label: 'Daily Goal' },
     { id: 'boys-vs-girls-card', label: 'Boys vs Girls' },
     { id: 'section-today', label: "Today's Portion" },
     { id: 'section-heatmap', label: 'Streak Heatmap' },
     { id: 'section-level-progress', label: 'Level Progress' },
     { id: 'section-leaderboard', label: 'Leaderboard' },
-    { id: 'section-recap', label: 'Weekly Recap' },
     { id: 'section-all-time', label: 'Hall of Fame' },
     { id: 'section-comments', label: 'Community Chat' },
     { id: 'section-prayers', label: 'Prayer Wall' },
@@ -9363,6 +9528,9 @@ function initLevelMedallion3D() {
             activeTierIdx = idx;
             applyTierTextures(MEDALLION_TIERS[activeTierIdx]);
             targetRotY = rotY + 0.4;
+            if (typeof playMedallionChime === 'function') {
+              playMedallionChime();
+            }
           });
         } else {
           btn.className = 'medallion-tier-pill locked';
@@ -9704,6 +9872,9 @@ function initLevelMedallion3D() {
       requestAnimationFrame(() => {
         modal.classList.add('active');
         backdrop.classList.add('active');
+        if (typeof playMedallionChime === 'function') {
+          playMedallionChime();
+        }
       });
 
       if (!animId) {
@@ -9768,7 +9939,6 @@ function initKineticCardTilt() {
   }
 
   const cardSelectors = [
-    '#squad-gauge-card',
     '#boys-vs-girls-card',
     '#section-level-progress',
     '#section-heatmap',
