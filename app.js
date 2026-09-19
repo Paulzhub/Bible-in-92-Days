@@ -4049,7 +4049,7 @@ async function handleNudgeUser(targetUsername, btnEl, session) {
   }
 }
 
-// ====== SECTION 5: PROGRESS PLAYGROUND ======
+// ====== SECTION 5: PROGRESS PLAYGROUND (INTERACTIVE ARENA) ======
 
 const USER_COLORS = {
   'Elisha': '#E8A93B',
@@ -4067,8 +4067,8 @@ const USER_COLORS = {
   'Yeshi': '#B2495C'
 };
 const FALLBACK_COLOR = '#8892B0';
-const CIRCLE_MIN = 52;
-const CIRCLE_MAX = 132;
+const CIRCLE_MIN = 54;
+const CIRCLE_MAX = 120;
 
 function colorFor(username) {
   return USER_COLORS[username] || FALLBACK_COLOR;
@@ -4076,47 +4076,614 @@ function colorFor(username) {
 
 function circleSizeFor(daysCompleted) {
   const fraction = Math.max(0, Math.min(1, daysCompleted / TOTAL_CHALLENGE_DAYS));
-  return CIRCLE_MIN + (CIRCLE_MAX - CIRCLE_MIN) * fraction;
+  return Math.round(CIRCLE_MIN + (CIRCLE_MAX - CIRCLE_MIN) * fraction);
 }
 
 const playgroundCircles = new Map();
+let playgroundMode = 'free'; // 'free' | 'magnet' | 'orbit'
+let playgroundTiltEnabled = false;
+let playgroundChimesEnabled = true;
+let playgroundTilt = { gx: 0, gy: 0 };
+let playgroundMouse = { active: false, x: 0, y: 0 };
+let isPlaygroundLoopRunning = false;
+let playgroundAnimId = null;
+let isPlaygroundControlsBound = false;
+let lastPgBumpTime = 0;
+let activeBumpVoices = 0;
 
-function renderPlayground(rows) {
+// Procedural Micro-Harmonics on Collisions
+function playPlaygroundBumpHarmonic(massFraction, speed) {
+  if (!playgroundChimesEnabled) return;
+  try {
+    const ctx = getProceduralAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    if (now - lastPgBumpTime < 0.05 || activeBumpVoices >= 3) return;
+    if (speed < 1.3) return;
+
+    lastPgBumpTime = now;
+    activeBumpVoices++;
+
+    const masterGain = ctx.createGain();
+    const vol = Math.min(0.14, Math.max(0.02, (speed / 14) * 0.12));
+    masterGain.gain.setValueAtTime(vol, now);
+    masterGain.connect(ctx.destination);
+
+    const PENTATONIC_SCALE = [
+      146.83, 196.00, 220.00, 293.66, 369.99, 440.00, 493.88, 587.33, 739.99, 880.00
+    ];
+    const scaleIdx = Math.max(0, Math.min(PENTATONIC_SCALE.length - 1, Math.floor((1 - (massFraction || 0.5)) * (PENTATONIC_SCALE.length - 1))));
+    const freq = PENTATONIC_SCALE[scaleIdx];
+
+    playPluckedHarpString(ctx, masterGain, freq, now, 0.65, 0.11);
+    setTimeout(() => {
+      activeBumpVoices = Math.max(0, activeBumpVoices - 1);
+    }, 650);
+  } catch (err) {}
+}
+
+function initPlaygroundControls() {
+  if (isPlaygroundControlsBound) return;
+  isPlaygroundControlsBound = true;
+
+  const container = document.getElementById('playground');
+  const section = document.getElementById('section-playground');
+  const sunEl = document.getElementById('playground-sun');
+  const modeBtns = document.querySelectorAll('.pg-mode-btn');
+  const tiltBtn = document.getElementById('pg-tilt-toggle');
+  const audioBtn = document.getElementById('pg-audio-toggle');
+  const popover = document.getElementById('playground-popover');
+  const popoverClose = document.getElementById('pg-popover-close');
+
+  // Arena Modes
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      playgroundMode = btn.dataset.mode || 'free';
+
+      if (container) {
+        container.classList.remove('mode-free', 'mode-magnet', 'mode-orbit');
+        container.classList.add(`mode-${playgroundMode}`);
+      }
+      if (sunEl) {
+        sunEl.hidden = (playgroundMode !== 'orbit');
+      }
+
+      // Nudge circles to adapt to mode
+      playgroundCircles.forEach(entry => {
+        entry.vx = (Math.random() - 0.5) * 4;
+        entry.vy = (Math.random() - 0.5) * 4;
+      });
+
+      closePlaygroundPopover();
+    });
+  });
+
+  // Tilt Gravity Toggle
+  if (tiltBtn) {
+    tiltBtn.addEventListener('click', async () => {
+      if (!playgroundTiltEnabled) {
+        // Request permission for iOS Safari if needed
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const resp = await DeviceOrientationEvent.requestPermission();
+            if (resp !== 'granted') {
+              showNudgeToast('⚠️ Device orientation permission denied.', true);
+              return;
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+        }
+        playgroundTiltEnabled = true;
+        tiltBtn.classList.add('active');
+        const textEl = document.getElementById('pg-tilt-text');
+        if (textEl) textEl.textContent = 'Tilt: ON';
+        showNudgeToast('📱 Gyro Gravity active! Tilt your device to roll orbs.');
+      } else {
+        playgroundTiltEnabled = false;
+        tiltBtn.classList.remove('active');
+        const textEl = document.getElementById('pg-tilt-text');
+        if (textEl) textEl.textContent = 'Tilt Gravity';
+        playgroundTilt = { gx: 0, gy: 0 };
+      }
+    });
+  }
+
+  // Device orientation listener
+  window.addEventListener('deviceorientation', (e) => {
+    if (!playgroundTiltEnabled) return;
+    const gamma = e.gamma || 0; // -90 to 90 (left to right)
+    const beta = e.beta || 0;   // -180 to 180 (front to back)
+    playgroundTilt.gx = Math.max(-1, Math.min(1, gamma / 32)) * 0.55;
+    playgroundTilt.gy = Math.max(-1, Math.min(1, (beta - 42) / 32)) * 0.55;
+  }, { passive: true });
+
+  // Desktop Mouse Gravity
+  if (container) {
+    container.addEventListener('mousemove', (e) => {
+      if (playgroundTiltEnabled) return;
+      const rect = container.getBoundingClientRect();
+      playgroundMouse.x = e.clientX - rect.left;
+      playgroundMouse.y = e.clientY - rect.top;
+      playgroundMouse.active = true;
+    });
+    container.addEventListener('mouseleave', () => {
+      playgroundMouse.active = false;
+    });
+  }
+
+  // Chimes Toggle
+  if (audioBtn) {
+    audioBtn.addEventListener('click', () => {
+      playgroundChimesEnabled = !playgroundChimesEnabled;
+      audioBtn.classList.toggle('active', playgroundChimesEnabled);
+      const textEl = document.getElementById('pg-audio-text');
+      const iconEl = document.getElementById('pg-audio-icon');
+      if (textEl) textEl.textContent = playgroundChimesEnabled ? 'Chimes' : 'Muted';
+      if (iconEl) iconEl.textContent = playgroundChimesEnabled ? '🔔' : '🔕';
+    });
+    audioBtn.classList.add('active');
+  }
+
+  // Popover close listener
+  if (popoverClose) {
+    popoverClose.addEventListener('click', closePlaygroundPopover);
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    if (popover && !popover.hidden && !popover.contains(e.target) && !e.target.closest('.playground-circle')) {
+      closePlaygroundPopover();
+    }
+  });
+
+  // Pause simulation loop when offscreen
+  if (section && 'IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          startPlaygroundLoop();
+        } else {
+          stopPlaygroundLoop();
+        }
+      });
+    }, { threshold: 0.05 });
+    observer.observe(section);
+  }
+}
+
+function closePlaygroundPopover() {
+  const popover = document.getElementById('playground-popover');
+  if (popover) popover.hidden = true;
+}
+
+function openPlaygroundPopover(entry, clientX, clientY) {
+  const popover = document.getElementById('playground-popover');
+  const container = document.getElementById('playground');
+  if (!popover || !container) return;
+
+  const row = entry.row;
+  const session = getSession();
+  const isMe = session && row.username && row.username.toLowerCase() === session.username.toLowerCase();
+
+  const avatarEl = document.getElementById('pg-popover-avatar');
+  const nameEl = document.getElementById('pg-popover-name');
+  const tierEl = document.getElementById('pg-popover-tier');
+  const daysEl = document.getElementById('pg-popover-days');
+  const streakEl = document.getElementById('pg-popover-streak');
+  const statusEl = document.getElementById('pg-popover-status');
+  const actionBtn = document.getElementById('pg-popover-action-btn');
+
+  if (avatarEl) {
+    avatarEl.style.background = colorFor(row.username);
+    avatarEl.textContent = (row.username || '?').charAt(0).toUpperCase();
+  }
+  if (nameEl) nameEl.textContent = row.username;
+
+  const levelInfo = getLevelProgressInfo(row.daysCompleted || 0);
+  if (tierEl) tierEl.textContent = levelInfo.currentLevelTitle || 'Disciple';
+
+  if (daysEl) daysEl.textContent = `${row.daysCompleted || 0} / ${TOTAL_CHALLENGE_DAYS}d`;
+  if (streakEl) streakEl.textContent = row.streak > 0 ? `🔥 ${row.streak}d streak` : 'No streak';
+  if (statusEl) {
+    statusEl.textContent = row.readToday ? '✓ Read Today' : '⏳ Pending';
+    statusEl.style.color = row.readToday ? 'var(--accent-2, #10b981)' : 'var(--accent, #e8a93b)';
+  }
+
+  if (actionBtn) {
+    if (isMe) {
+      actionBtn.textContent = row.readToday ? '🏅 Inspect My Medallion' : '📖 Read Today\'s Portion';
+      actionBtn.className = 'btn btn-primary btn-sm pg-action-btn';
+      actionBtn.onclick = () => {
+        closePlaygroundPopover();
+        if (row.readToday) {
+          if (window.openLevelMedallion) window.openLevelMedallion();
+        } else {
+          const portionEl = document.getElementById('today-portion-link') || document.querySelector('.today-portion-card');
+          if (portionEl) portionEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+    } else if (row.readToday) {
+      actionBtn.textContent = '🙌 Cheer On!';
+      actionBtn.className = 'btn btn-secondary btn-sm pg-action-btn';
+      actionBtn.onclick = () => {
+        showNudgeToast(`🙌 You cheered on ${row.username}! Keep shining!`);
+        celebrateTier({ big: false, count: 2, emojis: ['🙌', '✨', '⭐'], colors: ['#E8A93B', '#6FAE8C', '#5B8DEF'] });
+        closePlaygroundPopover();
+      };
+    } else {
+      actionBtn.textContent = '⚡ Nudge to Read';
+      actionBtn.className = 'btn btn-primary btn-sm pg-action-btn';
+      actionBtn.onclick = async () => {
+        actionBtn.disabled = true;
+        actionBtn.textContent = 'Sending nudge…';
+        try {
+          if (typeof nudgeUser === 'function') {
+            await nudgeUser(row.username);
+          } else {
+            showNudgeToast(`⚡ You nudged ${row.username} to read today!`);
+          }
+        } catch (e) {
+          showNudgeToast(`⚡ You nudged ${row.username} to read today!`);
+        }
+        celebrateTier({ big: false, count: 2, emojis: ['⚡', '✨', '🔥'], colors: ['#FFD700', '#FFA500', '#5B8DEF'] });
+        closePlaygroundPopover();
+      };
+    }
+  }
+
+  // Positioning
+  const cRect = container.getBoundingClientRect();
+  const popWidth = 270;
+  const popHeight = 180;
+  let posX = (entry.x + entry.size / 2) - (popWidth / 2);
+  let posY = entry.y - popHeight - 12;
+
+  if (posY < 8) posY = entry.y + entry.size + 12;
+  posX = Math.max(8, Math.min(container.clientWidth - popWidth - 8, posX));
+  posY = Math.max(8, Math.min(container.clientHeight - popHeight - 8, posY));
+
+  popover.style.left = posX + 'px';
+  popover.style.top = posY + 'px';
+  popover.hidden = false;
+}
+
+function startPlaygroundLoop() {
+  if (isPlaygroundLoopRunning) return;
+  isPlaygroundLoopRunning = true;
+  let lastTime = performance.now();
+
+  function loop(currentTime) {
+    if (!isPlaygroundLoopRunning) return;
+    const dt = Math.min(32, currentTime - lastTime) / 16;
+    lastTime = currentTime;
+
+    updatePlaygroundPhysics(dt);
+    playgroundAnimId = requestAnimationFrame(loop);
+  }
+  playgroundAnimId = requestAnimationFrame(loop);
+}
+
+function stopPlaygroundLoop() {
+  isPlaygroundLoopRunning = false;
+  if (playgroundAnimId) {
+    cancelAnimationFrame(playgroundAnimId);
+    playgroundAnimId = null;
+  }
+}
+
+function updatePlaygroundPhysics(dt) {
   const container = document.getElementById('playground');
   if (!container) return;
 
-  rows.forEach((row, i) => {
-    const size = circleSizeFor(row.daysCompleted);
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (w < 50 || h < 50) return;
+
+  const entries = Array.from(playgroundCircles.values());
+  const restitution = 0.78;
+  const friction = 0.965;
+
+  // 1. Force Integration & Movement
+  entries.forEach(item => {
+    if (item.isDragging) return;
+
+    // Apply arena mode forces
+    if (playgroundMode === 'magnet') {
+      const isBoy = BOY_USERS.includes((item.username || '').toLowerCase());
+      const targetX = isBoy ? w * 0.22 : w * 0.78;
+      const targetY = h * 0.50;
+      const dx = targetX - (item.x + item.radius);
+      const dy = targetY - (item.y + item.radius);
+      item.vx += dx * 0.003 * dt;
+      item.vy += dy * 0.003 * dt;
+    } else if (playgroundMode === 'orbit') {
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const dx = (item.x + item.radius) - cx;
+      const dy = (item.y + item.radius) - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Desired orbital radius based on assigned ring
+      const targetR = item.orbitRadius || (Math.min(w, h) * 0.32);
+      const radialErr = targetR - dist;
+      const radialForce = radialErr * 0.012;
+
+      // Tangential orbital velocity
+      const orbitSpeed = item.orbitSpeed || 1.8;
+      const normalX = dx / dist;
+      const normalY = dy / dist;
+      const tangentX = -normalY;
+      const tangentY = normalX;
+
+      item.vx += (normalX * radialForce + tangentX * orbitSpeed * 0.2) * dt;
+      item.vy += (normalY * radialForce + tangentY * orbitSpeed * 0.2) * dt;
+    }
+
+    // Apply tilt or mouse gravity
+    if (playgroundTiltEnabled) {
+      item.vx += playgroundTilt.gx * dt;
+      item.vy += playgroundTilt.gy * dt;
+    } else if (playgroundMouse.active && playgroundMode === 'free') {
+      const dx = playgroundMouse.x - (item.x + item.radius);
+      const dy = playgroundMouse.y - (item.y + item.radius);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 30 && dist < 220) {
+        item.vx += (dx / dist) * 0.18 * dt;
+        item.vy += (dy / dist) * 0.18 * dt;
+      }
+    }
+
+    // Apply friction and cap velocity
+    item.vx *= Math.pow(playgroundMode === 'orbit' ? 0.985 : friction, dt);
+    item.vy *= Math.pow(playgroundMode === 'orbit' ? 0.985 : friction, dt);
+
+    const speed = Math.sqrt(item.vx * item.vx + item.vy * item.vy);
+    const maxSpeed = 16;
+    if (speed > maxSpeed) {
+      item.vx = (item.vx / speed) * maxSpeed;
+      item.vy = (item.vy / speed) * maxSpeed;
+    }
+
+    // Step position
+    item.x += item.vx * dt;
+    item.y += item.vy * dt;
+
+    // Wall Collisions
+    const maxX = w - item.size;
+    const maxY = h - item.size;
+
+    let hitWall = false;
+    let hitSpeed = 0;
+
+    if (item.x < 0) {
+      item.x = 0;
+      hitSpeed = Math.abs(item.vx);
+      item.vx = -item.vx * restitution;
+      hitWall = true;
+    } else if (item.x > maxX) {
+      item.x = maxX;
+      hitSpeed = Math.abs(item.vx);
+      item.vx = -item.vx * restitution;
+      hitWall = true;
+    }
+
+    if (item.y < 0) {
+      item.y = 0;
+      hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
+      item.vy = -item.vy * restitution;
+      hitWall = true;
+    } else if (item.y > maxY) {
+      item.y = maxY;
+      hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
+      item.vy = -item.vy * restitution;
+      hitWall = true;
+    }
+
+    if (hitWall && hitSpeed > 2.2) {
+      item.el.classList.remove('squash');
+      void item.el.offsetWidth;
+      item.el.classList.add('squash');
+      playPlaygroundBumpHarmonic(item.massFraction, hitSpeed);
+    }
+  });
+
+  // 2. Circle-to-Circle Elastic Collisions
+  for (let i = 0; i < entries.length; i++) {
+    const a = entries[i];
+    for (let j = i + 1; j < entries.length; j++) {
+      const b = entries[j];
+
+      const cAx = a.x + a.radius;
+      const cAy = a.y + a.radius;
+      const cBx = b.x + b.radius;
+      const cBy = b.y + b.radius;
+
+      const dx = cBx - cAx;
+      const dy = cBy - cAy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = a.radius + b.radius;
+
+      if (dist < minDist && dist > 0) {
+        // Overlap separation
+        const overlap = minDist - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        const totalMass = a.mass + b.mass;
+        const aShare = b.mass / totalMass;
+        const bShare = a.mass / totalMass;
+
+        if (!a.isDragging && !b.isDragging) {
+          a.x -= nx * overlap * aShare;
+          a.y -= ny * overlap * aShare;
+          b.x += nx * overlap * bShare;
+          b.y += ny * overlap * bShare;
+        } else if (a.isDragging && !b.isDragging) {
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+        } else if (!a.isDragging && b.isDragging) {
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+        }
+
+        // Relative velocity along normal
+        const rvx = a.vx - b.vx;
+        const rvy = a.vy - b.vy;
+        const velAlongNormal = rvx * nx + rvy * ny;
+
+        // Do not resolve if velocities are separating
+        if (velAlongNormal > 0) {
+          const impulse = -(1 + restitution) * velAlongNormal / (1 / a.mass + 1 / b.mass);
+          if (!a.isDragging) {
+            a.vx += (impulse / a.mass) * nx;
+            a.vy += (impulse / a.mass) * ny;
+          }
+          if (!b.isDragging) {
+            b.vx -= (impulse / b.mass) * nx;
+            b.vy -= (impulse / b.mass) * ny;
+          }
+
+          if (velAlongNormal > 1.6) {
+            a.el.classList.remove('squash');
+            b.el.classList.remove('squash');
+            void a.el.offsetWidth;
+            a.el.classList.add('squash');
+            b.el.classList.add('squash');
+            playPlaygroundBumpHarmonic((a.massFraction + b.massFraction) / 2, velAlongNormal);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Render Positions
+  entries.forEach(item => {
+    item.el.style.transform = `translate3d(${Math.round(item.x)}px, ${Math.round(item.y)}px, 0)`;
+  });
+}
+
+function renderPlayground(rows) {
+  const container = document.getElementById('playground');
+  if (!container || !rows || !rows.length) return;
+
+  initPlaygroundControls();
+
+  const session = getSession();
+  const maxDays = Math.max(...rows.map(r => r.daysCompleted || 0));
+
+  // Sort rows to assign balanced orbit rings
+  const sorted = [...rows].sort((a, b) => (b.daysCompleted || 0) - (a.daysCompleted || 0));
+
+  sorted.forEach((row, i) => {
+    const size = circleSizeFor(row.daysCompleted || 0);
+    const radius = size / 2;
+    const massFraction = Math.max(0, Math.min(1, (row.daysCompleted || 0) / TOTAL_CHALLENGE_DAYS));
+    const mass = 1 + massFraction * 2.5;
+
     let entry = playgroundCircles.get(row.username);
 
     if (!entry) {
       const el = document.createElement('div');
       el.className = 'playground-circle';
       el.style.background = colorFor(row.username);
-      el.innerHTML = `<span class="circle-name">${escapeHtml(row.username)}</span><span class="circle-days">${row.daysCompleted}</span>`;
-
-      const pos = initialPlaygroundPosition(container, i, rows.length, size);
       el.style.width = size + 'px';
       el.style.height = size + 'px';
-      el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
 
-      makeDraggable(el, container);
+      const isMe = session && row.username && session.username && (row.username.toLowerCase() === session.username.toLowerCase());
+      const isLeader = maxDays > 0 && (row.daysCompleted === maxDays);
+      const hasStreak = (row.streak || 0) >= 3;
+      const isHotStreak = (row.streak || 0) >= 5;
+      const hasReadToday = !!row.readToday;
+
+      let innerContent = '';
+      if (isLeader) {
+        innerContent += '<span class="leader-crown" title="Top Reader Crown">👑</span>';
+      }
+      innerContent += `<span class="circle-name">${escapeHtml(row.username)}</span>`;
+      innerContent += `<span class="circle-days">${row.daysCompleted || 0}</span>`;
+      if (isMe) {
+        innerContent += '<span class="you-badge">YOU</span>';
+      }
+      el.innerHTML = innerContent;
+
+      if (isMe) el.classList.add('you-marker');
+      if (isHotStreak) el.classList.add('streak-hot-aura');
+      else if (hasStreak) el.classList.add('streak-flame-aura');
+      if (hasReadToday) el.classList.add('read-today-aura');
+
+      const pos = initialPlaygroundPosition(container, i, rows.length, size);
+      el.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
+
+      // Assigned celestial orbit radius and speed
+      const ringIndex = i % 4;
+      const minR = Math.min(container.clientWidth || 360, container.clientHeight || 380) * 0.18;
+      const maxR = Math.min(container.clientWidth || 360, container.clientHeight || 380) * 0.42;
+      const orbitRadius = minR + (ringIndex / 3) * (maxR - minR);
+      const orbitSpeed = (1.4 + (i % 3) * 0.4) * (i % 2 === 0 ? 1 : -1);
+
+      entry = {
+        id: row.username,
+        username: row.username,
+        row: row,
+        el: el,
+        x: pos.x,
+        y: pos.y,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        size: size,
+        radius: radius,
+        mass: mass,
+        massFraction: massFraction,
+        isDragging: false,
+        orbitRadius: orbitRadius,
+        orbitSpeed: orbitSpeed
+      };
+
+      makeEnhancedDraggable(entry, container);
       container.appendChild(el);
-
-      entry = { el, x: pos.x, y: pos.y, size };
       playgroundCircles.set(row.username, entry);
     } else {
+      entry.row = row;
+      entry.size = size;
+      entry.radius = radius;
+      entry.mass = mass;
+      entry.massFraction = massFraction;
       entry.el.style.width = size + 'px';
       entry.el.style.height = size + 'px';
-      entry.el.querySelector('.circle-days').textContent = row.daysCompleted;
-      entry.size = size;
+
+      const daysEl = entry.el.querySelector('.circle-days');
+      if (daysEl) daysEl.textContent = row.daysCompleted || 0;
+
+      // Update aura classes
+      const isLeader = maxDays > 0 && (row.daysCompleted === maxDays);
+      const hasStreak = (row.streak || 0) >= 3;
+      const isHotStreak = (row.streak || 0) >= 5;
+      const hasReadToday = !!row.readToday;
+
+      entry.el.classList.toggle('streak-hot-aura', isHotStreak);
+      entry.el.classList.toggle('streak-flame-aura', hasStreak && !isHotStreak);
+      entry.el.classList.toggle('read-today-aura', hasReadToday);
+
+      const crownEl = entry.el.querySelector('.leader-crown');
+      if (isLeader && !crownEl) {
+        const crown = document.createElement('span');
+        crown.className = 'leader-crown';
+        crown.textContent = '👑';
+        entry.el.prepend(crown);
+      } else if (!isLeader && crownEl) {
+        crownEl.remove();
+      }
     }
   });
+
+  startPlaygroundLoop();
 }
 
 function initialPlaygroundPosition(container, index, total, size) {
   const w = container.clientWidth || 320;
-  const h = container.clientHeight || 320;
+  const h = container.clientHeight || 380;
   const cols = Math.ceil(Math.sqrt(total));
   const rows = Math.ceil(total / cols);
   const cellW = w / cols;
@@ -4135,43 +4702,85 @@ function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 
-function makeDraggable(el, container) {
-  let dragging = false;
-  let startPointerX = 0, startPointerY = 0, startX = 0, startY = 0;
+function makeEnhancedDraggable(entry, container) {
+  const el = entry.el;
+  let downX = 0, downY = 0, downTime = 0;
+  let prevX = 0, prevY = 0, prevTime = 0;
 
   el.addEventListener('pointerdown', (e) => {
-    dragging = true;
+    e.preventDefault();
+    entry.isDragging = true;
+    entry.vx = 0;
+    entry.vy = 0;
     el.classList.add('dragging');
     el.setPointerCapture(e.pointerId);
-    startPointerX = e.clientX;
-    startPointerY = e.clientY;
-    const transform = new DOMMatrix(getComputedStyle(el).transform);
-    startX = transform.m41;
-    startY = transform.m42;
+
+    downX = e.clientX;
+    downY = e.clientY;
+    downTime = performance.now();
+
+    prevX = e.clientX;
+    prevY = e.clientY;
+    prevTime = downTime;
   });
 
   el.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const size = el.offsetWidth;
-    const dx = e.clientX - startPointerX;
-    const dy = e.clientY - startPointerY;
-    const x = clamp(startX + dx, 0, container.clientWidth - size);
-    const y = clamp(startY + dy, 0, container.clientHeight - size);
-    el.style.transform = `translate(${x}px, ${y}px)`;
+    if (!entry.isDragging) return;
 
-    const entry = [...playgroundCircles.values()].find(v => v.el === el);
-    if (entry) { entry.x = x; entry.y = y; }
+    const now = performance.now();
+    const dt = Math.max(8, now - prevTime);
+
+    // Compute rolling pointer velocity
+    const dx = e.clientX - prevX;
+    const dy = e.clientY - prevY;
+    entry.vx = (dx / dt) * 16;
+    entry.vy = (dy / dt) * 16;
+
+    prevX = e.clientX;
+    prevY = e.clientY;
+    prevTime = now;
+
+    // Follow pointer directly
+    const rect = container.getBoundingClientRect();
+    const curX = e.clientX - rect.left - entry.radius;
+    const curY = e.clientY - rect.top - entry.radius;
+
+    entry.x = Math.max(0, Math.min(container.clientWidth - entry.size, curX));
+    entry.y = Math.max(0, Math.min(container.clientHeight - entry.size, curY));
+
+    el.style.transform = `translate3d(${Math.round(entry.x)}px, ${Math.round(entry.y)}px, 0)`;
   });
 
-  const endDrag = (e) => {
-    if (!dragging) return;
-    dragging = false;
+  const onPointerUp = (e) => {
+    if (!entry.isDragging) return;
+    entry.isDragging = false;
     el.classList.remove('dragging');
-    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    if (el.hasPointerCapture(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId);
+    }
+
+    const upTime = performance.now();
+    const totalDist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
+    const duration = upTime - downTime;
+
+    // Tap vs Drag threshold
+    if (totalDist < 8 && duration < 320) {
+      entry.vx = 0;
+      entry.vy = 0;
+      openPlaygroundPopover(entry, e.clientX, e.clientY);
+    } else {
+      // Fling momentum!
+      const flingSpeed = Math.sqrt(entry.vx * entry.vx + entry.vy * entry.vy);
+      if (flingSpeed > 14) {
+        entry.vx = (entry.vx / flingSpeed) * 14;
+        entry.vy = (entry.vy / flingSpeed) * 14;
+      }
+      closePlaygroundPopover();
+    }
   };
 
-  el.addEventListener('pointerup', endDrag);
-  el.addEventListener('pointercancel', endDrag);
+  el.addEventListener('pointerup', onPointerUp);
+  el.addEventListener('pointercancel', onPointerUp);
 }
 
 // ====== SHAREABLE DAY-STREAK CARD GENERATOR ======

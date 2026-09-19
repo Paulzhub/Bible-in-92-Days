@@ -1,7 +1,7 @@
 // Service Worker for Project Bible in 92 Days
 // Provides offline caching, instantaneous PWA loads, and Core Web Vitals optimization
 
-const CACHE_NAME = 'bible92-pwa-v20';
+const CACHE_NAME = 'bible92-pwa-v21';
 const STATIC_ASSETS = [
   './',
   'index.html',
