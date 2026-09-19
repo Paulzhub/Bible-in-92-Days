@@ -3554,13 +3554,13 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 .playground-circle.squash {
-  animation: orbSquash 0.22s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  animation: orbSquash 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes orbSquash {
   0% { scale: 1; }
-  35% { scale: 1.15 0.86; }
-  70% { scale: 0.94 1.05; }
+  30% { scale: 1.07 0.93; }
+  65% { scale: 0.98 1.01; }
   100% { scale: 1; }
 }
 

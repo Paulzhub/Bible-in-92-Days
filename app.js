@@ -4085,6 +4085,7 @@ let playgroundTiltEnabled = false;
 let playgroundChimesEnabled = true;
 let playgroundTilt = { gx: 0, gy: 0 };
 let playgroundMouse = { active: false, x: 0, y: 0 };
+let playgroundOrbitPhase = 0;
 let isPlaygroundLoopRunning = false;
 let playgroundAnimId = null;
 let isPlaygroundControlsBound = false;
@@ -4150,11 +4151,15 @@ function initPlaygroundControls() {
         sunEl.hidden = (playgroundMode !== 'orbit');
       }
 
-      // Nudge circles to adapt to mode
-      playgroundCircles.forEach(entry => {
-        entry.vx = (Math.random() - 0.5) * 4;
-        entry.vy = (Math.random() - 0.5) * 4;
-      });
+      if (playgroundMode === 'orbit') {
+        assignPlaygroundOrbitSlots(container);
+      } else {
+        // Nudge circles gently when entering free or magnet
+        playgroundCircles.forEach(entry => {
+          entry.vx = (Math.random() - 0.5) * 2;
+          entry.vy = (Math.random() - 0.5) * 2;
+        });
+      }
 
       closePlaygroundPopover();
     });
@@ -4373,6 +4378,47 @@ function stopPlaygroundLoop() {
   }
 }
 
+function assignPlaygroundOrbitSlots(container) {
+  const entries = Array.from(playgroundCircles.values());
+  if (!entries.length) return;
+
+  const w = container ? (container.clientWidth || 360) : 360;
+  const h = container ? (container.clientHeight || 380) : 380;
+
+  // Sort by daysCompleted descending so top disciples occupy the inner honor sanctuary
+  const sorted = [...entries].sort((a, b) => (b.row?.daysCompleted || 0) - (a.row?.daysCompleted || 0));
+  const total = sorted.length;
+
+  if (total <= 6) {
+    // Single spacious circular orbit
+    const R = Math.min(w * 0.36, h * 0.32);
+    sorted.forEach((item, idx) => {
+      item.orbitR = R;
+      item.orbitAngle = (idx / total) * Math.PI * 2;
+    });
+  } else {
+    // Two concentric non-intersecting rings
+    // Inner Honor Ring (top 4 readers)
+    const innerCount = Math.min(4, Math.ceil(total / 2));
+    const outerCount = total - innerCount;
+    const innerR = Math.min(w, h) * 0.22; // ~84px
+    const outerR = Math.min(w, h) * 0.38; // ~144px
+
+    sorted.forEach((item, idx) => {
+      if (idx < innerCount) {
+        item.orbitR = innerR;
+        item.orbitAngle = (idx / innerCount) * Math.PI * 2;
+      } else {
+        const outerIdx = idx - innerCount;
+        // Staggered by half step so outer disciples orbit safely between inner disciples
+        const stagger = Math.PI / outerCount;
+        item.orbitR = outerR;
+        item.orbitAngle = (outerIdx / outerCount) * Math.PI * 2 + stagger;
+      }
+    });
+  }
+}
+
 function updatePlaygroundPhysics(dt) {
   const container = document.getElementById('playground');
   if (!container) return;
@@ -4382,10 +4428,57 @@ function updatePlaygroundPhysics(dt) {
   if (w < 50 || h < 50) return;
 
   const entries = Array.from(playgroundCircles.values());
-  const restitution = 0.78;
-  const friction = 0.965;
 
-  // 1. Force Integration & Movement
+  // =========================================================================
+  // 1. CELESTIAL ORBIT MODE
+  // Orbs follow smooth, circular paths around the central Word cross.
+  // In this mode, orbs NEVER touch each other and DO NOT bounce off each other.
+  // =========================================================================
+  if (playgroundMode === 'orbit') {
+    playgroundOrbitPhase += 0.005 * dt; // Serene 21-second celestial revolution
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+
+    entries.forEach(item => {
+      if (item.isDragging) return;
+
+      const angle = (item.orbitAngle || 0) + playgroundOrbitPhase;
+      const targetR = item.orbitR || (Math.min(w, h) * 0.30);
+      const targetX = cx + targetR * Math.cos(angle) - item.radius;
+      const targetY = cy + targetR * Math.sin(angle) - item.radius;
+
+      // Smooth critically-damped spring toward exact circular slot
+      const lerpFactor = Math.min(1, 0.08 * dt);
+      item.x += (targetX - item.x) * lerpFactor;
+      item.y += (targetY - item.y) * lerpFactor;
+      item.vx = 0;
+      item.vy = 0;
+    });
+
+    // Subpixel render for orbit mode
+    entries.forEach(item => {
+      const maxX = Math.max(0, w - item.size);
+      const maxY = Math.max(0, h - item.size);
+      if (!Number.isFinite(item.x)) item.x = maxX / 2;
+      if (!Number.isFinite(item.y)) item.y = maxY / 2;
+      item.x = Math.max(0, Math.min(maxX, item.x));
+      item.y = Math.max(0, Math.min(maxY, item.y));
+      item.el.style.transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(2)}px, 0)`;
+    });
+
+    return; // Completely bypass collision and bounce in orbit mode!
+  }
+
+  // =========================================================================
+  // 2. FREE FLOAT & SQUAD MAGNET MODES
+  // Smooth, cushioned physics where orbs never rebound or move away too fast.
+  // =========================================================================
+  const wallRestitution = 0.45;
+  const orbRestitution = 0.48;
+  const friction = 0.955;
+  const maxSpeed = 5.0; // Strictly capped to prevent fast darting / jerky bouncing
+
+  // Force Integration & Movement
   entries.forEach(item => {
     if (item.isDragging) return;
 
@@ -4396,60 +4489,30 @@ function updatePlaygroundPhysics(dt) {
       const targetY = h * 0.50;
       const dx = targetX - (item.x + item.radius);
       const dy = targetY - (item.y + item.radius);
-      item.vx += dx * 0.003 * dt;
-      item.vy += dy * 0.003 * dt;
-    } else if (playgroundMode === 'orbit') {
-      const cx = w * 0.5;
-      const cy = h * 0.5;
-      const dx = (item.x + item.radius) - cx;
-      const dy = (item.y + item.radius) - cy;
-      let dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 1) dist = 1;
-
-      // Desired orbital radius based on assigned ring
-      const targetR = item.orbitRadius || (Math.min(w, h) * 0.32);
-      const radialErr = targetR - dist;
-      const radialForce = radialErr * 0.012;
-
-      // Tangential orbital velocity
-      const orbitSpeed = item.orbitSpeed || 1.8;
-      const normalX = dx / dist;
-      const normalY = dy / dist;
-      const tangentX = -normalY;
-      const tangentY = normalX;
-
-      item.vx += (normalX * radialForce + tangentX * orbitSpeed * 0.2) * dt;
-      item.vy += (normalY * radialForce + tangentY * orbitSpeed * 0.2) * dt;
-
-      // Gentle central cushion around the Word cross (sun radius ~29px)
-      const sunCushion = 32 + item.radius;
-      if (dist < sunCushion) {
-        const push = (sunCushion - dist) * 0.18;
-        item.vx += normalX * push * dt;
-        item.vy += normalY * push * dt;
-      }
+      item.vx += dx * 0.0025 * dt;
+      item.vy += dy * 0.0025 * dt;
     }
 
     // Apply tilt or mouse gravity
     if (playgroundTiltEnabled) {
-      item.vx += playgroundTilt.gx * dt;
-      item.vy += playgroundTilt.gy * dt;
+      item.vx += playgroundTilt.gx * 0.75 * dt;
+      item.vy += playgroundTilt.gy * 0.75 * dt;
     } else if (playgroundMouse.active && playgroundMode === 'free') {
       const dx = playgroundMouse.x - (item.x + item.radius);
       const dy = playgroundMouse.y - (item.y + item.radius);
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 30 && dist < 220) {
-        item.vx += (dx / dist) * 0.18 * dt;
-        item.vy += (dy / dist) * 0.18 * dt;
+        item.vx += (dx / dist) * 0.14 * dt;
+        item.vy += (dy / dist) * 0.14 * dt;
       }
     }
 
-    // Apply friction and cap velocity
-    item.vx *= Math.pow(playgroundMode === 'orbit' ? 0.985 : friction, dt);
-    item.vy *= Math.pow(playgroundMode === 'orbit' ? 0.985 : friction, dt);
+    // Natural friction damping
+    item.vx *= Math.pow(friction, dt);
+    item.vy *= Math.pow(friction, dt);
 
+    // Speed cap to keep motion calm and smooth
     const speed = Math.sqrt(item.vx * item.vx + item.vy * item.vy);
-    const maxSpeed = 16;
     if (speed > maxSpeed) {
       item.vx = (item.vx / speed) * maxSpeed;
       item.vy = (item.vy / speed) * maxSpeed;
@@ -4459,7 +4522,7 @@ function updatePlaygroundPhysics(dt) {
     item.x += item.vx * dt;
     item.y += item.vy * dt;
 
-    // Wall Collisions with inward-directed bounce
+    // Smooth cushioned wall collisions (rebound velocity capped at 3.2px/frame)
     const maxX = Math.max(0, w - item.size);
     const maxY = Math.max(0, h - item.size);
 
@@ -4469,24 +4532,24 @@ function updatePlaygroundPhysics(dt) {
     if (item.x <= 0) {
       item.x = 0;
       hitSpeed = Math.abs(item.vx);
-      item.vx = Math.abs(item.vx) * restitution;
+      item.vx = Math.min(hitSpeed * wallRestitution, 3.2);
       hitWall = true;
     } else if (item.x >= maxX) {
       item.x = maxX;
       hitSpeed = Math.abs(item.vx);
-      item.vx = -Math.abs(item.vx) * restitution;
+      item.vx = -Math.min(hitSpeed * wallRestitution, 3.2);
       hitWall = true;
     }
 
     if (item.y <= 0) {
       item.y = 0;
       hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
-      item.vy = Math.abs(item.vy) * restitution;
+      item.vy = Math.min(Math.abs(item.vy) * wallRestitution, 3.2);
       hitWall = true;
     } else if (item.y >= maxY) {
       item.y = maxY;
       hitSpeed = Math.max(hitSpeed, Math.abs(item.vy));
-      item.vy = -Math.abs(item.vy) * restitution;
+      item.vy = -Math.min(Math.abs(item.vy) * wallRestitution, 3.2);
       hitWall = true;
     }
 
@@ -4498,7 +4561,7 @@ function updatePlaygroundPhysics(dt) {
     }
   });
 
-  // 2. Circle-to-Circle Elastic Collisions
+  // Circle-to-Circle Elastic Collisions (Smooth & non-explosive)
   for (let i = 0; i < entries.length; i++) {
     const a = entries[i];
     for (let j = i + 1; j < entries.length; j++) {
@@ -4516,7 +4579,7 @@ function updatePlaygroundPhysics(dt) {
           dist = Math.sqrt(dx * dx + dy * dy);
         }
 
-        // Overlap separation
+        // Overlap separation with soft cushioning factor
         const overlap = minDist - dist;
         const nx = dx / dist;
         const ny = dy / dist;
@@ -4524,18 +4587,19 @@ function updatePlaygroundPhysics(dt) {
         const totalMass = a.mass + b.mass;
         const aShare = b.mass / totalMass;
         const bShare = a.mass / totalMass;
+        const sepDamp = 0.85;
 
         if (!a.isDragging && !b.isDragging) {
-          a.x -= nx * overlap * aShare;
-          a.y -= ny * overlap * aShare;
-          b.x += nx * overlap * bShare;
-          b.y += ny * overlap * bShare;
+          a.x -= nx * overlap * aShare * sepDamp;
+          a.y -= ny * overlap * aShare * sepDamp;
+          b.x += nx * overlap * bShare * sepDamp;
+          b.y += ny * overlap * bShare * sepDamp;
         } else if (a.isDragging && !b.isDragging) {
-          b.x += nx * overlap;
-          b.y += ny * overlap;
+          b.x += nx * overlap * sepDamp;
+          b.y += ny * overlap * sepDamp;
         } else if (!a.isDragging && b.isDragging) {
-          a.x -= nx * overlap;
-          a.y -= ny * overlap;
+          a.x -= nx * overlap * sepDamp;
+          a.y -= ny * overlap * sepDamp;
         }
 
         // Relative velocity along normal
@@ -4545,17 +4609,31 @@ function updatePlaygroundPhysics(dt) {
 
         // Positive velAlongNormal means circles are approaching each other
         if (velAlongNormal > 0) {
-          const impulse = -(1 + restitution) * velAlongNormal / (1 / a.mass + 1 / b.mass);
+          // Cushioned impulse strictly capped so orbs never move away too fast
+          const rawImpulse = -(1 + orbRestitution) * velAlongNormal / (1 / a.mass + 1 / b.mass);
+          const maxImpulse = 3.6;
+          const impulse = Math.max(-maxImpulse, Math.min(maxImpulse, rawImpulse));
+
           if (!a.isDragging) {
             a.vx += (impulse / a.mass) * nx;
             a.vy += (impulse / a.mass) * ny;
+            const spdA = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+            if (spdA > 4.0) {
+              a.vx = (a.vx / spdA) * 4.0;
+              a.vy = (a.vy / spdA) * 4.0;
+            }
           }
           if (!b.isDragging) {
             b.vx -= (impulse / b.mass) * nx;
             b.vy -= (impulse / b.mass) * ny;
+            const spdB = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            if (spdB > 4.0) {
+              b.vx = (b.vx / spdB) * 4.0;
+              b.vy = (b.vy / spdB) * 4.0;
+            }
           }
 
-          if (velAlongNormal > 1.6) {
+          if (velAlongNormal > 1.8) {
             a.el.classList.remove('squash');
             b.el.classList.remove('squash');
             void a.el.offsetWidth;
@@ -4568,7 +4646,7 @@ function updatePlaygroundPhysics(dt) {
     }
   }
 
-  // 3. Coordinate Sanitization, Clamping & Rendering
+  // Coordinate Sanitization, Clamping & Subpixel Rendering
   entries.forEach(item => {
     const maxX = Math.max(0, w - item.size);
     const maxY = Math.max(0, h - item.size);
@@ -4585,7 +4663,7 @@ function updatePlaygroundPhysics(dt) {
     item.x = Math.max(0, Math.min(maxX, item.x));
     item.y = Math.max(0, Math.min(maxY, item.y));
 
-    item.el.style.transform = `translate3d(${Math.round(item.x)}px, ${Math.round(item.y)}px, 0)`;
+    item.el.style.transform = `translate3d(${item.x.toFixed(2)}px, ${item.y.toFixed(2)}px, 0)`;
   });
 }
 
@@ -4709,6 +4787,7 @@ function renderPlayground(rows) {
     }
   });
 
+  assignPlaygroundOrbitSlots(container);
   startPlaygroundLoop();
 }
 
@@ -4764,8 +4843,8 @@ function makeEnhancedDraggable(entry, container) {
     // Compute rolling pointer velocity
     const dx = e.clientX - prevX;
     const dy = e.clientY - prevY;
-    entry.vx = (dx / dt) * 16;
-    entry.vy = (dy / dt) * 16;
+    entry.vx = (dx / dt) * 8;
+    entry.vy = (dy / dt) * 8;
 
     prevX = e.clientX;
     prevY = e.clientY;
@@ -4779,7 +4858,7 @@ function makeEnhancedDraggable(entry, container) {
     entry.x = Math.max(0, Math.min(container.clientWidth - entry.size, curX));
     entry.y = Math.max(0, Math.min(container.clientHeight - entry.size, curY));
 
-    el.style.transform = `translate3d(${Math.round(entry.x)}px, ${Math.round(entry.y)}px, 0)`;
+    el.style.transform = `translate3d(${entry.x.toFixed(2)}px, ${entry.y.toFixed(2)}px, 0)`;
   });
 
   const onPointerUp = (e) => {
@@ -4800,11 +4879,12 @@ function makeEnhancedDraggable(entry, container) {
       entry.vy = 0;
       openPlaygroundPopover(entry, e.clientX, e.clientY);
     } else {
-      // Fling momentum!
+      // Gentle, controlled fling momentum
       const flingSpeed = Math.sqrt(entry.vx * entry.vx + entry.vy * entry.vy);
-      if (flingSpeed > 14) {
-        entry.vx = (entry.vx / flingSpeed) * 14;
-        entry.vy = (entry.vy / flingSpeed) * 14;
+      const maxFling = 4.2;
+      if (flingSpeed > maxFling) {
+        entry.vx = (entry.vx / flingSpeed) * maxFling;
+        entry.vy = (entry.vy / flingSpeed) * maxFling;
       }
       closePlaygroundPopover();
     }
