@@ -1046,6 +1046,7 @@ function showSite(session) {
   wirePrayerForm(session);
   initAudioNarrator();
   wireShareTodayButton(session);
+  wireBoysVsGirlsShareButton(session);
   loadInitialData(session);
   startAutoRefresh(session);
 }
@@ -1817,32 +1818,69 @@ function generateBoysVsGirlsShareCanvas(bvgData) {
   return canvas;
 }
 
+function openBoysVsGirlsShareModal() {
+  const cur = getSession();
+  if (cur && cur.isGuest) return;
+  const modal = document.getElementById('bvg-share-modal');
+  const previewImg = document.getElementById('bvg-share-card-preview');
+  if (!modal) return;
+  const canvas = generateBoysVsGirlsShareCanvas(lastBvgData);
+  canvas.toBlob((blob) => {
+    lastBvgCardBlob = blob;
+    if (previewImg) previewImg.src = URL.createObjectURL(blob);
+    modal.hidden = false;
+  }, 'image/png');
+}
+
+function wireBoysVsGirlsShareButton(session) {
+  const btn = document.getElementById('bvg-share-btn');
+  if (!btn) return;
+
+  const curSession = session || getSession();
+  const isGuest = !curSession || !!curSession.isGuest;
+
+  if (isGuest) {
+    btn.disabled = true;
+    btn.classList.add('disabled-guest');
+    btn.setAttribute('aria-disabled', 'true');
+    btn.setAttribute('title', 'Guest users cannot share Boys vs Girls showdown cards.');
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    return;
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('disabled-guest');
+  btn.removeAttribute('aria-disabled');
+  btn.setAttribute('title', 'Share Boys vs Girls progress as image');
+  btn.onclick = () => {
+    const cur = getSession();
+    if (cur && cur.isGuest) return;
+    openBoysVsGirlsShareModal();
+  };
+}
+
 function initBoysVsGirlsShareModal() {
   const modal = document.getElementById('bvg-share-modal');
-  const shareBtn = document.getElementById('bvg-share-btn');
   const closeBtn = document.getElementById('close-bvg-share-modal');
   const downloadBtn = document.getElementById('download-bvg-card-btn');
   const nativeShareBtn = document.getElementById('native-share-bvg-btn');
-  const previewImg = document.getElementById('bvg-share-card-preview');
 
-  if (!modal || !shareBtn) return;
+  if (!modal) return;
+
+  wireBoysVsGirlsShareButton();
 
   if (closeBtn) closeBtn.addEventListener('click', () => modal.hidden = true);
   modal.addEventListener('click', (e) => {
     if (e.target === modal) modal.hidden = true;
   });
 
-  shareBtn.addEventListener('click', () => {
-    const canvas = generateBoysVsGirlsShareCanvas(lastBvgData);
-    canvas.toBlob((blob) => {
-      lastBvgCardBlob = blob;
-      if (previewImg) previewImg.src = URL.createObjectURL(blob);
-      modal.hidden = false;
-    }, 'image/png');
-  });
-
   if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
+      const cur = getSession();
+      if (cur && cur.isGuest) return;
       if (!lastBvgCardBlob) return;
       const url = URL.createObjectURL(lastBvgCardBlob);
       const a = document.createElement('a');
@@ -1857,6 +1895,8 @@ function initBoysVsGirlsShareModal() {
 
   if (nativeShareBtn) {
     nativeShareBtn.addEventListener('click', async () => {
+      const cur = getSession();
+      if (cur && cur.isGuest) return;
       if (!lastBvgCardBlob) return;
       const filename = `Boys_vs_Girls_Progress_Day${currentDayNum || 0}.png`;
       const file = new File([lastBvgCardBlob], filename, { type: 'image/png' });
@@ -11521,6 +11561,8 @@ window.triggerLivingInkVerseReveal = triggerLivingInkVerseReveal;
 window.initLivingInkKeyVerse = initLivingInkKeyVerse;
 window.triggerBvgShockwave = triggerBvgShockwave;
 window.initBoysVsGirlsRivalryObserver = initBoysVsGirlsRivalryObserver;
+window.wireBoysVsGirlsShareButton = wireBoysVsGirlsShareButton;
+window.openBoysVsGirlsShareModal = openBoysVsGirlsShareModal;
 
 // ====== INIT ======
 
