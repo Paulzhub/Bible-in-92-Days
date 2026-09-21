@@ -5935,6 +5935,11 @@ function initScriptureReader(session) {
     versionSelect.addEventListener('change', (e) => {
       activeReaderVersion = e.target.value;
       localStorage.setItem('bible_reader_version', activeReaderVersion);
+      const extLink = document.getElementById('reader-external-link');
+      if (extLink && activeReaderPortion) {
+        const bgQuery = encodeURIComponent(activeReaderPortion.replace(/[–—]/g, '-'));
+        extLink.href = `https://www.biblegateway.com/passage/?search=${bgQuery}&version=${activeReaderVersion}`;
+      }
       if (activeReaderPortion) {
         renderReaderPassageContent(activeReaderPortion, activeReaderVersion);
       }
@@ -6145,6 +6150,20 @@ async function openReaderModal({ portion, day, initialChapter }) {
 
   if (!modal || !backdrop) return;
 
+  // Always load the last opened bible version, else default to 'NIV'
+  const savedVersion = localStorage.getItem('bible_reader_version');
+  activeReaderVersion = savedVersion || 'NIV';
+
+  const versionSelect = document.getElementById('bible-version-select');
+  if (versionSelect) {
+    versionSelect.value = activeReaderVersion;
+    // If the saved version is unrecognized in select options, fallback to NIV
+    if (!versionSelect.value) {
+      activeReaderVersion = 'NIV';
+      versionSelect.value = 'NIV';
+    }
+  }
+
   activeReaderPortion = portion;
   activeReaderDay = day;
 
@@ -6155,7 +6174,7 @@ async function openReaderModal({ portion, day, initialChapter }) {
   }
 
   if (extLink) {
-    const bgQuery = encodeURIComponent(portion.replace(/[–—]/g, '-'));
+    const bgQuery = encodeURIComponent((portion || '').replace(/[–—]/g, '-'));
     extLink.href = `https://www.biblegateway.com/passage/?search=${bgQuery}&version=${activeReaderVersion}`;
   }
 
