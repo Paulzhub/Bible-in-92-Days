@@ -8198,6 +8198,21 @@ function initAudioNarrator() {
           localStorage.setItem('bible92_preferred_voice_id', selectedVoiceId);
         } catch (e) {}
       }
+
+      // Check if user's device has a native voice installed for this language
+      const selectedConfig = NARRATOR_VOICES.find(v => v.id === selectedVoiceId);
+      if (selectedConfig && selectedConfig.lang) {
+        const langPrefix = selectedConfig.lang.split('-')[0].toLowerCase();
+        if (langPrefix !== 'en') {
+          const available = audioAvailableVoices.length ? audioAvailableVoices : (audioSpeechSynth ? audioSpeechSynth.getVoices() || [] : []);
+          const hasNativeVoice = available.some(v => (v.lang || '').replace(/_/g, '-').toLowerCase().startsWith(langPrefix));
+          if (!hasNativeVoice && typeof showNudgeToast === 'function') {
+            const langName = selectedConfig.group || selectedConfig.label;
+            showNudgeToast(`ℹ️ No native ${langName} voice installed on this device. Using ${selectedConfig.gender} fallback voice.`, false);
+          }
+        }
+      }
+
       if (isAudioPlaying) {
         playAudioVerseChunk(currentAudioVerseIndex);
       }
@@ -8210,7 +8225,7 @@ function findMatchingSystemVoice(targetConfig) {
   const voices = audioAvailableVoices.length ? audioAvailableVoices : (audioSpeechSynth.getVoices() || []);
   if (!voices.length) return null;
 
-  const femaleKeywords = /\b(female|woman|girl|vrou|महिला|स्त्री|བུད་མེད|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena|kalpana|priya|sangita|chundak)\b/i;
+  const femaleKeywords = /\b(female|woman|girl|vrou|महिला|स्त्री|བུད་མེད|zira|samantha|victoria|karen|fiona|moira|tessa|jenny|aria|emma|sonia|libby|natasha|mia|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena|kalpana|priya|sangita|chundak)\b/i;
   const maleKeywords = /\b(male|man|boy|manlik|पुरुष|སྐྱེས་པ|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant|madhav|tashi|dorje)\b/i;
 
   let bestVoice = null;
@@ -8271,15 +8286,19 @@ function findMatchingSystemVoice(targetConfig) {
     }
   }
 
+  // If a language match was found with positive score
   if (bestScore > 0 && bestVoice) {
     return bestVoice;
   }
 
-  // Fallback to language-matching voice or default
-  const fallback = voices.find(v => (v.lang || '').replace(/_/g, '-').toLowerCase().startsWith(targetLangPrefix)) ||
-                 voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) ||
-                 voices[0];
-  return fallback || null;
+  // Gender-aware fallback so Female NEVER falls back to Male David
+  const isFemaleTarget = targetConfig.gender === 'Female';
+  const matchingGenderVoice = voices.find(v => {
+    const n = (v.name || '').toLowerCase();
+    return isFemaleTarget ? (femaleKeywords.test(n) || n.includes('female')) : (maleKeywords.test(n) || n.includes('male'));
+  });
+
+  return matchingGenderVoice || voices[0] || null;
 }
 
 function getNarratorVoiceConfig() {
@@ -8307,13 +8326,19 @@ function populateAudioVoiceDropdown() {
     groups[grp].push(v);
   });
 
+  const available = audioAvailableVoices.length ? audioAvailableVoices : (audioSpeechSynth ? audioSpeechSynth.getVoices() || [] : []);
+
   Object.entries(groups).forEach(([groupName, voices]) => {
     const optgroup = document.createElement('optgroup');
     optgroup.label = groupName;
     voices.forEach(v => {
       const opt = document.createElement('option');
       opt.value = v.id;
-      opt.textContent = v.label;
+
+      const langPrefix = (v.lang || '').split('-')[0].toLowerCase();
+      const hasNative = langPrefix === 'en' || available.some(av => (av.lang || '').replace(/_/g, '-').toLowerCase().startsWith(langPrefix));
+      opt.textContent = hasNative ? v.label : `${v.label} (Fallback)`;
+
       if (v.id === savedVoiceId) {
         opt.selected = true;
       }
@@ -8560,7 +8585,11 @@ function playAudioVerseChunk(index) {
   utterance.lang = config.lang;
   if (voice) {
     utterance.voice = voice;
-    utterance.lang = voice.lang || config.lang;
+    const voiceLangPrefix = (voice.lang || '').replace(/_/g, '-').split('-')[0].toLowerCase();
+    const configLangPrefix = (config.lang || '').split('-')[0].toLowerCase();
+    if (voiceLangPrefix === configLangPrefix) {
+      utterance.lang = voice.lang || config.lang;
+    }
   }
 
   // Multilingual voice routing for non-English Scripture translations
