@@ -119,7 +119,7 @@
         "priceCurrency": "USD"
       },
       "featureList": [
-        "In-App Scripture Reader with 8 Translations (NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB)",
+        "In-App Scripture Reader with 12 Translations across 4 Languages (English, Nepali, Hindi, Afrikaans)",
         "Audio Bible Narration with Screen-Off and Background Playback",
         "Gamified Squad Accountability with Streak Freezes and Discipleship XP Tiers",
         "3D Memory Verse Cards and Daily Bible Micro-Trivia Flash Quizzes",
@@ -188,7 +188,7 @@
           "name": "Which Bible translations are supported in the app?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The platform features 8 major English translations with instant toggling: NIV (New International Version), ESV (English Standard Version), CSB (Christian Standard Bible), NLT (New Living Translation), KJV (King James Version), NKJV (New King James Version), WEB (World English Bible), and NASB (New American Standard Bible)."
+            "text": "The platform features 12 translations across 4 languages with instant toggling: English (NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB), Nepali (NNRV, NEPS), Hindi (HIN), and Afrikaans (AFR)."
           }
         },
         {
@@ -1858,8 +1858,8 @@
         <div class="seo-features-grid">
           <div class="feature-highlight-card">
             <div class="feature-icon">📖</div>
-            <h4 class="feature-title">8-Translation Scripture Reader</h4>
-            <p class="feature-desc">Read uninterrupted with instant switching between NIV, ESV, CSB, NLT, KJV, NKJV, WEB, and NASB. Includes dynamic font sizing, dark/light themes, and chapter quick-jump tabs.</p>
+            <h4 class="feature-title">12-Translation Multilingual Scripture Reader</h4>
+            <p class="feature-desc">Read uninterrupted across 4 languages with instant switching between English (NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB), Nepali (NNRV, NEPS), Hindi (HIN), and Afrikaans (AFR). Includes dynamic font sizing, dark/light themes, and chapter quick-jump tabs.</p>
           </div>
 
           <div class="feature-highlight-card">
@@ -1929,7 +1929,7 @@
               <span class="faq-icon" aria-hidden="true">+</span>
             </summary>
             <div class="faq-answer">
-              <p>The platform features 8 major English translations with instant toggling: NIV (New International Version), ESV (English Standard Version), CSB (Christian Standard Bible), NLT (New Living Translation), KJV (King James Version), NKJV (New King James Version), WEB (World English Bible), and NASB (New American Standard Bible).</p>
+              <p>The platform features 12 translations across 4 languages with instant toggling: English (NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB), Nepali (NNRV, NEPS), Hindi (HIN), and Afrikaans (AFR).</p>
             </div>
           </details>
 
@@ -2627,14 +2627,26 @@
           <div class="version-select-wrap">
             <label for="bible-version-select" class="sr-only">Bible Translation</label>
             <select id="bible-version-select" class="bible-version-select" title="Choose Bible Translation">
-              <option value="NIV" selected>NIV (New International)</option>
-              <option value="ESV">ESV (English Standard)</option>
-              <option value="CSB">CSB (Christian Standard)</option>
-              <option value="NLT">NLT (New Living)</option>
-              <option value="KJV">KJV (King James)</option>
-              <option value="NKJV">NKJV (New King James)</option>
-              <option value="WEB">WEB (World English)</option>
-              <option value="NASB">NASB (New American)</option>
+              <optgroup label="English">
+                <option value="NIV" selected>NIV (New International)</option>
+                <option value="ESV">ESV (English Standard)</option>
+                <option value="CSB">CSB (Christian Standard)</option>
+                <option value="NLT">NLT (New Living)</option>
+                <option value="KJV">KJV (King James)</option>
+                <option value="NKJV">NKJV (New King James)</option>
+                <option value="WEB">WEB (World English)</option>
+                <option value="NASB">NASB (New American)</option>
+              </optgroup>
+              <optgroup label="Nepali (नेपाली)">
+                <option value="NNRV">NNRV (Nepali New Revised)</option>
+                <option value="NEPS">NEPS (सरल नेपाली - Easy)</option>
+              </optgroup>
+              <optgroup label="Hindi (हिन्दी)">
+                <option value="HIN">HIN (हिन्दी - Hindi OV)</option>
+              </optgroup>
+              <optgroup label="Afrikaans">
+                <option value="AFR">AFR (Afrikaans 1953)</option>
+              </optgroup>
             </select>
           </div>
 
@@ -2809,6 +2821,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>

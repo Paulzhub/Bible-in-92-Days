@@ -20,15 +20,23 @@ Built with a fast, zero-dependency frontend architecture and a Google Apps Scrip
 ## ✨ Key Features
 
 ### 📖 1. In-App Scripture Reader
-- **Multi-Translation Switching**: Instant toggling between 8 English translations:
-  - `NIV` (New International Version)
-  - `ESV` (English Standard Version)
-  - `CSB` (Christian Standard Bible)
-  - `NLT` (New Living Translation)
-  - `KJV` (King James Version)
-  - `NKJV` (New King James Version)
-  - `WEB` (World English Bible)
-  - `NASB` (New American Standard Bible)
+- **Multi-Translation & Multilingual Switching**: Instant toggling between 12 translations across 4 languages:
+  - **English**:
+    - `NIV` (New International Version)
+    - `ESV` (English Standard Version)
+    - `CSB` (Christian Standard Bible)
+    - `NLT` (New Living Translation)
+    - `KJV` (King James Version)
+    - `NKJV` (New King James Version)
+    - `WEB` (World English Bible)
+    - `NASB` (New American Standard Bible)
+  - **Nepali (नेपाली)**:
+    - `NNRV` (Nepali New Revised Version)
+    - `NEPS` (सरल नेपाली पवित्र बाइबल - Easy Nepali)
+  - **Hindi (हिन्दी)**:
+    - `HIN` (Hindi O.V. Re-edited)
+  - **Afrikaans**:
+    - `AFR` (Afrikaans 1933/1953)
 - **Fluid Chapter Quick-Jump Tabs**: Instant navigation across all assigned chapters for the day.
 - **ScrollSpy & Progress Tracking**: Real-time reading progress indicator and active chapter highlighting.
 - **Custom Reader Experience**: Adjustable typography size, line spacing, and theme modes.

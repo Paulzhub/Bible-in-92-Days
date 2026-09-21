@@ -2283,6 +2283,18 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   border-color: var(--accent);
 }
 
+.bible-version-select optgroup {
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.bible-version-select option {
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+}
+
 .reader-font-controls {
   display: flex;
   align-items: center;

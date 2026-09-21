@@ -5831,7 +5831,9 @@ function initScriptureReader(session) {
 }
 
 const BOLLS_VERSION_MAP = {
-  'CSB': 'CSB17'
+  'CSB': 'CSB17',
+  'HIN': 'HIOV',
+  'AFR': 'AFR53'
 };
 
 async function fetchChapterFromApi(version, bookId, chapter) {
@@ -8478,6 +8480,30 @@ function playAudioVerseChunk(index) {
     utterance.voice = voice;
     utterance.lang = voice.lang || config.lang;
   }
+
+  // Multilingual voice routing for non-English Scripture translations
+  const TRANSLATION_LANG_MAP = {
+    'NNRV': 'ne-NP',
+    'NEPS': 'ne-NP',
+    'HIN': 'hi-IN',
+    'HIOV': 'hi-IN',
+    'AFR': 'af-ZA',
+    'AFR53': 'af-ZA'
+  };
+
+  const targetLang = TRANSLATION_LANG_MAP[activeReaderVersion];
+  if (targetLang) {
+    utterance.lang = targetLang;
+    if (audioSpeechSynth && typeof audioSpeechSynth.getVoices === 'function') {
+      const allVoices = audioSpeechSynth.getVoices();
+      const langPrefix = targetLang.split('-')[0].toLowerCase();
+      const matchingVoice = allVoices.find(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+      }
+    }
+  }
+
   utterance.pitch = config.fallbackPitch || 1.0;
 
   // Store global reference to avoid garbage collection bug in Chromium
