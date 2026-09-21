@@ -297,15 +297,18 @@ function initBrowserLifecycleHandlers() {
 
 // Register Service Worker for PWA Offline Caching
 if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('Service worker registration failed:', err);
-    });
+  navigator.serviceWorker.register('./sw.js').catch((err) => {
+    console.warn('Service worker registration failed:', err);
   });
 }
 
 // PWA Installation Manager
-let deferredInstallPrompt = null;
+let deferredInstallPrompt = window.deferredInstallPrompt || null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.deferredInstallPrompt = e;
+  deferredInstallPrompt = e;
+});
 
 function isPwaStandalone() {
   return Boolean(
@@ -324,11 +327,31 @@ function renderInstallGuideContent() {
   const ua = (window.navigator.userAgent || '').toLowerCase();
   const isIos = /iphone|ipad|ipod/.test(ua);
   const isAndroid = /android/.test(ua);
+  const isInApp = /(instagram|fbav|fban|messenger|whatsapp|musical_ly|bytedance|tiktok)/i.test(ua);
 
   let platformBadge = '';
   let stepsHtml = '';
 
-  if (isIos) {
+  if (isInApp) {
+    platformBadge = '<div class="install-guide-platform-pill" style="border-color:#f85149;color:#ff7b72;background:rgba(248,81,73,0.12);"><span>⚠️</span><span>In-App Browser Detected</span></div>';
+    stepsHtml = 
+      '<div class="install-guide-step" style="border-color:rgba(248,81,73,0.4);background:rgba(248,81,73,0.06);">' +
+        '<span class="install-step-num" style="background:#f85149;color:#fff;">!</span>' +
+        '<div class="install-step-content">You are viewing inside an in-app browser (such as Instagram or WhatsApp), which prevents direct app installation.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">1</span>' +
+        '<div class="install-step-content">Tap the <strong>three dots (⋮ or ⋯)</strong> or <strong>Share</strong> button in the corner of your screen.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">2</span>' +
+        '<div class="install-step-content">Select <strong>Open in Chrome</strong> (on Android) or <strong>Open in Safari</strong> (on iPhone).</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">3</span>' +
+        '<div class="install-step-content">Once open in your browser, tap <strong>Install App</strong> and the native app install dialog will appear immediately!</div>' +
+      '</div>';
+  } else if (isIos) {
     platformBadge = '<div class="install-guide-platform-pill"><span>🍎</span><span>Apple iOS (Safari)</span></div>';
     stepsHtml = 
       '<div class="install-guide-step">' +
@@ -415,10 +438,41 @@ function setupPwaInstallPrompt() {
   };
 
   const triggerInstallFlow = async () => {
-    if (deferredInstallPrompt) {
+    let promptEvent = window.deferredInstallPrompt || deferredInstallPrompt;
+
+    const ua = (window.navigator.userAgent || '').toLowerCase();
+    const isAndroid = /android/.test(ua);
+
+    // If on Android and prompt hasn't arrived yet, wait briefly for pending beforeinstallprompt
+    if (!promptEvent && isAndroid) {
+      const pendingPrompt = await new Promise((resolve) => {
+        let timer = null;
+        const handler = (e) => {
+          e.preventDefault();
+          window.deferredInstallPrompt = e;
+          deferredInstallPrompt = e;
+          if (timer) clearTimeout(timer);
+          resolve(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler, { once: true });
+        window.addEventListener('pwa-prompt-ready', () => {
+          if (window.deferredInstallPrompt) {
+            if (timer) clearTimeout(timer);
+            resolve(window.deferredInstallPrompt);
+          }
+        }, { once: true });
+        timer = setTimeout(() => resolve(null), 800);
+      });
+
+      if (pendingPrompt) {
+        promptEvent = pendingPrompt;
+      }
+    }
+
+    if (promptEvent) {
       try {
-        deferredInstallPrompt.prompt();
-        const choiceResult = await deferredInstallPrompt.userChoice;
+        promptEvent.prompt();
+        const choiceResult = await promptEvent.userChoice;
         if (choiceResult && choiceResult.outcome === 'accepted') {
           if (headerInstallBtn) headerInstallBtn.hidden = true;
           if (legacyHeaderInstallBtn) legacyHeaderInstallBtn.hidden = true;
@@ -430,6 +484,7 @@ function setupPwaInstallPrompt() {
       } catch (err) {
         console.warn('Install prompt failed:', err);
       }
+      window.deferredInstallPrompt = null;
       deferredInstallPrompt = null;
     } else {
       openInstallGuideModal();
