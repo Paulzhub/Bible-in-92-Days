@@ -1,7 +1,7 @@
 // Service Worker for Project Bible in 92 Days
 // Provides offline caching, instantaneous PWA loads, and Core Web Vitals optimization
 
-const CACHE_NAME = 'bible92-pwa-v26';
+const CACHE_NAME = 'bible92-pwa-v27';
 const STATIC_ASSETS = [
   './',
   'index.html',
@@ -39,8 +39,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Exclude external API requests (Apps Script backend and Bolls Bible API) from static cache
-  if (url.origin.includes('script.google.com') || url.origin.includes('bolls.life')) {
+  // Exclude external API requests (Apps Script backend, Bolls Bible API, and Bible SuperSearch API) from static cache
+  if (url.origin.includes('script.google.com') || url.origin.includes('bolls.life') || url.origin.includes('biblesupersearch.com')) {
     event.respondWith(
       fetch(event.request).catch(() => {
         return caches.match(event.request);

@@ -20,7 +20,7 @@ Built with a fast, zero-dependency frontend architecture and a Google Apps Scrip
 ## ✨ Key Features
 
 ### 📖 1. In-App Scripture Reader
-- **Multi-Translation & Multilingual Switching**: Instant toggling between 12 translations across 4 languages:
+- **Multi-Translation & Multilingual Switching**: Instant toggling between 13 translations across 5 languages:
   - **English**:
     - `NIV` (New International Version)
     - `ESV` (English Standard Version)
@@ -37,12 +37,19 @@ Built with a fast, zero-dependency frontend architecture and a Google Apps Scrip
     - `HIN` (Hindi O.V. Re-edited)
   - **Afrikaans**:
     - `AFR` (Afrikaans 1933/1953)
+  - **Tibetan (བོད་ཡིག)**:
+    - `TIB` (New Tibetan Bible / དམ་པའི་གསུང་རབ་བོད་འགྱུར་གསར་མ།)
 - **Fluid Chapter Quick-Jump Tabs**: Instant navigation across all assigned chapters for the day.
 - **ScrollSpy & Progress Tracking**: Real-time reading progress indicator and active chapter highlighting.
 - **Custom Reader Experience**: Adjustable typography size, line spacing, and theme modes.
 
 ### 🎙️ 2. Audio Bible Narrator (Screen-Off & Background Playback)
-- **4 Curated Voice Profiles**: Natural speech engines for `US (Male)`, `US (Female)`, `UK (Male)`, and `UK (Female)`.
+- **12 Curated Voice Profiles across 5 Languages**: Natural speech synthesis with pitch modulation and language targeting:
+  - **English**: `US (Male)`, `United States (Female)`, `United Kingdom (Male)`, `United Kingdom (Female)`
+  - **Nepali (नेपाली)**: `Nepali (Male)`, `Nepali (Female)`
+  - **Tibetan (བོད་སྐད)**: `Tibetan (Male)`, `Tibetan (Female)`
+  - **Afrikaans**: `Afrikaans (Male)`, `Afrikaans (Female)`
+  - **Hindi (हिन्दी)**: `Hindi (Male)`, `Hindi (Female)`
 - **Chunked Speech Queue Engine**: Eliminates Chromium/browser speech synthesis timeouts by chunking verses into manageable text queues with synchronized verse highlights.
 - **Screen-Off & Background Keep-Alive**:
   - **Screen Wake Lock API**: Prevents devices from locking during active narration.

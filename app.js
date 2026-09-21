@@ -5837,11 +5837,51 @@ const BOLLS_VERSION_MAP = {
 };
 
 async function fetchChapterFromApi(version, bookId, chapter) {
-  const apiVersion = BOLLS_VERSION_MAP[version] || version;
   const cacheKey = `${version}_${bookId}_${chapter}`;
   if (readerChapterCache[cacheKey]) {
     return readerChapterCache[cacheKey];
   }
+
+  if (version === 'TIB') {
+    const bookObj = BIBLE_BOOKS.find(b => b.id === bookId);
+    const bookName = bookObj ? bookObj.name : '';
+    if (bookName) {
+      try {
+        const query = encodeURIComponent(`${bookName} ${chapter}`);
+        const res = await fetch(`https://api.biblesupersearch.com/api?bible=bo_ntb&reference=${query}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const versesObj = data?.results?.[0]?.verses?.bo_ntb?.[chapter] || data?.results?.[0]?.verses?.bo_ntb?.[String(chapter)];
+        if (versesObj && typeof versesObj === 'object') {
+          const verses = Object.entries(versesObj)
+            .map(([vNum, vData]) => ({
+              pk: (vData && vData.id) || parseInt(vNum, 10),
+              verse: parseInt(vNum, 10),
+              text: (vData && vData.text) || ''
+            }))
+            .sort((a, b) => a.verse - b.verse);
+
+          if (verses.length > 0) {
+            readerChapterCache[cacheKey] = verses;
+            return verses;
+          }
+        }
+        throw new Error('Empty Tibetan chapter response');
+      } catch (tibErr) {
+        console.warn('Tibetan Bible fetch error, falling back to WEB:', tibErr);
+        try {
+          const fallbackRes = await fetch(`https://bolls.life/get-chapter/WEB/${bookId}/${chapter}/`);
+          if (fallbackRes.ok) {
+            const fbData = await fallbackRes.json();
+            if (Array.isArray(fbData) && fbData.length > 0) return fbData;
+          }
+        } catch (e) {}
+        throw tibErr;
+      }
+    }
+  }
+
+  const apiVersion = BOLLS_VERSION_MAP[version] || version;
 
   try {
     const res = await fetch(`https://bolls.life/get-chapter/${encodeURIComponent(apiVersion)}/${bookId}/${chapter}/`);
@@ -6015,6 +6055,7 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
           const row = document.createElement('span');
           row.className = 'verse-row';
           const cleanText = String(v.text || '')
+            .replace(/^[¶\s]+/, '')
             .replace(/<sup\b[^>]*>.*?<\/sup>/gi, '')
             .replace(/<s\b[^>]*>.*?<\/s>/gi, '')
             .replace(/<[^>]+>/g, ' ')
@@ -8069,10 +8110,27 @@ let currentAudioVerseIndex = 0;
 let audioAvailableVoices = [];
 
 const NARRATOR_VOICES = [
-  { id: 'us_male', label: 'US (Male)', region: 'US', gender: 'Male', lang: 'en-US', fallbackPitch: 0.92 },
-  { id: 'us_female', label: 'United States (Female)', region: 'US', gender: 'Female', lang: 'en-US', fallbackPitch: 1.05 },
-  { id: 'uk_male', label: 'United Kingdom (Male)', region: 'UK', gender: 'Male', lang: 'en-GB', fallbackPitch: 0.92 },
-  { id: 'uk_female', label: 'United Kingdom (Female)', region: 'UK', gender: 'Female', lang: 'en-GB', fallbackPitch: 1.05 }
+  // English
+  { id: 'us_male', label: 'US (Male)', group: 'English', region: 'US', gender: 'Male', lang: 'en-US', fallbackPitch: 0.92 },
+  { id: 'us_female', label: 'United States (Female)', group: 'English', region: 'US', gender: 'Female', lang: 'en-US', fallbackPitch: 1.05 },
+  { id: 'uk_male', label: 'United Kingdom (Male)', group: 'English', region: 'UK', gender: 'Male', lang: 'en-GB', fallbackPitch: 0.92 },
+  { id: 'uk_female', label: 'United Kingdom (Female)', group: 'English', region: 'UK', gender: 'Female', lang: 'en-GB', fallbackPitch: 1.05 },
+
+  // Nepali (नेपाली)
+  { id: 'nep_male', label: 'Nepali नेपाली (Male)', group: 'Nepali (नेपाली)', region: 'NP', gender: 'Male', lang: 'ne-NP', fallbackPitch: 0.92 },
+  { id: 'nep_female', label: 'Nepali नेपाली (Female)', group: 'Nepali (नेपाली)', region: 'NP', gender: 'Female', lang: 'ne-NP', fallbackPitch: 1.08 },
+
+  // Tibetan (བོད་སྐད)
+  { id: 'tib_male', label: 'Tibetan བོད་སྐད། (Male)', group: 'Tibetan (བོད་སྐད)', region: 'BO', gender: 'Male', lang: 'bo', fallbackPitch: 0.90 },
+  { id: 'tib_female', label: 'Tibetan བོད་སྐད། (Female)', group: 'Tibetan (བོད་སྐད)', region: 'BO', gender: 'Female', lang: 'bo', fallbackPitch: 1.08 },
+
+  // Afrikaans
+  { id: 'afr_male', label: 'Afrikaans (Male)', group: 'Afrikaans', region: 'ZA', gender: 'Male', lang: 'af-ZA', fallbackPitch: 0.92 },
+  { id: 'afr_female', label: 'Afrikaans (Female)', group: 'Afrikaans', region: 'ZA', gender: 'Female', lang: 'af-ZA', fallbackPitch: 1.05 },
+
+  // Hindi (हिन्दी)
+  { id: 'hin_male', label: 'Hindi हिन्दी (Male)', group: 'Hindi (हिन्दी)', region: 'IN', gender: 'Male', lang: 'hi-IN', fallbackPitch: 0.92 },
+  { id: 'hin_female', label: 'Hindi हिन्दी (Female)', group: 'Hindi (हिन्दी)', region: 'IN', gender: 'Female', lang: 'hi-IN', fallbackPitch: 1.08 }
 ];
 
 function initAudioNarrator() {
@@ -8152,15 +8210,19 @@ function findMatchingSystemVoice(targetConfig) {
   const voices = audioAvailableVoices.length ? audioAvailableVoices : (audioSpeechSynth.getVoices() || []);
   if (!voices.length) return null;
 
-  const femaleKeywords = /\b(female|woman|girl|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena)\b/i;
-  const maleKeywords = /\b(male|man|boy|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant)\b/i;
+  const femaleKeywords = /\b(female|woman|girl|vrou|महिला|स्त्री|བུད་མེད|samantha|victoria|karen|fiona|moira|tessa|zira|jenny|aria|emma|sonia|libby|natasha|mia|clara|stephanie|anita|heera|veena|susan|linda|hazel|catherine|elizabeth|serena|ava|allison|joana|salli|ivy|kendra|kimberly|amy|alice|olivia|emily|sarah|chloe|aditi|raveena|kalpana|priya|sangita|chundak)\b/i;
+  const maleKeywords = /\b(male|man|boy|manlik|पुरुष|སྐྱེས་པ|david|mark|guy|george|daniel|oliver|james|arthur|ryan|liam|aaron|alex|richard|tom|matthew|justin|joey|brian|russell|eric|christopher|benjamin|stefan|steve|steven|john|paul|peter|luke|connor|fred|nate|evan|ravi|hemant|madhav|tashi|dorje)\b/i;
 
   let bestVoice = null;
   let bestScore = -999;
 
+  const targetLang = (targetConfig.lang || '').toLowerCase();
+  const targetLangPrefix = targetLang.split('-')[0];
+
   for (const v of voices) {
     const name = (v.name || '').toLowerCase();
     const lang = (v.lang || '').replace(/_/g, '-').toLowerCase();
+    const voiceLangPrefix = lang.split('-')[0];
     let score = 0;
 
     const isTargetUS = targetConfig.region === 'US';
@@ -8168,15 +8230,23 @@ function findMatchingSystemVoice(targetConfig) {
 
     // 1. Language & Region Matching
     if (isTargetUS) {
-      if (lang.startsWith('en-us')) score += 50;
-      else if (name.includes('united states') || name.includes('us english') || name.includes('(us)')) score += 45;
-      else if (lang.startsWith('en') && !lang.startsWith('en-gb') && !name.includes('uk') && !name.includes('british')) score += 10;
+      if (lang.startsWith('en-us')) score += 60;
+      else if (name.includes('united states') || name.includes('us english') || name.includes('(us)')) score += 50;
+      else if (lang.startsWith('en') && !lang.startsWith('en-gb') && !name.includes('uk') && !name.includes('british')) score += 15;
       else score -= 40;
     } else if (isTargetUK) {
-      if (lang.startsWith('en-gb')) score += 50;
-      else if (name.includes('united kingdom') || name.includes('uk english') || name.includes('british') || name.includes('(uk)')) score += 45;
-      else if (lang.startsWith('en') && !lang.startsWith('en-us')) score += 10;
+      if (lang.startsWith('en-gb')) score += 60;
+      else if (name.includes('united kingdom') || name.includes('uk english') || name.includes('british') || name.includes('(uk)')) score += 50;
+      else if (lang.startsWith('en') && !lang.startsWith('en-us')) score += 15;
       else score -= 40;
+    } else if (targetLangPrefix) {
+      if (lang === targetLang) {
+        score += 70;
+      } else if (voiceLangPrefix === targetLangPrefix) {
+        score += 50;
+      } else {
+        score -= 50;
+      }
     }
 
     // 2. Gender Matching
@@ -8206,7 +8276,7 @@ function findMatchingSystemVoice(targetConfig) {
   }
 
   // Fallback to language-matching voice or default
-  const fallback = voices.find(v => (v.lang || '').toLowerCase().startsWith(targetConfig.lang.toLowerCase())) ||
+  const fallback = voices.find(v => (v.lang || '').replace(/_/g, '-').toLowerCase().startsWith(targetLangPrefix)) ||
                  voices.find(v => (v.lang || '').toLowerCase().startsWith('en')) ||
                  voices[0];
   return fallback || null;
@@ -8230,14 +8300,26 @@ function populateAudioVoiceDropdown() {
   const savedVoiceId = localStorage.getItem('bible92_preferred_voice_id') || 'us_female';
   voiceSelect.innerHTML = '';
 
+  const groups = {};
   NARRATOR_VOICES.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.id;
-    opt.textContent = v.label;
-    if (v.id === savedVoiceId) {
-      opt.selected = true;
-    }
-    voiceSelect.appendChild(opt);
+    const grp = v.group || 'Other';
+    if (!groups[grp]) groups[grp] = [];
+    groups[grp].push(v);
+  });
+
+  Object.entries(groups).forEach(([groupName, voices]) => {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = groupName;
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = v.label;
+      if (v.id === savedVoiceId) {
+        opt.selected = true;
+      }
+      optgroup.appendChild(opt);
+    });
+    voiceSelect.appendChild(optgroup);
   });
 
   voiceSelect.value = savedVoiceId;
@@ -8488,18 +8570,24 @@ function playAudioVerseChunk(index) {
     'HIN': 'hi-IN',
     'HIOV': 'hi-IN',
     'AFR': 'af-ZA',
-    'AFR53': 'af-ZA'
+    'AFR53': 'af-ZA',
+    'TIB': 'bo'
   };
 
-  const targetLang = TRANSLATION_LANG_MAP[activeReaderVersion];
-  if (targetLang) {
-    utterance.lang = targetLang;
-    if (audioSpeechSynth && typeof audioSpeechSynth.getVoices === 'function') {
-      const allVoices = audioSpeechSynth.getVoices();
-      const langPrefix = targetLang.split('-')[0].toLowerCase();
-      const matchingVoice = allVoices.find(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
-      if (matchingVoice) {
-        utterance.voice = matchingVoice;
+  const targetTranslationLang = TRANSLATION_LANG_MAP[activeReaderVersion];
+  if (targetTranslationLang) {
+    const selectedVoicePrefix = (config.lang || '').split('-')[0].toLowerCase();
+    const translationLangPrefix = targetTranslationLang.split('-')[0].toLowerCase();
+
+    // If user's selected voice is not already in the Scripture's language, route to translation's language
+    if (selectedVoicePrefix !== translationLangPrefix) {
+      utterance.lang = targetTranslationLang;
+      if (audioSpeechSynth && typeof audioSpeechSynth.getVoices === 'function') {
+        const allVoices = audioSpeechSynth.getVoices();
+        const matchingVoice = allVoices.find(v => v.lang && v.lang.replace(/_/g, '-').toLowerCase().startsWith(translationLangPrefix));
+        if (matchingVoice) {
+          utterance.voice = matchingVoice;
+        }
       }
     }
   }

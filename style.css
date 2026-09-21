@@ -16,7 +16,7 @@
   --shadow: 0 20px 40px -20px rgba(0,0,0,0.6);
 
   --font-display: 'Fraunces', serif;
-  --font-body: 'Space Grotesk', sans-serif;
+  --font-body: 'Space Grotesk', 'Noto Sans Tibetan', 'Microsoft Himalaya', 'Kailasa', sans-serif;
 
   --radius: 18px;
   --cursor-default: url('assets/bible-cursor.png') 32 32, auto;

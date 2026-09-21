@@ -21,17 +21,23 @@ and real-time gamified progress tracking.
 2. KEY FEATURES
 --------------------------------------------------------------------------------
 * IN-APP SCRIPTURE READER:
-  - 12 Translations across 4 Languages (English, Nepali, Hindi, Afrikaans)
+  - 13 Translations across 5 Languages (English, Nepali, Hindi, Afrikaans, Tibetan)
     • English: NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB
     • Nepali (नेपाली): NNRV, NEPS
     • Hindi (हिन्दी): HIN
     • Afrikaans: AFR
+    • Tibetan (བོད་ཡིག): TIB (New Tibetan Bible)
   - Fluid Chapter Quick-Jump Navigation Tabs
   - Real-time ScrollSpy & Reading Progress Tracker
   - Customizable Font Size, Line Spacing, and Themes
 
-* 4-VOICE AUDIO BIBLE NARRATOR (SCREEN-OFF & BACKGROUND PLAYBACK):
-  - 4 Curated Speech Engines (US Male, US Female, UK Male, UK Female)
+* 12-VOICE AUDIO BIBLE NARRATOR (SCREEN-OFF & BACKGROUND PLAYBACK):
+  - 12 Curated Voice Profiles across 5 Languages:
+    • English: US (Male), United States (Female), United Kingdom (Male), United Kingdom (Female)
+    • Nepali (नेपाली): Nepali (Male), Nepali (Female)
+    • Tibetan (བོད་སྐད): Tibetan (Male), Tibetan (Female)
+    • Afrikaans: Afrikaans (Male), Afrikaans (Female)
+    • Hindi (हिन्दी): Hindi (Male), Hindi (Female)
   - Chunked Speech Queue Engine (prevents browser synthesis timeouts)
   - Screen Wake Lock API (keeps screen active during listening)
   - Looped Silent Background Audio (maintains OS background playback priority)
