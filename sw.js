@@ -1,13 +1,14 @@
 // Service Worker for Project Bible in 92 Days
 // Provides offline caching, instantaneous PWA loads, and Core Web Vitals optimization
 
-const CACHE_NAME = 'bible92-pwa-v29';
+const CACHE_NAME = 'bible92-pwa-v30';
 const STATIC_ASSETS = [
   './',
   'index.html',
   'style.css',
   'app.js',
   'manifest.webmanifest',
+  'docs/Bible-in-92-Days-Installation-Guide.pdf',
   'assets/icon-192.png',
   'assets/icon-512.png',
   'assets/bible-cursor.png',

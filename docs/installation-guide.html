@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Bible in 92 Days — Official App Installation Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #0b0f17;
+      color: #e6edf3;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page:last-child {
+      page-break-after: avoid;
+    }
+
+    /* Decorative header accent bar */
+    .page-top-accent {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #d4a359 0%, #f4d089 50%, #d4a359 100%);
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #d4a359 0%, #8c6227 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 12px rgba(212, 163, 89, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .brand-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: #d4a359;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-pwa {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(212, 163, 89, 0.15);
+      border: 1px solid rgba(212, 163, 89, 0.4);
+      border-radius: 20px;
+      color: #f4d089;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* Section Headers */
+    .section-title-wrap {
+      margin-bottom: 14px;
+    }
+
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #d4a359;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .section-heading {
+      font-family: 'Fraunces', serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .section-desc {
+      font-size: 0.85rem;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+
+    /* Layout Grid: Steps + Visual Mockup */
+    .guide-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* Step Cards */
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      position: relative;
+    }
+
+    .step-card.active-step {
+      border-color: rgba(212, 163, 89, 0.6);
+      background: linear-gradient(135deg, rgba(212, 163, 89, 0.08) 0%, #161b22 100%);
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #d4a359;
+      color: #0d1117;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+      box-shadow: 0 2px 6px rgba(212, 163, 89, 0.4);
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .step-text {
+      font-size: 0.8rem;
+      color: #8b949e;
+      line-height: 1.4;
+    }
+
+    .step-text strong {
+      color: #f4d089;
+    }
+
+    .step-callout {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 2px 8px;
+      background: rgba(212, 163, 89, 0.15);
+      border: 1px solid rgba(212, 163, 89, 0.35);
+      border-radius: 6px;
+      font-size: 0.72rem;
+      color: #f4d089;
+      font-weight: 600;
+    }
+
+    /* Visual Device Mockup Frame */
+    .mockup-container {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .phone-frame {
+      border: 2px solid #484f58;
+      border-radius: 24px;
+      background: #0d1117;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 2px #21262d;
+    }
+
+    .phone-notch-bar {
+      height: 18px;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0 14px;
+    }
+
+    .phone-notch {
+      width: 60px;
+      height: 10px;
+      background: #161b22;
+      border-radius: 10px;
+    }
+
+    .mockup-url-bar {
+      background: #1c2128;
+      padding: 6px 10px;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.65rem;
+      color: #8b949e;
+    }
+
+    .url-chip {
+      background: #0d1117;
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: #f4d089;
+      font-weight: 500;
+      flex: 1;
+      text-align: center;
+      border: 1px solid #30363d;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mockup-screen-content {
+      padding: 12px 10px;
+      background: #0d1117;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+    }
+
+    .mockup-screen-title {
+      font-family: 'Fraunces', serif;
+      font-size: 0.95rem;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .mockup-screen-sub {
+      font-size: 0.68rem;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+
+    .mockup-plan-btn {
+      padding: 3px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(212, 163, 89, 0.4);
+      background: rgba(212, 163, 89, 0.1);
+      color: #d4a359;
+      font-size: 0.68rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .mockup-install-btn {
+      padding: 4px 12px;
+      border-radius: 14px;
+      border: 1px solid #d4a359;
+      background: linear-gradient(135deg, rgba(212, 163, 89, 0.25), rgba(212, 163, 89, 0.08));
+      color: #f4d089;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 0 10px rgba(212, 163, 89, 0.3);
+      position: relative;
+    }
+
+    /* Glowing Callout Badge */
+    .glow-pointer {
+      position: absolute;
+      background: #f4d089;
+      color: #0d1117;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(244, 208, 137, 0.6);
+      white-space: nowrap;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .glow-pointer::after {
+      content: '';
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: #f4d089;
+      transform: rotate(45deg);
+    }
+
+    .glow-pointer.bottom-point {
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .glow-pointer.bottom-point::after {
+      bottom: -3px;
+      left: 50%;
+      margin-left: -3px;
+    }
+
+    .glow-pointer.top-point {
+      top: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .glow-pointer.top-point::after {
+      top: -3px;
+      left: 50%;
+      margin-left: -3px;
+    }
+
+    /* Safari Bottom Bar Mockup */
+    .safari-bottom-bar {
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #8b949e;
+      position: relative;
+    }
+
+    .safari-icon-highlight {
+      color: #f4d089;
+      background: rgba(212, 163, 89, 0.25);
+      border: 1px solid #d4a359;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      box-shadow: 0 0 10px rgba(212, 163, 89, 0.5);
+      position: relative;
+    }
+
+    /* iOS Share Sheet Overlay Mockup */
+    .share-sheet-mockup {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 8px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+    }
+
+    .share-sheet-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      color: #e6edf3;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .share-sheet-item:last-child {
+      border-bottom: none;
+    }
+
+    .share-sheet-item.highlighted {
+      background: rgba(212, 163, 89, 0.2);
+      border: 1px solid #d4a359;
+      color: #f4d089;
+      font-weight: 700;
+    }
+
+    /* Android Bottom Sheet Prompt */
+    .android-sheet-mockup {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+
+    .android-sheet-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .android-sheet-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: #d4a359;
+      color: #0d1117;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.7rem;
+    }
+
+    .android-sheet-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .android-sheet-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .android-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border: none;
+    }
+
+    .android-btn-cancel {
+      background: transparent;
+      color: #8b949e;
+    }
+
+    .android-btn-install {
+      background: #d4a359;
+      color: #0d1117;
+      font-weight: 700;
+      box-shadow: 0 0 8px rgba(212, 163, 89, 0.4);
+    }
+
+    /* Desktop Window Mockup */
+    .desktop-frame {
+      border: 2px solid #30363d;
+      border-radius: 12px;
+      background: #0d1117;
+      overflow: hidden;
+    }
+
+    .desktop-titlebar {
+      background: #161b22;
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot.red { background: #f85149; }
+    .dot.yellow { background: #e3b341; }
+    .dot.green { background: #2ea043; }
+
+    .desktop-addressbar {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 3px 8px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #8b949e;
+    }
+
+    .desktop-install-icon {
+      background: rgba(212, 163, 89, 0.25);
+      border: 1px solid #d4a359;
+      color: #f4d089;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Feature Cards Strip */
+    .features-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+      border-top: 1px solid #21262d;
+      padding-top: 12px;
+    }
+
+    .feature-item {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .feature-icon {
+      font-size: 1.1rem;
+      margin-bottom: 2px;
+    }
+
+    .feature-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .feature-desc {
+      font-size: 0.65rem;
+      color: #8b949e;
+    }
+
+    /* Pro Tip Banner */
+    .protip-banner {
+      background: rgba(212, 163, 89, 0.1);
+      border: 1px solid rgba(212, 163, 89, 0.35);
+      border-radius: 8px;
+      padding: 9px 12px;
+      margin-top: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: #f4d089;
+      line-height: 1.4;
+    }
+
+    .protip-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* FAQ Section on Page 3 */
+    .faq-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .faq-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .faq-q {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #f4d089;
+      margin-bottom: 3px;
+    }
+
+    .faq-a {
+      font-size: 0.74rem;
+      color: #8b949e;
+      line-height: 1.35;
+    }
+
+    /* Footer */
+    .page-footer {
+      border-top: 1px solid #21262d;
+      padding-top: 10px;
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #8b949e;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-right {
+      font-weight: 600;
+      color: #d4a359;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1: APPLE iOS (IPHONE & IPAD) ==================== -->
+  <div class="page">
+    <div class="page-top-accent"></div>
+
+    <header class="header">
+      <div class="brand-block">
+        <div class="brand-icon">📖</div>
+        <div>
+          <div class="brand-title">Project Bible in 92 Days</div>
+          <div class="brand-subtitle">The Youth Gathering 2026</div>
+        </div>
+      </div>
+      <div class="badge-pwa">
+        <span>📲 Official PWA Guide</span>
+      </div>
+    </header>
+
+    <div class="section-title-wrap">
+      <div class="section-tag">Platform Guide • Part 1</div>
+      <h2 class="section-heading">How to Install on iPhone & iPad (Safari)</h2>
+      <p class="section-desc">Apple iOS requires saving through Safari's native Share menu. No App Store login or download wait needed!</p>
+    </div>
+
+    <div class="guide-grid">
+      <!-- Steps -->
+      <div class="steps-list">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Open Link in Safari</div>
+            <div class="step-text">Navigate to <strong>paulzhub.github.io/Bible-in-92-Days/</strong> in the <strong>Safari</strong> browser. (If viewing inside Instagram or WhatsApp, tap the Safari compass icon in the corner first).</div>
+          </div>
+        </div>
+
+        <div class="step-card active-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Tap the Share Button</div>
+            <div class="step-text">At the bottom of your Safari screen, tap the <strong>Share icon</strong> (a blue square with an arrow pointing straight up ⎙).</div>
+            <div class="step-callout">Located at bottom-center toolbar</div>
+          </div>
+        </div>
+
+        <div class="step-card active-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Select "Add to Home Screen"</div>
+            <div class="step-text">Scroll down the sharing sheet options and tap <strong>Add to Home Screen</strong> (marked with a square ➕ icon).</div>
+            <div class="step-callout">Scroll past Copy & Bookmark</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Tap "Add" in Top-Right Corner</div>
+            <div class="step-text">Confirm by tapping <strong>Add</strong> at the top right. The golden Bible 92 app icon will now appear directly on your home screen!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Mockup -->
+      <div class="mockup-container">
+        <div class="phone-frame">
+          <div class="phone-notch-bar">
+            <div class="phone-notch"></div>
+          </div>
+
+          <div class="mockup-url-bar">
+            <span>🔒</span>
+            <div class="url-chip">paulzhub.github.io/Bible-in-92-Days/</div>
+          </div>
+
+          <div class="mockup-screen-content">
+            <div class="mockup-screen-title">Project Bible in 92 Days</div>
+            <div class="mockup-screen-sub">The Youth Gathering 2026</div>
+            <div class="mockup-plan-btn">📖 Plan Overview</div>
+            <div class="mockup-install-btn">
+              <span>📲 Install App</span>
+            </div>
+          </div>
+
+          <!-- Share Sheet Preview -->
+          <div class="share-sheet-mockup">
+            <div class="share-sheet-item">
+              <span>Copy Link</span>
+              <span>📋</span>
+            </div>
+            <div class="share-sheet-item highlighted" style="position: relative;">
+              <span>Add to Home Screen</span>
+              <span>➕</span>
+              <div class="glow-pointer bottom-point">Step 3: Tap Here!</div>
+            </div>
+            <div class="share-sheet-item">
+              <span>Add to Reading List</span>
+              <span>👓</span>
+            </div>
+          </div>
+
+          <!-- Safari Bottom Toolbar -->
+          <div class="safari-bottom-bar">
+            <span>◀</span>
+            <span>▶</span>
+            <div class="safari-icon-highlight">
+              <span>⎙</span>
+              <div class="glow-pointer bottom-point">Step 2: Tap Share</div>
+            </div>
+            <span>📖</span>
+            <span>⧉</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pro Tip -->
+    <div class="protip-banner">
+      <div class="protip-icon">💡</div>
+      <div><strong>Important iPhone Note:</strong> If you open the link from an Instagram bio or WhatsApp group, you are in an in-app browser. Tap the <strong>⋯</strong> menu or compass icon in the bottom corner and select <strong>"Open in Safari"</strong> to allow home screen installation.</div>
+    </div>
+
+    <div class="features-strip">
+      <div class="feature-item">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Instant Launch</div>
+        <div class="feature-desc">Loads in &lt; 0.5s</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📴</div>
+        <div class="feature-title">100% Offline</div>
+        <div class="feature-desc">All 66 books cached</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🔊</div>
+        <div class="feature-title">Audio Bible</div>
+        <div class="feature-desc">Plays with screen off</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">💾</div>
+        <div class="feature-title">&lt; 2 MB Storage</div>
+        <div class="feature-desc">Zero phone clutter</div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <div class="footer-left">
+        <span>Project Bible in 92 Days</span> • <span>@tg.youth_</span>
+      </div>
+      <div class="footer-right">Page 1 of 3 (Apple iOS)</div>
+    </footer>
+  </div>
+
+
+  <!-- ==================== PAGE 2: ANDROID (CHROME & SAMSUNG INTERNET) ==================== -->
+  <div class="page">
+    <div class="page-top-accent"></div>
+
+    <header class="header">
+      <div class="brand-block">
+        <div class="brand-icon">🤖</div>
+        <div>
+          <div class="brand-title">Project Bible in 92 Days</div>
+          <div class="brand-subtitle">The Youth Gathering 2026</div>
+        </div>
+      </div>
+      <div class="badge-pwa">
+        <span>📲 Official PWA Guide</span>
+      </div>
+    </header>
+
+    <div class="section-title-wrap">
+      <div class="section-tag">Platform Guide • Part 2</div>
+      <h2 class="section-heading">How to Install on Android (Chrome & Samsung Internet)</h2>
+      <p class="section-desc">Android provides seamless one-tap installation directly from Google Chrome or Samsung Internet.</p>
+    </div>
+
+    <div class="guide-grid">
+      <!-- Steps -->
+      <div class="steps-list">
+        <div class="step-card active-step">
+          <div class="step-num">A</div>
+          <div class="step-content">
+            <div class="step-title">Method 1: Tap the In-App 'Install App' Button</div>
+            <div class="step-text">On our website header right below <strong>Plan Overview</strong>, tap the golden <strong>📲 Install App</strong> button.</div>
+            <div class="step-callout">Fastest 1-Tap Method</div>
+          </div>
+        </div>
+
+        <div class="step-card active-step">
+          <div class="step-num">B</div>
+          <div class="step-content">
+            <div class="step-title">Tap "Install" on the Prompt</div>
+            <div class="step-text">A native Android dialog will appear asking <em>"Install app? Project Bible in 92 Days"</em>. Tap <strong>Install</strong> to confirm.</div>
+            <div class="step-callout">Instant WebAPK creation</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">C</div>
+          <div class="step-content">
+            <div class="step-title">Method 2: Via Chrome 3-Dot Menu (Fallback)</div>
+            <div class="step-text">If the button didn't pop up immediately: Tap the <strong>three dots menu (⋮)</strong> in the top-right corner of Chrome, then tap <strong>"Install app"</strong> (or <strong>"Add to Home screen"</strong>).</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">D</div>
+          <div class="step-content">
+            <div class="step-title">All Done! Launch from Home Screen</div>
+            <div class="step-text">The app icon is placed on your home screen and in your Android App Drawer. Once launched, the website navigation bar disappears into full-screen immersive mode!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Mockup -->
+      <div class="mockup-container">
+        <div class="phone-frame">
+          <div class="mockup-url-bar">
+            <span>🔒</span>
+            <div class="url-chip">paulzhub.github.io/Bible-in-92-Days/</div>
+            <span style="font-weight: 900; color: #f4d089; margin-left: 4px;">⋮</span>
+          </div>
+
+          <div class="mockup-screen-content">
+            <div class="mockup-screen-title">Project Bible in 92 Days</div>
+            <div class="mockup-screen-sub">The Youth Gathering 2026</div>
+            <div class="mockup-plan-btn">📖 Plan Overview</div>
+            
+            <div class="mockup-install-btn" style="position: relative;">
+              <span>📲 Install App</span>
+              <div class="glow-pointer bottom-point">Method 1: Tap Here!</div>
+            </div>
+          </div>
+
+          <!-- Android Native Sheet Mockup -->
+          <div class="android-sheet-mockup">
+            <div class="android-sheet-header">
+              <div class="android-sheet-icon">92</div>
+              <div>
+                <div class="android-sheet-title">Install app?</div>
+                <div style="font-size: 0.65rem; color: #8b949e;">Project Bible in 92 Days</div>
+              </div>
+            </div>
+            <div class="android-sheet-actions" style="position: relative;">
+              <button class="android-btn android-btn-cancel">Cancel</button>
+              <button class="android-btn android-btn-install">Install</button>
+              <div class="glow-pointer bottom-point" style="right: 0; left: auto; transform: none;">Step B: Tap Install</div>
+            </div>
+          </div>
+
+          <!-- Chrome Dropdown Menu Preview -->
+          <div style="background: #1c2128; border-top: 1px solid #30363d; padding: 6px 10px; font-size: 0.68rem; color: #8b949e;">
+            <div>Method 2: Chrome Menu (⋮) → <strong style="color: #f4d089;">Install app</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pro Tip -->
+    <div class="protip-banner">
+      <div class="protip-icon">🚀</div>
+      <div><strong>Android Background Audio:</strong> On Android, once installed, you can play the Audio Bible narrator, lock your screen, and control playback from your phone's lock-screen media controls or Bluetooth headphones!</div>
+    </div>
+
+    <div class="features-strip">
+      <div class="feature-item">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">Offline Cache</div>
+        <div class="feature-desc">Zero cellular data lag</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🎧</div>
+        <div class="feature-title">Lockscreen Audio</div>
+        <div class="feature-desc">MediaSession controls</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Auto Updates</div>
+        <div class="feature-desc">Always current version</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">🏆</div>
+        <div class="feature-title">Leaderboard</div>
+        <div class="feature-desc">Real-time squad rank</div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <div class="footer-left">
+        <span>Project Bible in 92 Days</span> • <span>@tg.youth_</span>
+      </div>
+      <div class="footer-right">Page 2 of 3 (Android)</div>
+    </footer>
+  </div>
+
+
+  <!-- ==================== PAGE 3: DESKTOP & TROUBLESHOOTING FAQ ==================== -->
+  <div class="page">
+    <div class="page-top-accent"></div>
+
+    <header class="header">
+      <div class="brand-block">
+        <div class="brand-icon">💻</div>
+        <div>
+          <div class="brand-title">Project Bible in 92 Days</div>
+          <div class="brand-subtitle">The Youth Gathering 2026</div>
+        </div>
+      </div>
+      <div class="badge-pwa">
+        <span>🖥️ Desktop & Troubleshooting</span>
+      </div>
+    </header>
+
+    <div class="section-title-wrap">
+      <div class="section-tag">Platform Guide • Part 3</div>
+      <h2 class="section-heading">Desktop Installation & Troubleshooting FAQ</h2>
+      <p class="section-desc">Install on Windows PC, Mac, or Chromebook for an immersive, distraction-free desktop window.</p>
+    </div>
+
+    <!-- Desktop Step & Mockup -->
+    <div class="guide-grid">
+      <div class="steps-list">
+        <div class="step-card active-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Click the Install Icon in Address Bar</div>
+            <div class="step-text">In <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or <strong>Brave</strong>, look at the right edge of the address bar. Click the <strong>Install Icon (⊕ or desktop monitor)</strong>.</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Click "Install" to Confirm</div>
+            <div class="step-text">A dialog will ask to install <em>Project Bible in 92 Days</em>. Click <strong>Install</strong>. The app launches immediately in a clean, standalone desktop window.</div>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Pin to Windows Taskbar or Mac Dock</div>
+            <div class="step-text">Right-click the Bible 92 icon on your taskbar/dock and choose <strong>"Pin to taskbar"</strong> (or <strong>"Keep in Dock"</strong>) for one-click access every day!</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop Frame Mockup -->
+      <div class="mockup-container">
+        <div class="desktop-frame">
+          <div class="desktop-titlebar">
+            <div class="window-dots">
+              <div class="dot red"></div>
+              <div class="dot yellow"></div>
+              <div class="dot green"></div>
+            </div>
+            <div class="desktop-addressbar">
+              <span>https://paulzhub.github.io/Bible-in-92-Days/</span>
+              <div class="desktop-install-icon" style="position: relative;">
+                <span>⊕ Install</span>
+                <div class="glow-pointer bottom-point">Click Here!</div>
+              </div>
+            </div>
+            <span style="color: #8b949e; font-size: 0.75rem;">⋮</span>
+          </div>
+
+          <div class="mockup-screen-content" style="min-height: 120px;">
+            <div class="mockup-screen-title">Project Bible in 92 Days</div>
+            <div class="mockup-plan-btn">📖 Plan Overview</div>
+            <div class="mockup-install-btn">
+              <span>📲 Install App</span>
+            </div>
+          </div>
+
+          <!-- Pin to Taskbar Illustration -->
+          <div style="background: #1c2128; border-top: 1px solid #30363d; padding: 6px 10px; font-size: 0.68rem; color: #8b949e; display: flex; align-items: center; justify-content: space-between;">
+            <span>Windows Taskbar / Mac Dock:</span>
+            <span style="color: #f4d089; font-weight: 700;">📌 Pin for Daily Reading</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Troubleshooting FAQ -->
+    <div style="margin-top: 14px;">
+      <div class="section-tag" style="font-size: 0.75rem;">Common Questions & Answers</div>
+      <div class="faq-grid">
+        <div class="faq-card">
+          <div class="faq-q">❓ Why doesn't "Install App" show on iPhone?</div>
+          <div class="faq-a">Apple blocks websites from prompting automatically. You must use Safari's native <strong>Share ⎙ → Add to Home Screen</strong> button (see Page 1).</div>
+        </div>
+
+        <div class="faq-card">
+          <div class="faq-q">❓ Does the app work without internet?</div>
+          <div class="faq-a">Yes! The Service Worker caches the entire Bible portion, reader translations, and audio narration engine so you can read anywhere offline.</div>
+        </div>
+
+        <div class="faq-card">
+          <div class="faq-q">❓ Will it consume my phone storage?</div>
+          <div class="faq-a">No! Unlike 150MB App Store apps, this modern Progressive Web App uses <strong>under 2 MB</strong> total storage on your device.</div>
+        </div>
+
+        <div class="faq-card">
+          <div class="faq-q">❓ How do I get updates?</div>
+          <div class="faq-a">Updates install automatically in the background whenever you open the app while connected to the internet. No manual updates needed!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Need Help Banner -->
+    <div class="protip-banner" style="margin-top: 12px; background: rgba(88, 166, 255, 0.08); border-color: rgba(88, 166, 255, 0.35); color: #a5d6ff;">
+      <div class="protip-icon">💬</div>
+      <div><strong>Need assistance?</strong> Message us anytime on Instagram: <strong>@tg.youth_</strong> or ask anyone in the accountability squad!</div>
+    </div>
+
+    <footer class="page-footer">
+      <div class="footer-left">
+        <span>Project Bible in 92 Days</span> • <span>The Youth Gathering 2026</span>
+      </div>
+      <div class="footer-right">Page 3 of 3 (Desktop & FAQ)</div>
+    </footer>
+  </div>
+
+</body>
+</html>

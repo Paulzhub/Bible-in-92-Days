@@ -7381,6 +7381,201 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   border-radius: 50%;
   background: var(--accent);
   color: #0d1117;
+    transparent 72%
+  );
+  mix-blend-mode: screen;
+  transition: opacity 0.2s ease;
+}
+
+[data-theme="light"] .kinetic-sheen {
+  background: radial-gradient(
+    circle 340px at var(--sheen-x, 50%) var(--sheen-y, 50%),
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(217, 146, 43, 0.35) 30%,
+    rgba(255, 255, 255, 0.15) 55%,
+    transparent 72%
+  );
+  mix-blend-mode: overlay;
+}
+
+.kinetic-tilt-card.is-hovered {
+  border-color: rgba(232, 169, 59, 0.38);
+}
+
+/* ============ "LIVING INK" SCRIPTURE TYPOGRAPHY REVEAL ============ */
+.key-verse-box {
+  overflow: hidden;
+}
+
+.key-verse-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.key-verse-box-header .key-verse-eyebrow {
+  margin-bottom: 0;
+}
+
+.re-ink-verse-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.re-ink-verse-btn:hover {
+  color: var(--accent);
+  background: rgba(232, 169, 59, 0.12);
+  border-color: rgba(232, 169, 59, 0.3);
+  transform: scale(1.05);
+}
+
+.living-ink-word {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.living-ink-char {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+  vertical-align: baseline;
+}
+
+.living-ink-space {
+  display: inline;
+}
+
+.living-ink-quill {
+  display: inline-block;
+  margin-left: 2px;
+  margin-right: 2px;
+  font-size: 0.95em;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.95)) drop-shadow(0 0 14px rgba(232, 169, 59, 0.8));
+  vertical-align: baseline;
+  pointer-events: none;
+  transition: transform 0.08s ease;
+  animation: quillGlowPulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes quillGlowPulse {
+  from { transform: scale(0.9) translateY(0); opacity: 0.8; }
+  to { transform: scale(1.2) translateY(-2px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-tilt-card {
+    transform: none !important;
+    transition: none !important;
+  }
+  .kinetic-sheen {
+    display: none !important;
+  }
+  .living-ink-char {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+  .living-ink-quill {
+    display: none !important;
+  }
+  .scroll-roller {
+    display: none !important;
+  }
+  .parchment-sheet {
+    clip-path: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .bvg-lead-badge.lead-pulse-shockwave {
+    animation: none !important;
+  }
+  .bvg-lead-badge.lead-pulse-shockwave::after {
+    display: none !important;
+  }
+  .bvg-segment,
+  .bvg-single-bar {
+    transition: none !important;
+  }
+  .bvg-particle-emitter {
+    display: none !important;
+  }
+}
+
+/* ============ INSTALL GUIDE MODAL ============ */
+.install-guide-card {
+  max-width: 480px;
+}
+
+.install-guide-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.install-guide-icon {
+  font-size: 1.25rem;
+}
+
+.install-guide-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.install-guide-platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(212, 163, 89, 0.14);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.install-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.install-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+
+.install-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0d1117;
   font-size: 0.75rem;
   font-weight: 700;
   flex-shrink: 0;
@@ -7395,6 +7590,27 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 
 .install-step-content strong {
   color: var(--accent);
+}
+
+.install-guide-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  background: rgba(212, 163, 89, 0.12);
+  border: 1px solid rgba(212, 163, 89, 0.35);
+  color: var(--accent);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.install-guide-pdf-btn:hover {
+  background: var(--accent);
+  color: #0d1117;
+  transform: translateY(-1px);
 }
 
 /* ============ STANDALONE / APP MODE OVERRIDES ============ */
