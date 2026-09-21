@@ -31,10 +31,12 @@
 <meta name="apple-mobile-web-app-title" content="Bible in 92 Days">
 <link rel="manifest" href="manifest.webmanifest">
 
-<!-- Favicon Set (Cross Cursor Asset) -->
+<!-- Favicon Set (Cross Cursor & High-Res App Icons) -->
 <link rel="icon" type="image/png" href="assets/bible-cursor.png">
 <link rel="shortcut icon" href="assets/bible-cursor.png">
-<link rel="apple-touch-icon" href="assets/bible-cursor.png">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
 
 <!-- Open Graph / Social Sharing Meta Tags -->
 <meta property="og:type" content="website">
@@ -311,6 +313,11 @@
       <button type="button" id="guest-quick-login-btn" class="btn btn-secondary btn-guest-login" title="Explore reading plan as Guest">
         <span>👀 Explore as Guest</span>
       </button>
+      <div id="login-pwa-install-wrap" class="login-pwa-install-wrap" hidden>
+        <button type="button" id="login-pwa-install-btn" class="btn btn-pwa-install" title="Install Bible in 92 Days App on this device">
+          <span>📲 Install App</span>
+        </button>
+      </div>
       <div class="login-public-link-wrap">
         <a href="#public-overview" class="login-public-link">92-Day Reading Schedule & FAQ ↓</a>
       </div>
@@ -1996,6 +2003,10 @@
             <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           </button>
+          <button id="pwa-install-btn" class="pwa-install-btn" type="button" aria-label="Install Bible in 92 Days App" title="Install App on this device" hidden>
+            <span class="pwa-install-icon">📲</span>
+            <span>Install App</span>
+          </button>
           <button id="logout-btn" class="text-btn" type="button">Log out</button>
         </div>
 
@@ -2798,6 +2809,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>

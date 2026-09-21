@@ -304,6 +304,75 @@ if ('serviceWorker' in navigator && window.location.protocol.startsWith('http'))
   });
 }
 
+// PWA Installation Manager
+let deferredInstallPrompt = null;
+
+function setupPwaInstallPrompt() {
+  const headerInstallBtn = document.getElementById('pwa-install-btn');
+  const loginInstallWrap = document.getElementById('login-pwa-install-wrap');
+  const loginInstallBtn = document.getElementById('login-pwa-install-btn');
+
+  const showInstallButtons = () => {
+    if (headerInstallBtn) headerInstallBtn.hidden = false;
+    if (loginInstallWrap) loginInstallWrap.hidden = false;
+  };
+
+  const hideInstallButtons = () => {
+    if (headerInstallBtn) headerInstallBtn.hidden = true;
+    if (loginInstallWrap) loginInstallWrap.hidden = true;
+  };
+
+  const triggerInstallFlow = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choiceResult = await deferredInstallPrompt.userChoice;
+      if (choiceResult && choiceResult.outcome === 'accepted') {
+        hideInstallButtons();
+      }
+      deferredInstallPrompt = null;
+    } else {
+      const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+      if (isIos) {
+        alert("To install Bible in 92 Days on iOS:\n1. Tap the Share button (⎙) in Safari\n2. Select 'Add to Home Screen' (📲)");
+      } else {
+        alert("To install, tap your browser's menu (⋮) and select 'Install app' or 'Add to Home screen'.");
+      }
+    }
+  };
+
+  if (headerInstallBtn) {
+    headerInstallBtn.addEventListener('click', triggerInstallFlow);
+  }
+  if (loginInstallBtn) {
+    loginInstallBtn.addEventListener('click', triggerInstallFlow);
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallButtons();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    hideInstallButtons();
+    deferredInstallPrompt = null;
+    console.log('Bible in 92 Days PWA installed successfully!');
+  });
+
+  // If on iOS and not in standalone mode, display the install buttons so iOS users can see the guide
+  const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isIos && !isStandalone) {
+    showInstallButtons();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupPwaInstallPrompt);
+} else {
+  setupPwaInstallPrompt();
+}
+
 function getChallengeDayForDate(date) {
   const start = new Date(2026, 7, 10); // August 10, 2026
   const cur = new Date(date.getFullYear(), date.getMonth(), date.getDate());
