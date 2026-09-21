@@ -5761,14 +5761,19 @@ function initScriptureReader(session) {
   applyFontSize();
 }
 
+const BOLLS_VERSION_MAP = {
+  'CSB': 'CSB17'
+};
+
 async function fetchChapterFromApi(version, bookId, chapter) {
+  const apiVersion = BOLLS_VERSION_MAP[version] || version;
   const cacheKey = `${version}_${bookId}_${chapter}`;
   if (readerChapterCache[cacheKey]) {
     return readerChapterCache[cacheKey];
   }
 
   try {
-    const res = await fetch(`https://bolls.life/get-chapter/${encodeURIComponent(version)}/${bookId}/${chapter}/`);
+    const res = await fetch(`https://bolls.life/get-chapter/${encodeURIComponent(apiVersion)}/${bookId}/${chapter}/`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
@@ -5938,7 +5943,12 @@ async function renderReaderPassageContent(portionText, version, targetChapterObj
         res.value.forEach(v => {
           const row = document.createElement('span');
           row.className = 'verse-row';
-          const cleanText = String(v.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          const cleanText = String(v.text || '')
+            .replace(/<sup\b[^>]*>.*?<\/sup>/gi, '')
+            .replace(/<s\b[^>]*>.*?<\/s>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
           const sup = document.createElement('sup');
           sup.className = 'verse-num';
           sup.textContent = v.verse;

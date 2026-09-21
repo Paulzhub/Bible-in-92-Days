@@ -21,7 +21,7 @@ and real-time gamified progress tracking.
 2. KEY FEATURES
 --------------------------------------------------------------------------------
 * IN-APP SCRIPTURE READER:
-  - 7 English Translations (NIV, ESV, NLT, KJV, NKJV, WEB, NASB)
+  - 8 English Translations (NIV, ESV, CSB, NLT, KJV, NKJV, WEB, NASB)
   - Fluid Chapter Quick-Jump Navigation Tabs
   - Real-time ScrollSpy & Reading Progress Tracker
   - Customizable Font Size, Line Spacing, and Themes
