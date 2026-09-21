@@ -63,7 +63,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -2003,10 +2003,6 @@
             <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           </button>
-          <button id="pwa-install-btn" class="pwa-install-btn" type="button" aria-label="Install Bible in 92 Days App" title="Install App on this device" hidden>
-            <span class="pwa-install-icon">📲</span>
-            <span>Install App</span>
-          </button>
           <button id="logout-btn" class="text-btn" type="button">Log out</button>
         </div>
 
@@ -2017,6 +2013,10 @@
             <button type="button" id="header-plan-overview-btn" class="header-plan-overview-btn" title="View 92-Day Reading Plan Overview & Schedule">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               <span>Plan Overview</span>
+            </button>
+            <button type="button" id="header-install-app-btn" class="header-install-app-btn" title="Install Bible in 92 Days App on this device" aria-label="Install App">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Install App</span>
             </button>
           </div>
         </div>
@@ -2831,6 +2831,28 @@
     </div>
   </div>
 
+  <!-- INSTALL GUIDE MODAL -->
+  <div id="install-guide-modal" class="modal-backdrop" hidden>
+    <div class="modal-card install-guide-card">
+      <div class="modal-header">
+        <div class="install-guide-header-title">
+          <span class="install-guide-icon">📲</span>
+          <h3 class="modal-title">Install Bible in 92 Days</h3>
+        </div>
+        <button id="close-install-guide-modal" class="modal-close-btn" type="button" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="install-guide-body">
+        <p class="install-guide-subtitle">Install as an app on your smartphone or desktop for instantaneous offline reading, home screen shortcuts, and full immersion.</p>
+        <div id="install-guide-steps" class="install-guide-steps">
+          <!-- Populated dynamically by app.js based on device (iOS, Android, Desktop) -->
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="btn-close-install-guide" class="btn btn-primary">Got it!</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CELEBRATION CONFETTI CANVAS -->
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
@@ -2842,6 +2864,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>

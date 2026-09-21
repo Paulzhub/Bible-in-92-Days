@@ -206,7 +206,9 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 .header-plan-overview-wrap {
   margin-top: 1.5rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .header-plan-overview-btn {
@@ -229,6 +231,34 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   background: var(--accent);
   color: #000;
   transform: translateY(-1px);
+}
+
+.header-install-app-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.32rem 0.88rem;
+  background: linear-gradient(135deg, rgba(212, 163, 89, 0.18), rgba(212, 163, 89, 0.06));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.header-install-app-btn:hover {
+  background: var(--accent);
+  color: #0d1117;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 163, 89, 0.35);
+}
+
+.header-install-app-btn:active {
+  transform: translateY(0);
 }
 
 .welcome-user {
@@ -7290,4 +7320,91 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   }
 }
 
+/* ============ INSTALL GUIDE MODAL ============ */
+.install-guide-card {
+  max-width: 480px;
+}
 
+.install-guide-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.install-guide-icon {
+  font-size: 1.25rem;
+}
+
+.install-guide-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.install-guide-platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(212, 163, 89, 0.14);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.install-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.install-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+
+.install-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0d1117;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.install-step-content {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.install-step-content strong {
+  color: var(--accent);
+}
+
+/* ============ STANDALONE / APP MODE OVERRIDES ============ */
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  #header-install-app-btn,
+  .header-install-app-btn,
+  #login-pwa-install-wrap,
+  .login-pwa-install-wrap,
+  #pwa-install-btn,
+  .pwa-install-btn {
+    display: none !important;
+  }
+}

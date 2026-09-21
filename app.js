@@ -307,64 +307,194 @@ if ('serviceWorker' in navigator && window.location.protocol.startsWith('http'))
 // PWA Installation Manager
 let deferredInstallPrompt = null;
 
+function isPwaStandalone() {
+  return Boolean(
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) ||
+    (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches) ||
+    window.navigator.standalone ||
+    (document.referrer && document.referrer.startsWith('android-app://'))
+  );
+}
+
+function renderInstallGuideContent() {
+  const container = document.getElementById('install-guide-steps');
+  if (!container) return;
+
+  const ua = (window.navigator.userAgent || '').toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(ua);
+  const isAndroid = /android/.test(ua);
+
+  let platformBadge = '';
+  let stepsHtml = '';
+
+  if (isIos) {
+    platformBadge = '<div class="install-guide-platform-pill"><span>🍎</span><span>Apple iOS (Safari)</span></div>';
+    stepsHtml = 
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">1</span>' +
+        '<div class="install-step-content">In <strong>Safari</strong>, tap the <strong>Share</strong> button (the square with an upward arrow ⎙) in the bottom toolbar.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">2</span>' +
+        '<div class="install-step-content">Scroll down the sharing sheet and tap <strong>Add to Home Screen</strong> (📲).</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">3</span>' +
+        '<div class="install-step-content">Tap <strong>Add</strong> in the top-right corner. Project Bible in 92 Days is now installed on your device!</div>' +
+      '</div>';
+  } else if (isAndroid) {
+    platformBadge = '<div class="install-guide-platform-pill"><span>🤖</span><span>Android (Chrome / Browser)</span></div>';
+    stepsHtml = 
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">1</span>' +
+        '<div class="install-step-content">Tap the <strong>three dots menu</strong> (⋮) in the corner of your browser.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">2</span>' +
+        '<div class="install-step-content">Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">3</span>' +
+        '<div class="install-step-content">Tap <strong>Install</strong> to confirm. The app icon will appear on your home screen!</div>' +
+      '</div>';
+  } else {
+    platformBadge = '<div class="install-guide-platform-pill"><span>💻</span><span>Desktop (Chrome / Edge / Brave)</span></div>';
+    stepsHtml = 
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">1</span>' +
+        '<div class="install-step-content">Click the <strong>Install App icon</strong> (⊕ or monitor) on the right side of your browser address bar.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">2</span>' +
+        '<div class="install-step-content">Or click the browser menu (⋮) and select <strong>Install Project Bible in 92 Days</strong>.</div>' +
+      '</div>' +
+      '<div class="install-guide-step">' +
+        '<span class="install-step-num">3</span>' +
+        '<div class="install-step-content">Click <strong>Install</strong> to launch the app in its own dedicated window!</div>' +
+      '</div>';
+  }
+
+  container.innerHTML = platformBadge + stepsHtml;
+}
+
+function openInstallGuideModal() {
+  renderInstallGuideContent();
+  const modal = document.getElementById('install-guide-modal');
+  if (modal) {
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeInstallGuideModal() {
+  const modal = document.getElementById('install-guide-modal');
+  if (modal) {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+}
+
 function setupPwaInstallPrompt() {
-  const headerInstallBtn = document.getElementById('pwa-install-btn');
+  const headerInstallBtn = document.getElementById('header-install-app-btn');
+  const legacyHeaderInstallBtn = document.getElementById('pwa-install-btn');
   const loginInstallWrap = document.getElementById('login-pwa-install-wrap');
   const loginInstallBtn = document.getElementById('login-pwa-install-btn');
 
-  const showInstallButtons = () => {
-    if (headerInstallBtn) headerInstallBtn.hidden = false;
-    if (loginInstallWrap) loginInstallWrap.hidden = false;
-  };
-
-  const hideInstallButtons = () => {
-    if (headerInstallBtn) headerInstallBtn.hidden = true;
-    if (loginInstallWrap) loginInstallWrap.hidden = true;
+  const updateVisibility = () => {
+    const standalone = isPwaStandalone();
+    if (standalone) {
+      if (headerInstallBtn) headerInstallBtn.hidden = true;
+      if (legacyHeaderInstallBtn) legacyHeaderInstallBtn.hidden = true;
+      if (loginInstallWrap) loginInstallWrap.hidden = true;
+    } else {
+      if (headerInstallBtn) headerInstallBtn.hidden = false;
+      if (legacyHeaderInstallBtn) legacyHeaderInstallBtn.hidden = false;
+      if (loginInstallWrap) loginInstallWrap.hidden = false;
+    }
   };
 
   const triggerInstallFlow = async () => {
     if (deferredInstallPrompt) {
-      deferredInstallPrompt.prompt();
-      const choiceResult = await deferredInstallPrompt.userChoice;
-      if (choiceResult && choiceResult.outcome === 'accepted') {
-        hideInstallButtons();
+      try {
+        deferredInstallPrompt.prompt();
+        const choiceResult = await deferredInstallPrompt.userChoice;
+        if (choiceResult && choiceResult.outcome === 'accepted') {
+          if (headerInstallBtn) headerInstallBtn.hidden = true;
+          if (legacyHeaderInstallBtn) legacyHeaderInstallBtn.hidden = true;
+          if (loginInstallWrap) loginInstallWrap.hidden = true;
+          if (typeof showNudgeToast === 'function') {
+            showNudgeToast('🎉 Bible in 92 Days installed successfully!');
+          }
+        }
+      } catch (err) {
+        console.warn('Install prompt failed:', err);
       }
       deferredInstallPrompt = null;
     } else {
-      const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-      if (isIos) {
-        alert("To install Bible in 92 Days on iOS:\n1. Tap the Share button (⎙) in Safari\n2. Select 'Add to Home Screen' (📲)");
-      } else {
-        alert("To install, tap your browser's menu (⋮) and select 'Install app' or 'Add to Home screen'.");
-      }
+      openInstallGuideModal();
     }
   };
 
   if (headerInstallBtn) {
     headerInstallBtn.addEventListener('click', triggerInstallFlow);
   }
+  if (legacyHeaderInstallBtn) {
+    legacyHeaderInstallBtn.addEventListener('click', triggerInstallFlow);
+  }
   if (loginInstallBtn) {
     loginInstallBtn.addEventListener('click', triggerInstallFlow);
   }
 
+  // Modal close handlers
+  const closeBtn = document.getElementById('close-install-guide-modal');
+  const gotItBtn = document.getElementById('btn-close-install-guide');
+  const modal = document.getElementById('install-guide-modal');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeInstallGuideModal);
+  if (gotItBtn) gotItBtn.addEventListener('click', closeInstallGuideModal);
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeInstallGuideModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) {
+      closeInstallGuideModal();
+    }
+  });
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    showInstallButtons();
+    updateVisibility();
   });
 
   window.addEventListener('appinstalled', () => {
-    hideInstallButtons();
     deferredInstallPrompt = null;
+    if (headerInstallBtn) headerInstallBtn.hidden = true;
+    if (legacyHeaderInstallBtn) legacyHeaderInstallBtn.hidden = true;
+    if (loginInstallWrap) loginInstallWrap.hidden = true;
+    closeInstallGuideModal();
     console.log('Bible in 92 Days PWA installed successfully!');
+    if (typeof showNudgeToast === 'function') {
+      showNudgeToast('🎉 Bible in 92 Days installed successfully!');
+    }
   });
 
-  // If on iOS and not in standalone mode, display the install buttons so iOS users can see the guide
-  const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (isIos && !isStandalone) {
-    showInstallButtons();
+  // Listen to standalone media query changes in real time
+  try {
+    const mql = window.matchMedia('(display-mode: standalone)');
+    if (mql && mql.addEventListener) {
+      mql.addEventListener('change', updateVisibility);
+    }
+  } catch (err) {
+    // Ignore legacy browsers
   }
+
+  // Initial visibility check
+  updateVisibility();
 }
 
 if (document.readyState === 'loading') {
