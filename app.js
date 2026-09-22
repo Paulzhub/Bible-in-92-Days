@@ -2122,38 +2122,39 @@ function checkMilestoneCelebration(daysCompleted) {
 
 // ====== DATA FETCHING ======
 
-async function loadInitialData(session, retryCount = 0) {
+function synthesizeReadingSidebarFromDOM() {
+  if (typeof allPortionsCache !== 'undefined' && Array.isArray(allPortionsCache) && allPortionsCache.length > 0) {
+    return;
+  }
+  const cards = document.querySelectorAll('.public-day-card');
+  if (!cards || cards.length === 0) return;
+  const portions = [];
+  cards.forEach(card => {
+    const day = Number(card.getAttribute('data-day'));
+    const portionEl = card.querySelector('.public-day-portion');
+    const dateEl = card.querySelector('.public-day-date');
+    if (day && portionEl) {
+      portions.push({
+        day,
+        portion: portionEl.textContent.trim(),
+        date: dateEl ? dateEl.textContent.trim() : ''
+      });
+    }
+  });
+  if (portions.length > 0) {
+    renderReadingSidebar(portions);
+  }
+}
+
+function applyInitialData(res, session, { isBackgroundUpdate = false, isCached = false } = {}) {
+  if (!res) return;
+
   const portionEl = document.getElementById('today-portion');
   const dateEl = document.getElementById('today-date');
   const lbBody = document.getElementById('leaderboard-body');
   const lbError = document.getElementById('leaderboard-error');
   const commentsListEl = document.getElementById('comments-list');
   const prayersListEl = document.getElementById('prayers-list');
-
-  let res;
-  try {
-    res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
-  } catch (err) {
-    if (retryCount < 3) {
-      console.warn(`Initial data load failed (attempt ${retryCount + 1}), auto-retrying in ${(retryCount + 1) * 1500}ms...`, err);
-      setTimeout(() => {
-        const curSession = getSession();
-        if (curSession) loadInitialData(curSession, retryCount + 1);
-      }, (retryCount + 1) * 1500);
-      return;
-    }
-    if (portionEl) portionEl.textContent = "Couldn't load today's portion. Check your connection.";
-    if (lbBody) lbBody.innerHTML = '';
-    if (lbError) {
-      lbError.textContent = "Couldn't reach the server. Please refresh.";
-      lbError.hidden = false;
-    }
-    if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
-    if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
-    return;
-  }
-
-  if (!res) return;
 
   try { updateGuestBanner(res.activeGuests || res.activeGuest, session); } catch (e) { console.error(e); }
 
@@ -2164,7 +2165,7 @@ async function loadInitialData(session, retryCount = 0) {
       currentDayNum = res.today.day;
       renderDayCountdown(res.today.day);
       renderTodayPortionDetail(res.today.portion, res.today.day, session);
-    } else {
+    } else if (!isCached) {
       if (portionEl) portionEl.textContent = "No portion listed for today yet — check back soon.";
       if (dateEl) dateEl.textContent = res.today ? (res.today.date || '') : '';
       renderDayCountdown(null);
@@ -2175,6 +2176,8 @@ async function loadInitialData(session, retryCount = 0) {
   try {
     if (res.allPortions && res.allPortions.success) {
       renderReadingSidebar(res.allPortions.portions);
+    } else if (!isBackgroundUpdate) {
+      synthesizeReadingSidebarFromDOM();
     }
   } catch (e) { console.error('Error rendering reading sidebar:', e); }
 
@@ -2199,7 +2202,8 @@ async function loadInitialData(session, retryCount = 0) {
       renderLeaderboard(currentLeaderboard, session);
       renderPlayground(currentLeaderboard);
       updateHeaderLevel(currentLeaderboard, session);
-    } else {
+      if (lbError) lbError.hidden = true;
+    } else if (!isCached) {
       if (lbBody) lbBody.innerHTML = '';
       if (lbError) {
         lbError.textContent = (res.leaderboard && res.leaderboard.error) || 'Could not load the leaderboard.';
@@ -2215,31 +2219,36 @@ async function loadInitialData(session, retryCount = 0) {
       renderWeeklyRecap(res.recap);
     }
     const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
-    renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
+    if (allTime) {
+      renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
+    }
   } catch (e) { console.error('Error rendering weekly recap or all-time stats:', e); }
 
+  const todayStr = formatDDMMYY(new Date());
+  const isViewingTodayComments = !activeCommentsDate || activeCommentsDate === todayStr;
   try {
-    if (res.comments && res.comments.success) {
+    if (res.comments && res.comments.success && isViewingTodayComments) {
       commentsCache = res.comments.comments || [];
       if (session && session.username) {
-        mergePersistedReactions(commentsCache, 'comments', activeCommentsDate || formatDDMMYY(new Date()), session.username, REACTIONS.map(r => r.type));
+        mergePersistedReactions(commentsCache, 'comments', activeCommentsDate || todayStr, session.username, REACTIONS.map(r => r.type));
       }
       renderComments(session);
       updateCommentFormVisibility(session);
-    } else {
+    } else if (!isCached && isViewingTodayComments) {
       if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Could not load comments.</p>';
     }
   } catch (e) { console.error('Error rendering comments:', e); }
 
+  const isViewingTodayPrayers = !activePrayersDate || activePrayersDate === todayStr;
   try {
-    if (res.prayers && res.prayers.success) {
+    if (res.prayers && res.prayers.success && isViewingTodayPrayers) {
       prayersCache = res.prayers.prayers || [];
       if (session && session.username) {
-        mergePersistedReactions(prayersCache, 'prayers', activePrayersDate || formatDDMMYY(new Date()), session.username, PRAYER_REACTIONS_MAP.map(r => r.key));
+        mergePersistedReactions(prayersCache, 'prayers', activePrayersDate || todayStr, session.username, PRAYER_REACTIONS_MAP.map(r => r.key));
       }
       renderPrayers(session);
       updatePrayerFormVisibility(session);
-    } else {
+    } else if (!isCached && isViewingTodayPrayers) {
       if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Could not load prayers.</p>';
     }
   } catch (e) { console.error('Error rendering prayers:', e); }
@@ -2249,6 +2258,72 @@ async function loadInitialData(session, retryCount = 0) {
       renderHeatmap(res.history.history || []);
     }
   } catch (e) { console.error('Error rendering heatmap:', e); }
+}
+
+async function loadInitialData(session, retryCount = 0) {
+  const INITIAL_CACHE_KEY = `bible92_initial_cache_${(session.username || '').toLowerCase()}`;
+
+  // 1. Instant Cache Hydration: Render cached snapshot in < 50ms
+  if (retryCount === 0) {
+    try {
+      const rawCache = localStorage.getItem(INITIAL_CACHE_KEY) || localStorage.getItem('bible92_initial_cache');
+      if (rawCache) {
+        const cachedRes = JSON.parse(rawCache);
+        if (cachedRes && typeof cachedRes === 'object') {
+          applyInitialData(cachedRes, session, { isBackgroundUpdate: false, isCached: true });
+        }
+      } else {
+        synthesizeReadingSidebarFromDOM();
+      }
+    } catch (e) {
+      console.warn('Error hydrating initial cache:', e);
+      synthesizeReadingSidebarFromDOM();
+    }
+  }
+
+  // 2. Fetch fresh data from network in the background
+  const portionEl = document.getElementById('today-portion');
+  const lbBody = document.getElementById('leaderboard-body');
+  const lbError = document.getElementById('leaderboard-error');
+  const commentsListEl = document.getElementById('comments-list');
+  const prayersListEl = document.getElementById('prayers-list');
+
+  let res;
+  try {
+    res = await apiGet({ action: 'getInitialData', username: session.username, password: session.password });
+  } catch (err) {
+    if (retryCount < 3) {
+      console.warn(`Initial data load failed (attempt ${retryCount + 1}), auto-retrying in ${(retryCount + 1) * 1500}ms...`, err);
+      setTimeout(() => {
+        const curSession = getSession();
+        if (curSession) loadInitialData(curSession, retryCount + 1);
+      }, (retryCount + 1) * 1500);
+      return;
+    }
+    // Only display error messages if no cached data was rendered
+    if (!currentLeaderboard || currentLeaderboard.length === 0) {
+      if (portionEl) portionEl.textContent = "Couldn't load today's portion. Check your connection.";
+      if (lbBody) lbBody.innerHTML = '';
+      if (lbError) {
+        lbError.textContent = "Couldn't reach the server. Please refresh.";
+        lbError.hidden = false;
+      }
+      if (commentsListEl) commentsListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
+      if (prayersListEl) prayersListEl.innerHTML = '<p class="comments-empty">Couldn\'t reach the server.</p>';
+    }
+    return;
+  }
+
+  if (!res) return;
+
+  // 3. Persist updated snapshot for instant subsequent loads
+  try {
+    localStorage.setItem(INITIAL_CACHE_KEY, JSON.stringify(res));
+    localStorage.setItem('bible92_initial_cache', JSON.stringify(res));
+  } catch (e) {}
+
+  // 4. Seamlessly update UI with fresh data
+  applyInitialData(res, session, { isBackgroundUpdate: true, isCached: false });
 }
 
 async function loadUpdates(session) {
@@ -2291,7 +2366,9 @@ async function loadUpdates(session) {
         }
       }
       const allTime = res.allTimeStats || (res.recap && res.recap.allTimeStats);
-      renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
+      if (allTime) {
+        renderAllTimeStats(allTime, res.leaderboard ? res.leaderboard.leaderboard : null);
+      }
     } catch (e) {}
 
     const todayStr = formatDDMMYY(new Date());
@@ -2322,6 +2399,29 @@ async function loadUpdates(session) {
     try {
       if (res.history && res.history.success) {
         renderHeatmap(res.history.history || []);
+      }
+    } catch (e) {}
+
+    // Update persistent cache with the latest updates
+    try {
+      const INITIAL_CACHE_KEY = `bible92_initial_cache_${(session.username || '').toLowerCase()}`;
+      const rawCache = localStorage.getItem(INITIAL_CACHE_KEY) || localStorage.getItem('bible92_initial_cache');
+      if (rawCache) {
+        const cachedRes = JSON.parse(rawCache);
+        if (cachedRes && typeof cachedRes === 'object') {
+          if (res.leaderboard) cachedRes.leaderboard = res.leaderboard;
+          if (res.recap) cachedRes.recap = res.recap;
+          if (res.allTimeStats) cachedRes.allTimeStats = res.allTimeStats;
+          if (res.comments) cachedRes.comments = res.comments;
+          if (res.prayers) cachedRes.prayers = res.prayers;
+          if (res.nudges) cachedRes.nudges = res.nudges;
+          if (res.activeGuests || res.activeGuest) {
+            cachedRes.activeGuests = res.activeGuests || cachedRes.activeGuests;
+            cachedRes.activeGuest = res.activeGuest || cachedRes.activeGuest;
+          }
+          if (res.history) cachedRes.history = res.history;
+          localStorage.setItem(INITIAL_CACHE_KEY, JSON.stringify(cachedRes));
+        }
       }
     } catch (e) {}
   } catch (err) {
