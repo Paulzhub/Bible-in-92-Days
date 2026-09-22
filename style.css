@@ -2,6 +2,7 @@
 :root {
   --bg: #14162B;
   --surface: #1E2140;
+  --surface-1: #1E2140;
   --surface-glass: rgba(30, 33, 64, 0.78);
   --surface-2: #262A52;
   --text: #F6EFE1;
@@ -26,6 +27,7 @@
 [data-theme="light"] {
   --bg: #F6EFE1;
   --surface: #FFFFFF;
+  --surface-1: #FFFFFF;
   --surface-glass: rgba(255, 255, 255, 0.82);
   --surface-2: #FBF6EA;
   --text: #14162B;
@@ -5516,14 +5518,16 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: var(--surface-1);
+  background: rgba(30, 33, 64, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: var(--text);
   border: 1px solid var(--accent);
-  padding: 0.6rem 1.2rem;
+  padding: 0.65rem 1.35rem;
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(245, 158, 11, 0.3);
   z-index: 9999;
   opacity: 0;
   pointer-events: none;
@@ -5531,6 +5535,13 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  max-width: 90vw;
+  text-align: center;
+}
+
+[data-theme="light"] .nudge-toast {
+  background: rgba(255, 255, 255, 0.90);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15), 0 0 16px rgba(217, 146, 43, 0.25);
 }
 
 .nudge-toast.visible {
