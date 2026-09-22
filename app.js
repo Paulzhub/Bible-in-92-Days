@@ -1138,11 +1138,13 @@ function wireUpdateForm(session) {
   const feedback = document.getElementById('update-feedback');
   if (!form) return;
 
-  if (session && (session.isGuest || session.isAdmin)) {
+  const curSession = session || getSession();
+
+  if (curSession && (curSession.isGuest || curSession.isAdmin)) {
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = session.isAdmin ? 'Admin Mode (Non-Reader)' : 'Guest View Only';
+      submitBtn.textContent = curSession.isAdmin ? 'Admin Mode (Non-Reader)' : 'Guest View Only';
     }
     const dateSelect = document.getElementById('date-select');
     const statusSelect = document.getElementById('status-select');
@@ -1152,9 +1154,16 @@ function wireUpdateForm(session) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (session && (session.isGuest || session.isAdmin)) {
+    const activeSession = session || getSession();
+    if (activeSession && (activeSession.isGuest || activeSession.isAdmin)) {
       feedback.hidden = false;
-      feedback.textContent = session.isAdmin ? 'Admin account is not on the reading roster.' : 'Guest users are in read-only mode.';
+      feedback.textContent = activeSession.isAdmin ? 'Admin account is not on the reading roster.' : 'Guest users are in read-only mode.';
+      feedback.className = 'form-feedback error';
+      return;
+    }
+    if (!activeSession) {
+      feedback.hidden = false;
+      feedback.textContent = 'Please log in to update your reading status.';
       feedback.className = 'form-feedback error';
       return;
     }
@@ -1167,8 +1176,8 @@ function wireUpdateForm(session) {
     try {
       const res = await apiGet({
         action: 'updateStatus',
-        username: session.username,
-        password: session.password,
+        username: activeSession.username,
+        password: activeSession.password,
         date,
         status
       });
@@ -1177,12 +1186,13 @@ function wireUpdateForm(session) {
         feedback.textContent = `Marked ${date} as "${status}".`;
         feedback.className = 'form-feedback success';
         if (status === 'Read') celebrate(false);
-        loadUpdates(session);
+        loadUpdates(activeSession);
       } else {
         feedback.textContent = res.error || 'Something went wrong.';
         feedback.className = 'form-feedback error';
       }
     } catch (err) {
+      console.error('Error updating status from form:', err);
       feedback.hidden = false;
       feedback.textContent = "Couldn't reach the server. Try again.";
       feedback.className = 'form-feedback error';
@@ -6123,8 +6133,8 @@ function initScriptureReader(session) {
       try {
         const res = await apiGet({
           action: 'updateStatus',
-          username: session.username,
-          password: session.password,
+          username: curSession.username,
+          password: curSession.password,
           date: targetDate,
           status: 'Read'
         });
@@ -6132,7 +6142,7 @@ function initScriptureReader(session) {
         if (res.success) {
           markReadBtn.textContent = '✓ Marked as Read!';
           celebrate(true);
-          loadUpdates(session);
+          loadUpdates(curSession);
         } else {
           alert(res.error || 'Failed to update status.');
           markReadBtn.disabled = false;
@@ -6141,6 +6151,7 @@ function initScriptureReader(session) {
             : `✓ Mark Day ${activeReaderDay} as Read`;
         }
       } catch (err) {
+        console.error('Error marking as read:', err);
         alert("Couldn't reach the server. Please try again.");
         markReadBtn.disabled = false;
         markReadBtn.textContent = (activeReaderDay && activeReaderDay === currentDayNum) || !activeReaderDay
