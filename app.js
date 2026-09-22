@@ -18,6 +18,18 @@ let prayersCache = [];
 let activeCommentsDate = null;
 let activePrayersDate = null;
 
+// App Version & Release Registry for GitHub Feature Updates
+const CURRENT_APP_VERSION = 'v35';
+const APP_RELEASE_REGISTRY = [
+  {
+    version: 'v35',
+    title: 'New: Live Notification Center & Leaderboard Alerts!',
+    summary: 'We added a brand-new Notification Center! You will now be alerted if someone passes you on the leaderboard, when squad members nudge you, with custom daily reading reminders, and whenever new app features drop.',
+    date: '2026-09-23',
+    icon: '🚀'
+  }
+];
+
 // ====== HELPERS ======
 
 function escapeHtml(str) {
@@ -772,6 +784,8 @@ function initLogin() {
   initPublicTodayPreview();
   initPublicScheduleFeatures();
   initScriptureReader();
+  initNotifications();
+  checkAppReleaseUpdates();
   const session = getSession();
   if (session) {
     showSite(session);
@@ -1039,6 +1053,9 @@ function showSite(session) {
   initScriptureReader(session);
   initScrollTransitions();
   initSquadNudgeBanner(session);
+  initNotifications(session);
+  checkAppReleaseUpdates(session);
+  initDailyReminderTimer(session);
   initCommentsDateSearch(session);
   initPrayersDateSearch(session);
   wireUpdateForm(session);
@@ -2783,6 +2800,23 @@ function renderLeaderboard(rows, session) {
     });
   }
 
+  // Canonical leaderboard ranking for overtake detection
+  const canonicalRanking = [...rows].sort((a, b) => {
+    if (b.daysCompleted !== a.daysCompleted) return b.daysCompleted - a.daysCompleted;
+    if (a.lastReadTimestamp > 0 && b.lastReadTimestamp > 0) {
+      if (a.lastReadTimestamp !== b.lastReadTimestamp) return a.lastReadTimestamp - b.lastReadTimestamp;
+    } else if (a.lastReadTimestamp > 0) return -1;
+    else if (b.lastReadTimestamp > 0) return 1;
+    const sA = a.streak || 0;
+    const sB = b.streak || 0;
+    if (sB !== sA) return sB - sA;
+    return (a.username || '').localeCompare(b.username || '');
+  });
+  checkLeaderboardOvertake(canonicalRanking, session);
+  if (me && me.usedStreakFreeze) {
+    checkStreakFreezeNotification(me, session);
+  }
+
   sortedRows.forEach((row, index) => {
     const tr = document.createElement('tr');
     const isYou = session && row.username === session.username;
@@ -4376,6 +4410,8 @@ function renderSquadNudgeBanner(nudges, session) {
   const textEl = document.getElementById('squad-nudge-text');
   if (!banner || !textEl || !session || session.isGuest) return;
 
+  checkSquadNudgeNotifications(nudges, session);
+
   const myNudges = (nudges || []).filter(n => n.target && n.target.toLowerCase() === session.username.toLowerCase());
   if (myNudges.length > 0) {
     const senders = [...new Set(myNudges.map(n => n.sender))];
@@ -4450,6 +4486,646 @@ async function handleNudgeUser(targetUsername, btnEl, session) {
   } catch (err) {
     // Keep button disabled/nudged locally even on network retry/timeout
     console.warn('Nudge request network notice:', err);
+  }
+}
+
+// ====== HYBRID NOTIFICATION ENGINE & ACTIVITY CENTER ======
+
+let isNotificationsInitialized = false;
+let dailyReminderTimer = null;
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return 'Just now';
+  const now = Date.now();
+  const diffSec = Math.floor((now - timestamp) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return formatDDMMYY(new Date(timestamp));
+}
+
+function getNotifications(username) {
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_notifications_${safeUser}`;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveNotifications(username, list) {
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_notifications_${safeUser}`;
+  try {
+    const trimmed = (list || []).slice(0, 50);
+    localStorage.setItem(key, JSON.stringify(trimmed));
+  } catch (e) {}
+}
+
+function addNotification(username, notif) {
+  if (!notif || !notif.title) return;
+  const safeUser = username || (getSession() ? getSession().username : 'public');
+  const list = getNotifications(safeUser);
+
+  // Deduplicate by ID
+  if (notif.id && list.some(item => item.id === notif.id)) {
+    return;
+  }
+
+  const newEntry = {
+    id: notif.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    type: notif.type || 'info', // 'overtake', 'nudge', 'streak', 'release', 'reminder', 'rank_up'
+    title: notif.title,
+    body: notif.body || '',
+    icon: notif.icon || '🔔',
+    timestamp: notif.timestamp || Date.now(),
+    read: false,
+    actionType: notif.actionType || '',
+    actionLabel: notif.actionLabel || ''
+  };
+
+  list.unshift(newEntry);
+  saveNotifications(safeUser, list);
+  updateNotificationBadge(safeUser);
+  renderNotificationsList(safeUser);
+
+  // If app is hidden/minimized and device notification is allowed, send native notification
+  if (document.hidden && isDeviceNotificationEnabled()) {
+    sendDeviceNotification({
+      title: notif.title,
+      body: notif.body,
+      icon: 'assets/icon-192.png',
+      data: { action: notif.actionType || 'openApp' }
+    });
+  }
+}
+
+function updateNotificationBadge(username) {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  const list = getNotifications(username);
+  const unreadCount = list.filter(n => !n.read).length;
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+    badge.hidden = false;
+    badge.classList.add('pulse');
+  } else {
+    badge.hidden = true;
+    badge.textContent = '0';
+    badge.classList.remove('pulse');
+  }
+}
+
+function renderNotificationsList(username) {
+  const listEl = document.getElementById('notifications-list');
+  const emptyEl = document.getElementById('notifications-empty-state');
+  if (!listEl || !emptyEl) return;
+
+  const safeUser = username || (getSession() ? getSession().username : 'public');
+  const list = getNotifications(safeUser);
+
+  if (list.length === 0) {
+    listEl.innerHTML = '';
+    emptyEl.hidden = false;
+    return;
+  }
+
+  emptyEl.hidden = true;
+  listEl.innerHTML = '';
+
+  list.forEach(item => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'notif-item' + (!item.read ? ' unread' : '');
+    itemEl.dataset.id = item.id;
+
+    const iconEl = document.createElement('div');
+    iconEl.className = `notif-item-icon ${item.type || 'info'}`;
+    iconEl.textContent = item.icon || '🔔';
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'notif-item-content';
+
+    const topEl = document.createElement('div');
+    topEl.className = 'notif-item-top';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'notif-item-title';
+    titleEl.textContent = item.title;
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'notif-item-time';
+    timeEl.textContent = formatRelativeTime(item.timestamp);
+
+    topEl.appendChild(titleEl);
+    topEl.appendChild(timeEl);
+
+    const bodyEl = document.createElement('p');
+    bodyEl.className = 'notif-item-body';
+    bodyEl.textContent = item.body;
+
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'notif-item-actions';
+
+    if (item.actionType === 'reader') {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'notif-action-btn';
+      actBtn.textContent = item.actionLabel || '📖 Read Now';
+      actBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeNotificationsModal();
+        const portionText = document.getElementById('today-portion')?.textContent || '';
+        openReaderModal({ portion: portionText, day: currentDayNum });
+      });
+      actionsEl.appendChild(actBtn);
+    } else if (item.actionType === 'leaderboard') {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'notif-action-btn';
+      actBtn.textContent = item.actionLabel || '🏆 View Board';
+      actBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeNotificationsModal();
+        const lbSection = document.getElementById('leaderboard-section');
+        if (lbSection) {
+          lbSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      actionsEl.appendChild(actBtn);
+    }
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.className = 'notif-dismiss-btn';
+    dismissBtn.innerHTML = '&times;';
+    dismissBtn.title = 'Dismiss notification';
+    dismissBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dismissNotification(safeUser, item.id);
+    });
+    actionsEl.appendChild(dismissBtn);
+
+    contentEl.appendChild(topEl);
+    contentEl.appendChild(bodyEl);
+    contentEl.appendChild(actionsEl);
+
+    itemEl.appendChild(iconEl);
+    itemEl.appendChild(contentEl);
+
+    itemEl.addEventListener('click', () => {
+      if (!item.read) {
+        item.read = true;
+        saveNotifications(safeUser, list);
+        itemEl.classList.remove('unread');
+        updateNotificationBadge(safeUser);
+      }
+    });
+
+    listEl.appendChild(itemEl);
+  });
+}
+
+function dismissNotification(username, id) {
+  const safeUser = username || (getSession() ? getSession().username : 'public');
+  const list = getNotifications(safeUser).filter(n => n.id !== id);
+  saveNotifications(safeUser, list);
+  updateNotificationBadge(safeUser);
+  renderNotificationsList(safeUser);
+}
+
+function markAllNotificationsRead(username) {
+  const safeUser = username || (getSession() ? getSession().username : 'public');
+  const list = getNotifications(safeUser);
+  list.forEach(n => { n.read = true; });
+  saveNotifications(safeUser, list);
+  updateNotificationBadge(safeUser);
+  renderNotificationsList(safeUser);
+}
+
+function clearAllNotifications(username) {
+  const safeUser = username || (getSession() ? getSession().username : 'public');
+  saveNotifications(safeUser, []);
+  updateNotificationBadge(safeUser);
+  renderNotificationsList(safeUser);
+}
+
+function openNotificationsModal() {
+  const modal = document.getElementById('notifications-modal');
+  if (!modal) return;
+  const session = getSession();
+  const safeUser = session ? session.username : 'public';
+  renderNotificationsList(safeUser);
+  updateNotificationBadge(safeUser);
+  updatePermissionBadgeUI();
+  modal.hidden = false;
+  modal.classList.add('active');
+}
+
+function closeNotificationsModal() {
+  const modal = document.getElementById('notifications-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  modal.hidden = true;
+}
+
+function updatePermissionBadgeUI() {
+  const badgeEl = document.getElementById('notif-permission-status');
+  const toggle = document.getElementById('notif-reminder-toggle');
+  if (!badgeEl) return;
+
+  if (!('Notification' in window)) {
+    badgeEl.textContent = '❌ Not supported';
+    badgeEl.style.color = 'var(--bad)';
+    if (toggle) toggle.disabled = true;
+    return;
+  }
+
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    badgeEl.textContent = '✓ Device notifications allowed';
+    badgeEl.style.color = 'var(--good)';
+  } else if (perm === 'denied') {
+    badgeEl.textContent = '⚠️ Blocked in browser settings';
+    badgeEl.style.color = 'var(--bad)';
+  } else {
+    badgeEl.textContent = 'ℹ️ Permission not requested yet';
+    badgeEl.style.color = 'var(--text-muted)';
+  }
+}
+
+function isDeviceNotificationEnabled() {
+  return localStorage.getItem('bible92_reminder_enabled') === 'true' &&
+    'Notification' in window &&
+    Notification.permission === 'granted';
+}
+
+async function requestDeviceNotificationPermission() {
+  if (!('Notification' in window)) {
+    alert('Device notifications are not supported on this browser.');
+    return false;
+  }
+  if (Notification.permission === 'granted') {
+    return true;
+  }
+  if (Notification.permission !== 'denied') {
+    const perm = await Notification.requestPermission();
+    updatePermissionBadgeUI();
+    return perm === 'granted';
+  }
+  updatePermissionBadgeUI();
+  return false;
+}
+
+function sendDeviceNotification({ title, body, icon, data }) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, {
+          body: body,
+          icon: icon || 'assets/icon-192.png',
+          badge: 'assets/icon-192.png',
+          data: data || {},
+          vibrate: [200, 100, 200]
+        });
+      }).catch(() => {
+        new Notification(title, { body, icon: icon || 'assets/icon-192.png', data: data || {} });
+      });
+    } else {
+      new Notification(title, { body, icon: icon || 'assets/icon-192.png', data: data || {} });
+    }
+  } catch (err) {
+    console.warn('Could not trigger device notification:', err);
+  }
+}
+
+function checkAppReleaseUpdates(session) {
+  const LAST_SEEN_KEY = 'bible92_last_seen_app_version';
+  const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+
+  if (lastSeen !== CURRENT_APP_VERSION) {
+    const latestRelease = APP_RELEASE_REGISTRY.find(r => r.version === CURRENT_APP_VERSION) || APP_RELEASE_REGISTRY[0];
+    if (latestRelease) {
+      const username = session && session.username ? session.username : 'public';
+      addNotification(username, {
+        id: `release_${latestRelease.version}`,
+        type: 'release',
+        title: `🚀 ${latestRelease.title}`,
+        body: latestRelease.summary,
+        icon: latestRelease.icon || '🚀',
+        actionType: 'reader',
+        actionLabel: '📖 Open App'
+      });
+
+      // Display floating celebratory toast
+      if (typeof showNudgeToast === 'function') {
+        showNudgeToast(`🚀 What's New: ${latestRelease.summary}`, false);
+      }
+
+      // If native notification permission is granted, send an OS notification
+      if (isDeviceNotificationEnabled()) {
+        sendDeviceNotification({
+          title: `🚀 Bible in 92 Days Updated!`,
+          body: latestRelease.summary,
+          icon: 'assets/icon-192.png',
+          data: { action: 'openApp', version: latestRelease.version }
+        });
+      }
+    }
+    localStorage.setItem(LAST_SEEN_KEY, CURRENT_APP_VERSION);
+  }
+}
+
+function checkLeaderboardOvertake(canonicalRanking, session) {
+  if (!session || session.isGuest || session.isAdmin || !Array.isArray(canonicalRanking)) return;
+
+  const myIndex = canonicalRanking.findIndex(r => r.username && r.username.toLowerCase() === session.username.toLowerCase());
+  if (myIndex === -1) return;
+
+  const myCurrentRank = myIndex + 1;
+  const safeUser = session.username.toLowerCase();
+  const RANK_KEY = `bible92_prev_rank_${safeUser}`;
+  const ORDER_KEY = `bible92_prev_order_${safeUser}`;
+  const curOrder = canonicalRanking.map(r => r.username);
+
+  const prevRankStr = localStorage.getItem(RANK_KEY);
+  const prevOrderStr = localStorage.getItem(ORDER_KEY);
+
+  if (prevRankStr !== null && prevOrderStr !== null) {
+    const prevRank = parseInt(prevRankStr, 10);
+    let prevOrder = [];
+    try { prevOrder = JSON.parse(prevOrderStr); } catch (e) {}
+
+    if (myCurrentRank > prevRank && prevOrder.length > 0) {
+      // User dropped in rank! Find who overtook them
+      const wasBehind = prevOrder.slice(prevRank); // users behind previously
+      const isNowAhead = curOrder.slice(0, myIndex); // users ahead now
+      const passers = wasBehind.filter(u => isNowAhead.includes(u));
+
+      if (passers.length > 0) {
+        const passerNames = passers.join(' and ');
+        const title = '⚡ Leaderboard Overtake Alert!';
+        const body = `${passerNames} just passed you on the leaderboard (Rank #${prevRank} → #${myCurrentRank})! Time to read today's portion and reclaim your spot! ⚔️`;
+        const todayStr = formatDDMMYY(new Date());
+        const notifId = `overtake_${passers.join('_')}_${myCurrentRank}_${todayStr}`;
+
+        addNotification(session.username, {
+          id: notifId,
+          type: 'overtake',
+          title: title,
+          body: body,
+          icon: '⚡',
+          actionType: 'reader',
+          actionLabel: 'Read Now'
+        });
+
+        if (typeof showNudgeToast === 'function') {
+          showNudgeToast(`⚡ Leaderboard Alert: ${passerNames} just passed you!`, true);
+        }
+      }
+    } else if (myCurrentRank < prevRank && prevOrder.length > 0) {
+      // User climbed in rank!
+      const title = '🏆 Rank Advanced!';
+      const body = `Awesome job! You climbed to Rank #${myCurrentRank} on the cohort leaderboard! Keep shining! ✨`;
+      const todayStr = formatDDMMYY(new Date());
+
+      addNotification(session.username, {
+        id: `rank_up_${myCurrentRank}_${todayStr}`,
+        type: 'rank_up',
+        title: title,
+        body: body,
+        icon: '🏆',
+        actionType: 'leaderboard',
+        actionLabel: 'View Board'
+      });
+    }
+  }
+
+  localStorage.setItem(RANK_KEY, String(myCurrentRank));
+  localStorage.setItem(ORDER_KEY, JSON.stringify(curOrder));
+}
+
+function checkSquadNudgeNotifications(nudges, session) {
+  if (!session || session.isGuest || !Array.isArray(nudges)) return;
+  const myNudges = nudges.filter(n => n.target && n.target.toLowerCase() === session.username.toLowerCase());
+  const todayStr = formatDDMMYY(new Date());
+
+  myNudges.forEach(n => {
+    if (!n.sender) return;
+    const notifId = `nudge_${n.sender}_${todayStr}`;
+    addNotification(session.username, {
+      id: notifId,
+      type: 'nudge',
+      title: `⚡ Squad Nudge from ${n.sender}`,
+      body: `${n.sender} cheered you on to complete today's reading portion!`,
+      icon: '⚡',
+      actionType: 'reader',
+      actionLabel: 'Read Now'
+    });
+  });
+}
+
+function checkStreakFreezeNotification(meRow, session) {
+  if (!session || session.isGuest || !meRow || !meRow.usedStreakFreeze) return;
+  const todayStr = formatDDMMYY(new Date());
+  const notifId = `freeze_used_${todayStr}`;
+  addNotification(session.username, {
+    id: notifId,
+    type: 'streak',
+    title: '🧊 Streak Freeze Preserved Your Streak!',
+    body: 'Your reading streak was safely protected yesterday using an automated Streak Freeze! Keep up the momentum today!',
+    icon: '🧊',
+    actionType: 'reader',
+    actionLabel: 'Read Today'
+  });
+}
+
+function initDailyReminderTimer(session) {
+  if (dailyReminderTimer) clearInterval(dailyReminderTimer);
+
+  dailyReminderTimer = setInterval(() => {
+    checkDailyReadingReminder(session);
+  }, 60000);
+
+  checkDailyReadingReminder(session);
+}
+
+function checkDailyReadingReminder(session) {
+  const curSession = session || getSession();
+  if (!curSession || curSession.isGuest || curSession.isAdmin) return;
+
+  const isEnabled = localStorage.getItem('bible92_reminder_enabled') === 'true';
+  if (!isEnabled) return;
+
+  const reminderTime = localStorage.getItem('bible92_reminder_time') || '20:00';
+  const now = new Date();
+  const currentHours = String(now.getHours()).padStart(2, '0');
+  const currentMins = String(now.getMinutes()).padStart(2, '0');
+  const currentTimeStr = `${currentHours}:${currentMins}`;
+
+  const todayStr = formatDDMMYY(now);
+  const LAST_REMINDER_KEY = `bible92_last_reminder_date_${curSession.username.toLowerCase()}`;
+  const lastReminderDate = localStorage.getItem(LAST_REMINDER_KEY);
+
+  if (lastReminderDate === todayStr) return;
+
+  if (currentTimeStr === reminderTime) {
+    const myRow = (currentLeaderboard || []).find(r => r.username && r.username.toLowerCase() === curSession.username.toLowerCase());
+    if (myRow && myRow.readToday) {
+      return; // Already read today
+    }
+
+    const todayPortion = document.getElementById('today-portion')?.textContent || "Today's Portion";
+    const dayNum = currentDayNum || '';
+    const dayLabel = dayNum ? `Day ${dayNum}` : 'Today';
+
+    addNotification(curSession.username, {
+      id: `daily_reminder_${todayStr}`,
+      type: 'reminder',
+      title: `📖 Reading Reminder — ${dayLabel}`,
+      body: `Time for Scripture! ${todayPortion} is waiting for you. Keep your streak alive! 🔥`,
+      icon: '📖',
+      actionType: 'reader',
+      actionLabel: 'Read Now'
+    });
+
+    if (isDeviceNotificationEnabled()) {
+      sendDeviceNotification({
+        title: `📖 Reading Reminder — ${dayLabel}`,
+        body: `${todayPortion} is waiting. Tap to read now! 🔥`,
+        icon: 'assets/icon-192.png',
+        data: { action: 'openReader' }
+      });
+    }
+
+    localStorage.setItem(LAST_REMINDER_KEY, todayStr);
+  }
+}
+
+function initNotifications(session) {
+  const bellBtn = document.getElementById('header-notif-btn');
+  const modal = document.getElementById('notifications-modal');
+  const closeBtn = document.getElementById('close-notifications-modal');
+  const markAllBtn = document.getElementById('notif-mark-all-read-btn');
+  const clearAllBtn = document.getElementById('notif-clear-all-btn');
+  const toggleSettingsBtn = document.getElementById('notif-toggle-settings-btn');
+  const settingsPanel = document.getElementById('reminder-settings-panel');
+  const reminderToggle = document.getElementById('notif-reminder-toggle');
+  const reminderTimeInput = document.getElementById('notif-reminder-time');
+  const testNotifBtn = document.getElementById('notif-test-btn');
+
+  const curSession = session || getSession();
+  const safeUser = curSession ? curSession.username : 'public';
+
+  updateNotificationBadge(safeUser);
+
+  if (isNotificationsInitialized) return;
+  isNotificationsInitialized = true;
+
+  if (bellBtn) {
+    bellBtn.addEventListener('click', openNotificationsModal);
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeNotificationsModal);
+  }
+
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeNotificationsModal();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) {
+      closeNotificationsModal();
+    }
+  });
+
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', () => {
+      const activeUser = (getSession() ? getSession().username : 'public');
+      markAllNotificationsRead(activeUser);
+    });
+  }
+
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', () => {
+      const activeUser = (getSession() ? getSession().username : 'public');
+      clearAllNotifications(activeUser);
+    });
+  }
+
+  if (toggleSettingsBtn && settingsPanel) {
+    toggleSettingsBtn.addEventListener('click', () => {
+      settingsPanel.hidden = !settingsPanel.hidden;
+      updatePermissionBadgeUI();
+    });
+  }
+
+  if (reminderToggle) {
+    reminderToggle.checked = localStorage.getItem('bible92_reminder_enabled') === 'true';
+    reminderToggle.addEventListener('change', async () => {
+      if (reminderToggle.checked) {
+        const granted = await requestDeviceNotificationPermission();
+        if (granted) {
+          localStorage.setItem('bible92_reminder_enabled', 'true');
+          showNudgeToast('🔔 Daily reading notifications enabled!');
+        } else {
+          reminderToggle.checked = false;
+          localStorage.setItem('bible92_reminder_enabled', 'false');
+          showNudgeToast('⚠️ Device notification permission not granted.', true);
+        }
+      } else {
+        localStorage.setItem('bible92_reminder_enabled', 'false');
+        showNudgeToast('Daily reading reminders turned off.');
+      }
+      updatePermissionBadgeUI();
+    });
+  }
+
+  if (reminderTimeInput) {
+    const savedTime = localStorage.getItem('bible92_reminder_time') || '20:00';
+    reminderTimeInput.value = savedTime;
+    reminderTimeInput.addEventListener('change', () => {
+      localStorage.setItem('bible92_reminder_time', reminderTimeInput.value);
+      showNudgeToast(`⏰ Reminder time set to ${reminderTimeInput.value}`);
+    });
+  }
+
+  if (testNotifBtn) {
+    testNotifBtn.addEventListener('click', async () => {
+      const granted = await requestDeviceNotificationPermission();
+      if (!granted) {
+        alert('Please allow notification permissions in your browser to test.');
+        return;
+      }
+      sendDeviceNotification({
+        title: '📖 Project Bible in 92 Days',
+        body: 'Test notification working! Your daily reading alarms will appear here. 🔥',
+        icon: 'assets/icon-192.png',
+        data: { action: 'test' }
+      });
+      showNudgeToast('🔔 Test notification sent!');
+    });
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'BIBLE92_OPEN_READER') {
+        const portionText = document.getElementById('today-portion')?.textContent || '';
+        openReaderModal({ portion: portionText, day: currentDayNum });
+      }
+    });
   }
 }
 

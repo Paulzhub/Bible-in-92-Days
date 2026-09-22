@@ -1,7 +1,7 @@
 // Service Worker for Project Bible in 92 Days
 // Provides offline caching, instantaneous PWA loads, and Core Web Vitals optimization
 
-const CACHE_NAME = 'bible92-pwa-v34';
+const CACHE_NAME = 'bible92-pwa-v35';
 const STATIC_ASSETS = [
   './',
   'index.html',
@@ -63,6 +63,29 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
+    })
+  );
+});
+
+// Native Notification Click Handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const notifData = event.notification.data || {};
+  const urlToOpen = notifData.url || './';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          if (notifData.action === 'openReader') {
+            client.postMessage({ type: 'BIBLE92_OPEN_READER' });
+          }
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
     })
   );
 });

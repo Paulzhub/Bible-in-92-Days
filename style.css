@@ -7685,3 +7685,415 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
     display: none !important;
   }
 }
+
+/* ============ NOTIFICATION CENTER & BELL BUTTON ============ */
+.notif-bell-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-glass);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notif-bell-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.notif-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 0 10px rgba(232, 169, 59, 0.7);
+  pointer-events: none;
+  line-height: 1;
+}
+
+.notif-badge.pulse {
+  animation: notifPulse 2s infinite ease-in-out;
+}
+
+@keyframes notifPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(232, 169, 59, 0.6);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 14px rgba(232, 169, 59, 0.9);
+  }
+}
+
+.notifications-card {
+  max-width: 520px;
+  width: 92%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.notifications-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notifications-header-icon {
+  font-size: 1.25rem;
+}
+
+.notifications-card .modal-header {
+  padding: 1.15rem 1.25rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notifications-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.25rem;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--border);
+}
+
+.notifications-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notif-tool-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.notif-tool-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.notif-tool-btn.settings-btn {
+  color: var(--accent);
+  border-color: rgba(232, 169, 59, 0.3);
+}
+
+.notif-tool-btn.settings-btn:hover {
+  background: rgba(232, 169, 59, 0.1);
+}
+
+.reminder-settings-panel {
+  padding: 0.85rem 1.25rem;
+  background: rgba(232, 169, 59, 0.05);
+  border-bottom: 1px solid var(--border);
+  animation: panelSlideDown 0.2s ease-out;
+}
+
+@keyframes panelSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reminder-panel-heading {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--accent);
+}
+
+.reminder-panel-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+  line-height: 1.45;
+}
+
+.reminder-settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reminder-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.reminder-toggle-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.reminder-time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.reminder-time-input {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+}
+
+.reminder-time-input:focus {
+  border-color: var(--accent);
+}
+
+.reminder-test-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.reminder-test-row .btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.notif-perm-badge {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.notifications-modal-body {
+  padding: 0.85rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(85vh - 160px);
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.notif-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.notif-item.unread {
+  background: rgba(232, 169, 59, 0.06);
+  border-color: rgba(232, 169, 59, 0.28);
+}
+
+.notif-item.unread::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+
+.notif-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.notif-item-icon.overtake {
+  background: rgba(228, 104, 93, 0.18);
+  border-color: rgba(228, 104, 93, 0.35);
+  color: var(--bad);
+}
+
+.notif-item-icon.nudge {
+  background: rgba(232, 169, 59, 0.18);
+  border-color: rgba(232, 169, 59, 0.35);
+  color: var(--accent);
+}
+
+.notif-item-icon.reminder {
+  background: rgba(111, 174, 140, 0.18);
+  border-color: rgba(111, 174, 140, 0.35);
+  color: var(--good);
+}
+
+.notif-item-icon.release {
+  background: rgba(122, 105, 181, 0.22);
+  border-color: rgba(122, 105, 181, 0.4);
+  color: var(--violet-light);
+}
+
+.notif-item-icon.rank_up {
+  background: rgba(232, 169, 59, 0.25);
+  border-color: rgba(232, 169, 59, 0.45);
+  color: var(--accent);
+}
+
+.notif-item-icon.streak {
+  background: rgba(111, 174, 140, 0.18);
+  border-color: rgba(111, 174, 140, 0.35);
+  color: var(--good);
+}
+
+.notif-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.notif-item-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.notif-item-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.notif-item-body {
+  font-size: 0.79rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 0.45rem;
+}
+
+.notif-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notif-action-btn {
+  font-size: 0.73rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.notif-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(232, 169, 59, 0.4);
+}
+
+.notif-dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.notif-dismiss-btn:hover {
+  opacity: 1;
+  color: var(--bad);
+}
+
+.notifications-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+}
+
+.notifications-empty-state .empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  opacity: 0.8;
+}
+
+.notifications-empty-state h4 {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.notifications-empty-state p {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+}
