@@ -19,12 +19,13 @@ let activeCommentsDate = null;
 let activePrayersDate = null;
 
 // App Version & Release Registry for GitHub Feature Updates
-const CURRENT_APP_VERSION = 'v35';
+const CURRENT_APP_VERSION = 'v36';
 const APP_RELEASE_REGISTRY = [
   {
-    version: 'v35',
-    title: 'New: Live Notification Center & Leaderboard Alerts!',
-    summary: 'We added a brand-new Notification Center! You will now be alerted if someone passes you on the leaderboard, when squad members nudge you, with custom daily reading reminders, and whenever new app features drop.',
+    version: 'v36',
+    title: 'BIBLE IN 92 DAYS — NEW APP UPDATE!',
+    summary: 'Hey squad! We just pushed a major new update to make staying consistent and holding each other accountable even more fun. Here is what’s new:\n\n🔔 Live Notification Center:\nTap the new bell icon at the top of the app to see all your activity, squad cheers, and updates in one place.\n\n⚡ Leaderboard Overtake Alerts:\nWatch your back! If someone passes you on the leaderboard, the app will instantly alert you with a 1-tap "Read Now" button so you can reclaim your spot! ⚔️🔥\n\n⏰ Daily Reading Reminders & Alarms:\nYou can now set your own preferred reminder time (e.g. 8:00 PM) directly in the app so you never lose your streak.\n\n🧊 Streak Freeze Protection Alerts:\nClear confirmation whenever your safety-net freeze preserves your streak.\n\n🚀 Automatic Update Notes:\nFrom now on, whenever new features drop, you\'ll see a quick plain-English breakdown right when you open the app!',
+    toastSummary: 'New update live! Live Notification Center, Leaderboard Overtake Alerts, and Daily Reminders 🔔⚡',
     date: '2026-09-23',
     icon: '🚀'
   }
@@ -784,9 +785,9 @@ function initLogin() {
   initPublicTodayPreview();
   initPublicScheduleFeatures();
   initScriptureReader();
-  initNotifications();
-  checkAppReleaseUpdates();
   const session = getSession();
+  initNotifications(session);
+  checkAppReleaseUpdates(session);
   if (session) {
     showSite(session);
     checkUrlDeepLinks(session);
@@ -4807,39 +4808,51 @@ function sendDeviceNotification({ title, body, icon, data }) {
 }
 
 function checkAppReleaseUpdates(session) {
-  const LAST_SEEN_KEY = 'bible92_last_seen_app_version';
-  const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+  const curSession = session || getSession();
+  const targetUsername = curSession && curSession.username ? curSession.username : 'public';
+  const safeUser = targetUsername.toLowerCase();
+  const LAST_SEEN_KEY = `bible92_last_seen_app_version_${safeUser}`;
+  const lastSeen = localStorage.getItem(LAST_SEEN_KEY) || localStorage.getItem('bible92_last_seen_app_version');
 
-  if (lastSeen !== CURRENT_APP_VERSION) {
-    const latestRelease = APP_RELEASE_REGISTRY.find(r => r.version === CURRENT_APP_VERSION) || APP_RELEASE_REGISTRY[0];
-    if (latestRelease) {
-      const username = session && session.username ? session.username : 'public';
-      addNotification(username, {
-        id: `release_${latestRelease.version}`,
+  const latestRelease = APP_RELEASE_REGISTRY.find(r => r.version === CURRENT_APP_VERSION) || APP_RELEASE_REGISTRY[0];
+  if (!latestRelease) return;
+
+  const notifId = `release_${latestRelease.version}`;
+  const currentNotifs = getNotifications(targetUsername);
+  const alreadyHasNotif = currentNotifs.some(item => item.id === notifId);
+
+  if (lastSeen !== CURRENT_APP_VERSION || !alreadyHasNotif) {
+    if (!alreadyHasNotif) {
+      addNotification(targetUsername, {
+        id: notifId,
         type: 'release',
         title: `🚀 ${latestRelease.title}`,
         body: latestRelease.summary,
         icon: latestRelease.icon || '🚀',
         actionType: 'reader',
-        actionLabel: '📖 Open App'
+        actionLabel: '📖 Open Reader'
       });
+    }
 
+    if (lastSeen !== CURRENT_APP_VERSION) {
       // Display floating celebratory toast
       if (typeof showNudgeToast === 'function') {
-        showNudgeToast(`🚀 What's New: ${latestRelease.summary}`, false);
+        showNudgeToast(`🚀 What's New: ${latestRelease.toastSummary || latestRelease.title}`, false);
       }
 
       // If native notification permission is granted, send an OS notification
       if (isDeviceNotificationEnabled()) {
         sendDeviceNotification({
           title: `🚀 Bible in 92 Days Updated!`,
-          body: latestRelease.summary,
+          body: latestRelease.toastSummary || latestRelease.title,
           icon: 'assets/icon-192.png',
           data: { action: 'openApp', version: latestRelease.version }
         });
       }
     }
+
     localStorage.setItem(LAST_SEEN_KEY, CURRENT_APP_VERSION);
+    localStorage.setItem('bible92_last_seen_app_version', CURRENT_APP_VERSION);
   }
 }
 
