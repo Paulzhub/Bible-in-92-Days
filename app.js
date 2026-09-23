@@ -2389,6 +2389,11 @@ async function loadInitialData(session, retryCount = 0) {
 
   // 4. Seamlessly update UI with fresh data
   applyInitialData(res, session, { isBackgroundUpdate: true, isCached: false });
+  if (res && res.notifState) {
+    syncNotifStateFromServer(res.notifState, session.username);
+  } else if (session && !session.isGuest) {
+    fetchNotifStateFromServer(session.username);
+  }
 }
 
 async function loadUpdates(session) {
@@ -2468,6 +2473,14 @@ async function loadUpdates(session) {
     try {
       if (res.history && res.history.success) {
         renderHeatmap(res.history.history || []);
+      }
+    } catch (e) {}
+
+    try {
+      if (res.notifState) {
+        syncNotifStateFromServer(res.notifState, session.username);
+      } else if (session && !session.isGuest) {
+        fetchNotifStateFromServer(session.username);
       }
     } catch (e) {}
 
@@ -4679,6 +4692,104 @@ function broadcastNotifSync(username) {
   }
 }
 
+function getReadNotifIds(username) {
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_read_notif_ids_${safeUser}`;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function addReadNotifId(username, id) {
+  if (!id) return;
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_read_notif_ids_${safeUser}`;
+  try {
+    const ids = getReadNotifIds(safeUser);
+    if (!ids.includes(id)) {
+      ids.push(id);
+      if (ids.length > 100) ids.splice(0, ids.length - 100);
+      localStorage.setItem(key, JSON.stringify(ids));
+    }
+  } catch (e) {}
+}
+
+async function pushNotifStateToServer(username, { watermark, readIds } = {}) {
+  const curSession = getSession();
+  if (!curSession || curSession.isGuest || curSession.isAdmin) return;
+  const safeUser = (username || curSession.username).toLowerCase();
+
+  try {
+    const params = { action: 'saveNotifState', username: safeUser };
+    if (watermark) params.watermark = String(watermark);
+    if (readIds && readIds.length > 0) params.readIds = JSON.stringify(readIds);
+    await apiGet(params, { retries: 1, timeoutMs: 8000 });
+  } catch (e) {
+    // Non-blocking offline fallback
+  }
+}
+
+async function fetchNotifStateFromServer(username) {
+  const curSession = getSession();
+  if (!curSession || curSession.isGuest || curSession.isAdmin) return;
+  const safeUser = (username || curSession.username).toLowerCase();
+
+  try {
+    const res = await apiGet({ action: 'getNotifState', username: safeUser }, { retries: 1, timeoutMs: 8000 });
+    if (res && res.success) {
+      syncNotifStateFromServer(res, safeUser);
+    }
+  } catch (e) {}
+}
+
+function syncNotifStateFromServer(notifState, username) {
+  if (!notifState) return;
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const watermarkKey = `bible92_notif_watermark_${safeUser}`;
+  const currentWatermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
+  let changed = false;
+
+  // 1. Watermark sync
+  if (notifState.watermark && notifState.watermark > currentWatermark) {
+    localStorage.setItem(watermarkKey, String(notifState.watermark));
+    changed = true;
+  }
+
+  // 2. Read IDs sync
+  if (Array.isArray(notifState.readIds) && notifState.readIds.length > 0) {
+    const localIds = getReadNotifIds(safeUser);
+    const merged = Array.from(new Set([...localIds, ...notifState.readIds])).slice(-100);
+    if (merged.length !== localIds.length) {
+      localStorage.setItem(`bible92_read_notif_ids_${safeUser}`, JSON.stringify(merged));
+      changed = true;
+    }
+  }
+
+  // 3. Reconcile existing notifications list
+  const list = getNotifications(safeUser);
+  const effectiveWatermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
+  const readIds = getReadNotifIds(safeUser);
+
+  list.forEach(item => {
+    if (!item.read) {
+      if ((effectiveWatermark > 0 && (item.timestamp || 0) <= effectiveWatermark) || readIds.includes(item.id)) {
+        item.read = true;
+        changed = true;
+      }
+    }
+  });
+
+  if (changed) {
+    saveNotifications(safeUser, list);
+    updateNotificationBadge(safeUser);
+    renderNotificationsList(safeUser);
+    broadcastNotifSync(safeUser);
+  }
+}
+
 function autoResolveTodayNotifications(username) {
   if (!username) return;
   const safeUser = username.toLowerCase();
@@ -4690,6 +4801,7 @@ function autoResolveTodayNotifications(username) {
     if (!n.read && (n.type === 'reminder' || n.type === 'nudge')) {
       if (n.id && n.id.includes(todayStr)) {
         n.read = true;
+        addReadNotifId(safeUser, n.id);
         modified = true;
       }
     }
@@ -4700,6 +4812,7 @@ function autoResolveTodayNotifications(username) {
     updateNotificationBadge(safeUser);
     renderNotificationsList(safeUser);
     broadcastNotifSync(safeUser);
+    pushNotifStateToServer(safeUser, { readIds: list.filter(n => n.read).map(n => n.id) });
   }
 }
 
@@ -4733,17 +4846,24 @@ function getNotifications(username) {
   const key = `bible92_notifications_${safeUser}`;
   const watermarkKey = `bible92_notif_watermark_${safeUser}`;
   const watermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
+  const readIds = getReadNotifIds(safeUser);
   try {
     const raw = localStorage.getItem(key);
     let list = raw ? JSON.parse(raw) : [];
-    if (watermark > 0) {
-      list.forEach(item => {
-        if ((item.timestamp || 0) <= watermark) {
+    let modified = false;
+    list.forEach(item => {
+      if (!item.read) {
+        if ((watermark > 0 && (item.timestamp || 0) <= watermark) || readIds.includes(item.id)) {
           item.read = true;
+          modified = true;
         }
-      });
+      }
+    });
+    const pruned = pruneNotifications(list);
+    if (modified) {
+      localStorage.setItem(key, JSON.stringify(pruned));
     }
-    return pruneNotifications(list);
+    return pruned;
   } catch (e) {
     return [];
   }
@@ -4776,7 +4896,8 @@ function addNotification(username, notif) {
   const watermarkKey = `bible92_notif_watermark_${safeUser.toLowerCase()}`;
   const watermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
   const ts = notif.timestamp || Date.now();
-  const isHistoricallyRead = watermark > 0 && ts <= watermark;
+  const readIds = getReadNotifIds(safeUser);
+  const isHistoricallyRead = (watermark > 0 && ts <= watermark) || (notif.id && readIds.includes(notif.id));
 
   const newEntry = {
     id: notif.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -5000,10 +5121,12 @@ function renderNotificationsList(username) {
     itemEl.addEventListener('click', () => {
       if (!item.read) {
         item.read = true;
+        addReadNotifId(safeUser, item.id);
         saveNotifications(safeUser, list);
         itemEl.classList.remove('unread');
         updateNotificationBadge(safeUser);
         broadcastNotifSync(safeUser);
+        pushNotifStateToServer(safeUser, { readIds: [item.id] });
       }
     });
 
@@ -5013,31 +5136,41 @@ function renderNotificationsList(username) {
 
 function dismissNotification(username, id) {
   const safeUser = username || (getSession() ? getSession().username : 'public');
+  addReadNotifId(safeUser, id);
   const list = getNotifications(safeUser).filter(n => n.id !== id);
   saveNotifications(safeUser, list);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
   broadcastNotifSync(safeUser);
+  pushNotifStateToServer(safeUser, { readIds: [id] });
 }
 
 function markAllNotificationsRead(username) {
   const safeUser = username || (getSession() ? getSession().username : 'public');
+  const now = Date.now();
   const watermarkKey = `bible92_notif_watermark_${safeUser.toLowerCase()}`;
-  localStorage.setItem(watermarkKey, String(Date.now()));
+  localStorage.setItem(watermarkKey, String(now));
   const list = getNotifications(safeUser);
+  const readIds = list.map(n => n.id);
+  readIds.forEach(id => addReadNotifId(safeUser, id));
   list.forEach(n => { n.read = true; });
   saveNotifications(safeUser, list);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
   broadcastNotifSync(safeUser);
+  pushNotifStateToServer(safeUser, { watermark: now, readIds });
 }
 
 function clearAllNotifications(username) {
   const safeUser = username || (getSession() ? getSession().username : 'public');
+  const now = Date.now();
+  const watermarkKey = `bible92_notif_watermark_${safeUser.toLowerCase()}`;
+  localStorage.setItem(watermarkKey, String(now));
   saveNotifications(safeUser, []);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
   broadcastNotifSync(safeUser);
+  pushNotifStateToServer(safeUser, { watermark: now });
 }
 
 function openNotificationsModal() {
@@ -5568,6 +5701,23 @@ function initNotifications(session) {
       }
     });
   }
+
+  // Cross-device sync trigger on window focus or visibility restoration
+  window.addEventListener('focus', () => {
+    const s = getSession();
+    if (s && !s.isGuest) {
+      fetchNotifStateFromServer(s.username);
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const s = getSession();
+      if (s && !s.isGuest) {
+        fetchNotifStateFromServer(s.username);
+      }
+    }
+  });
 }
 
 // ====== SECTION 5: PROGRESS PLAYGROUND (INTERACTIVE ARENA) ======
@@ -6003,15 +6153,27 @@ function updatePlaygroundPhysics(dt) {
   entries.forEach(item => {
     if (item.isDragging) return;
 
-    // Apply arena mode forces
+    // Apply arena mode forces (Cohort Magnet: Vertical Alignment for optimal mobile & desktop presentation)
     if (playgroundMode === 'magnet') {
-      const isBoy = BOY_USERS.includes((item.username || '').toLowerCase());
-      const targetX = isBoy ? w * 0.22 : w * 0.78;
-      const targetY = h * 0.50;
+      const uLower = (item.username || '').toLowerCase();
+      const isBoy = BOY_USERS.includes(uLower);
+      const boyIdx = isBoy ? BOY_USERS.indexOf(uLower) : -1;
+      const girlUsers = ['elisha', 'daysel', 'dechen', 'nim nim', 'yutso', 'yeshi'];
+      const girlIdx = !isBoy ? Math.max(0, girlUsers.indexOf(uLower)) : -1;
+
+      // Vertical positioning: Boys Top tier (24% of arena height), Girls Bottom tier (76% of arena height)
+      const targetY = isBoy ? h * 0.24 : h * 0.76;
+
+      // Horizontal distribution across width with balanced margins
+      const targetX = isBoy
+        ? w * (0.12 + ((boyIdx >= 0 ? boyIdx : 3) / 6) * 0.76)
+        : w * (0.15 + ((girlIdx >= 0 ? girlIdx : 2) / 5) * 0.70);
+
       const dx = targetX - (item.x + item.radius);
       const dy = targetY - (item.y + item.radius);
-      item.vx += dx * 0.0025 * dt;
-      item.vy += dy * 0.0025 * dt;
+
+      item.vx += dx * 0.0018 * dt;
+      item.vy += dy * 0.0035 * dt;
     }
 
     // Apply tilt or mouse gravity

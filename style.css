@@ -3620,6 +3620,18 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   user-select: none;
 }
 
+@media (max-width: 640px) {
+  .playground {
+    height: 480px;
+  }
+}
+
+@media (max-width: 480px) {
+  .playground {
+    height: 520px;
+  }
+}
+
 .playground-arena-bg {
   position: absolute;
   inset: 0;
@@ -3631,9 +3643,9 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 /* Arena Mode: Magnet */
 .playground.mode-magnet .playground-arena-bg {
   opacity: 1;
-  background: radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.16) 0%, transparent 55%),
-              radial-gradient(circle at 80% 50%, rgba(244, 114, 182, 0.16) 0%, transparent 55%),
-              linear-gradient(to right, transparent 49.5%, rgba(255, 255, 255, 0.08) 50%, transparent 50.5%);
+  background: radial-gradient(circle at 50% 25%, rgba(56, 189, 248, 0.18) 0%, transparent 60%),
+              radial-gradient(circle at 50% 75%, rgba(244, 114, 182, 0.18) 0%, transparent 60%),
+              linear-gradient(to bottom, transparent 49.5%, rgba(255, 255, 255, 0.08) 50%, transparent 50.5%);
 }
 
 /* Arena Mode: Orbit */
@@ -7765,7 +7777,7 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 .notifications-card {
   max-width: 520px;
   width: 92%;
-  max-height: 85vh;
+  height: min(580px, 85vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -8055,7 +8067,9 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   padding: 0.85rem 1.25rem;
   overflow-y: auto;
   flex: 1;
-  max-height: calc(85vh - 160px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .notifications-list {
@@ -8238,6 +8252,11 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   text-align: center;
   padding: 2.5rem 1rem;
   color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto 0;
 }
 
 .notifications-empty-state .empty-icon {
