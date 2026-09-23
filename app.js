@@ -2033,15 +2033,51 @@ function getUserProfiles() {
   try {
     const raw = localStorage.getItem(PROFILES_STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Failed to parse user profiles cache:', e);
+  }
   return {};
 }
 
 function getUserProfile(username) {
   if (!username) return null;
-  const profiles = getUserProfiles();
   const key = String(username).trim().toLowerCase();
-  if (profiles[key]) return profiles[key];
+  const profiles = getUserProfiles();
+  let profile = profiles[key];
+
+  // Redundancy check 1: Individual key store
+  if (!profile || !profile.avatar) {
+    try {
+      const singleRaw = localStorage.getItem('bible92_profile_' + key);
+      if (singleRaw) {
+        const parsed = JSON.parse(singleRaw);
+        if (parsed && (parsed.avatar || parsed.bio)) {
+          profile = { ...parsed, ...(profile || {}) };
+          if (parsed.avatar && (!profile.avatar)) profile.avatar = parsed.avatar;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Redundancy check 2: My profile fallback if current user
+  if (!profile || !profile.avatar) {
+    try {
+      const cur = (typeof getSession === 'function') ? getSession() : null;
+      if (cur && cur.username && cur.username.toLowerCase() === key) {
+        const myRaw = localStorage.getItem('bible92_my_profile');
+        if (myRaw) {
+          const parsed = JSON.parse(myRaw);
+          if (parsed && (parsed.avatar || parsed.bio)) {
+            profile = { ...parsed, ...(profile || {}) };
+            if (parsed.avatar && (!profile.avatar)) profile.avatar = parsed.avatar;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (profile) return profile;
+
   const defaultBio = DEFAULT_DISCIPLE_BIOS[key] || 'Disciple at The Youth Gathering 2026 🙏';
   return {
     avatar: null,
@@ -2052,47 +2088,92 @@ function getUserProfile(username) {
 
 function saveUserProfile(username, data) {
   if (!username) return;
-  const profiles = getUserProfiles();
   const key = String(username).trim().toLowerCase();
-  profiles[key] = {
-    avatar: data.avatar !== undefined ? data.avatar : (profiles[key] ? profiles[key].avatar : null),
-    bio: data.bio !== undefined ? String(data.bio).trim() : (profiles[key] ? profiles[key].bio : ''),
+  const profiles = getUserProfiles();
+  const existing = profiles[key] || getUserProfile(key) || {};
+
+  const updated = {
+    avatar: data.avatar !== undefined ? data.avatar : (existing.avatar || null),
+    bio: data.bio !== undefined ? String(data.bio).trim() : (existing.bio || ''),
     updatedAt: Date.now()
   };
+
+  profiles[key] = updated;
+
+  // Primary store
   try {
     localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
   } catch (e) {
-    console.warn('Failed to save user profile to localStorage:', e);
+    console.warn('Failed to save to primary profiles store:', e);
   }
+
+  // Backup individual key store
+  try {
+    localStorage.setItem('bible92_profile_' + key, JSON.stringify(updated));
+  } catch (e) {}
+
+  // Backup my_profile if current user
+  try {
+    const cur = (typeof getSession === 'function') ? getSession() : null;
+    if (cur && cur.username && cur.username.toLowerCase() === key) {
+      localStorage.setItem('bible92_my_profile', JSON.stringify(updated));
+    }
+  } catch (e) {}
 }
 
 /**
  * High-performance offscreen canvas image compressor.
  * Auto-crops to a centered square and downscales to max 256x256 px at JPEG quality 0.85 (~15 KB).
+ * Mobile-resilient: handles camera uploads where MIME type is empty or octet-stream.
  */
 function compressImageFile(file, maxWidth = 256, maxHeight = 256, quality = 0.85) {
   return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) {
+    if (!file) {
+      reject(new Error('No file selected'));
+      return;
+    }
+    const isImageMime = file.type && file.type.startsWith('image/');
+    const hasImageExt = /\.(jpe?g|png|webp|gif|bmp|heic|heif|svg)$/i.test(file.name || '');
+    if (!isImageMime && !hasImageExt && file.type !== '') {
       reject(new Error('Selected file is not an image'));
       return;
     }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const width = img.width;
-        const height = img.height;
-        const minDim = Math.min(width, height);
-        const sx = (width - minDim) / 2;
-        const sy = (height - minDim) / 2;
-        const targetDim = Math.min(minDim, maxWidth);
-        canvas.width = targetDim;
-        canvas.height = targetDim;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetDim, targetDim);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(dataUrl);
+        try {
+          const canvas = document.createElement('canvas');
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+          if (!width || !height) {
+            reject(new Error('Invalid image dimensions'));
+            return;
+          }
+          const minDim = Math.min(width, height);
+          const sx = (width - minDim) / 2;
+          const sy = (height - minDim) / 2;
+          const targetDim = Math.max(32, Math.min(minDim, maxWidth));
+          canvas.width = targetDim;
+          canvas.height = targetDim;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetDim, targetDim);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          if (!dataUrl || dataUrl.length < 50) {
+            reject(new Error('Failed to generate image data'));
+            return;
+          }
+          resolve(dataUrl);
+        } catch (err) {
+          reject(err);
+        }
       };
       img.onerror = () => reject(new Error('Image decode failed'));
       img.src = e.target.result;
@@ -2103,15 +2184,16 @@ function compressImageFile(file, maxWidth = 256, maxHeight = 256, quality = 0.85
 }
 
 function updateHeaderProfile(session) {
+  const curSession = session || (typeof getSession === 'function' ? getSession() : null);
   const profileBtn = document.getElementById('header-profile-btn');
   const initialEl = document.getElementById('header-avatar-initial');
   const imgEl = document.getElementById('header-avatar-img');
-  if (!profileBtn || !initialEl || !imgEl || !session) return;
+  if (!profileBtn || !initialEl || !imgEl || !curSession) return;
 
-  const username = session.username || '?';
+  const username = curSession.username || '?';
   const initial = username.charAt(0).toUpperCase();
 
-  if (session.isGuest) {
+  if (curSession.isGuest) {
     // Guest user restriction: show initial fallback only, disabled from editing
     initialEl.textContent = initial;
     initialEl.hidden = false;
@@ -2131,6 +2213,10 @@ function updateHeaderProfile(session) {
   if (profile && profile.avatar) {
     imgEl.src = profile.avatar;
     imgEl.hidden = false;
+    imgEl.onerror = () => {
+      imgEl.hidden = true;
+      initialEl.hidden = false;
+    };
     initialEl.hidden = true;
   } else {
     initialEl.textContent = initial;
@@ -2210,6 +2296,17 @@ function initProfileEditModal(session) {
       if (imgEl) { imgEl.hidden = true; imgEl.src = ''; }
       if (initialEl) initialEl.hidden = false;
       removePhotoBtn.hidden = true;
+
+      const cur = getSession();
+      if (cur && !cur.isGuest) {
+        saveUserProfile(cur.username, { avatar: null });
+        updateHeaderProfile(cur);
+        if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
+          renderLeaderboard(currentLeaderboard, cur);
+        }
+        renderPrayers(cur);
+        showNudgeToast('Profile photo removed.');
+      }
     });
   }
 
@@ -2258,6 +2355,18 @@ async function handleAvatarFileSelected(file) {
     }
     if (initialEl) initialEl.hidden = true;
     if (removeBtn) removeBtn.hidden = false;
+
+    // Immediately persist and sync so the photo never disappears if closed or refreshed!
+    const cur = getSession();
+    if (cur && !cur.isGuest) {
+      saveUserProfile(cur.username, { avatar: compressedDataUrl });
+      updateHeaderProfile(cur);
+      if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
+        renderLeaderboard(currentLeaderboard, cur);
+      }
+      renderPrayers(cur);
+      showNudgeToast('Profile photo saved! 📸');
+    }
   } catch (err) {
     console.error('Error processing avatar image:', err);
     alert('Could not process this image. Please choose another image file.');
@@ -2369,7 +2478,14 @@ function openUserProfileModal(username) {
   if (nameEl) nameEl.textContent = normUser;
 
   if (profile && profile.avatar) {
-    if (imgEl) { imgEl.src = profile.avatar; imgEl.hidden = false; }
+    if (imgEl) {
+      imgEl.src = profile.avatar;
+      imgEl.hidden = false;
+      imgEl.onerror = () => {
+        imgEl.hidden = true;
+        if (initialEl) initialEl.hidden = false;
+      };
+    }
     if (initialEl) initialEl.hidden = true;
   } else {
     if (imgEl) { imgEl.hidden = true; imgEl.src = ''; }
@@ -2400,12 +2516,16 @@ function openUserProfileModal(username) {
 
   const days = userData ? (userData.daysCompleted || 0) : 0;
   const streak = userData ? (userData.streak || 0) : 0;
-  const freezes = userData ? (userData.freezesAvailable !== undefined ? userData.freezesAvailable : 3) : 3;
+  let freezesCount = 3;
+  if (userData && userData.freezesAvailable !== undefined && userData.freezesAvailable !== null) {
+    const rawVal = Number(userData.freezesAvailable);
+    freezesCount = (isNaN(rawVal) || rawVal < 0) ? 0 : rawVal;
+  }
   const hasRead = userData ? !!userData.readToday : false;
 
   if (daysEl) daysEl.textContent = `${days} / 92`;
   if (streakEl) streakEl.textContent = `${streak} Days`;
-  if (freezesEl) freezesEl.textContent = `${freezes} Left`;
+  if (freezesEl) freezesEl.textContent = `${freezesCount} Left`;
 
   if (statusEl) {
     statusEl.textContent = hasRead ? '✓ Completed Today' : '⏳ In Progress';
@@ -2432,12 +2552,13 @@ function closeUserProfileModal() {
 }
 
 function createLeaderboardAvatarEl(username, session) {
+  const curSession = session || (typeof getSession === 'function' ? getSession() : null);
   const avatarWrap = document.createElement('span');
   avatarWrap.className = 'leaderboard-avatar';
   const initial = (username || '?').charAt(0).toUpperCase();
 
   // If guest, ONLY and ALWAYS show fallback initial!
-  if (!session || session.isGuest) {
+  if (!curSession || curSession.isGuest) {
     avatarWrap.textContent = initial;
     return avatarWrap;
   }
@@ -2448,6 +2569,10 @@ function createLeaderboardAvatarEl(username, session) {
     img.src = profile.avatar;
     img.alt = username;
     img.className = 'leaderboard-avatar-img';
+    img.onerror = () => {
+      img.remove();
+      if (!avatarWrap.textContent) avatarWrap.textContent = initial;
+    };
     avatarWrap.appendChild(img);
   } else {
     avatarWrap.textContent = initial;
@@ -2739,6 +2864,7 @@ function applyInitialData(res, session, { isBackgroundUpdate = false, isCached =
       renderLeaderboard(currentLeaderboard, session);
       renderPlayground(currentLeaderboard);
       updateHeaderLevel(currentLeaderboard, session);
+      updateHeaderProfile(session);
       if (lbError) lbError.hidden = true;
     } else if (!isCached) {
       if (lbBody) lbBody.innerHTML = '';
@@ -2901,6 +3027,7 @@ async function loadUpdates(session) {
         renderLeaderboard(currentLeaderboard, session);
         renderPlayground(currentLeaderboard);
         updateHeaderLevel(currentLeaderboard, session);
+        updateHeaderProfile(session);
       }
     } catch (e) {}
 
@@ -3272,6 +3399,7 @@ function initLeaderboardFilterTabs() {
 }
 
 function renderLeaderboard(rows, session) {
+  const curSession = session || (typeof getSession === 'function' ? getSession() : null);
   initLeaderboardFilterTabs();
   const readCount = (rows || []).filter(r => r.readToday).length;
   if (readCount >= 2) {
@@ -3279,12 +3407,12 @@ function renderLeaderboard(rows, session) {
   }
   renderSquadGauge(rows);
   renderBoysVsGirlsProgress(rows);
-  renderLevelProgress(rows, session);
+  renderLevelProgress(rows, curSession);
   const body = document.getElementById('leaderboard-body');
   document.getElementById('leaderboard-error').hidden = true;
   body.innerHTML = '';
 
-  const me = rows.find(r => session && r.username === session.username);
+  const me = rows.find(r => curSession && r.username === curSession.username);
   const meHasReadToday = me && me.readToday;
 
   // Clone rows for filter-specific sorting
@@ -3343,17 +3471,17 @@ function renderLeaderboard(rows, session) {
     if (sB !== sA) return sB - sA;
     return (a.username || '').localeCompare(b.username || '');
   });
-  checkLeaderboardOvertake(canonicalRanking, session);
+  checkLeaderboardOvertake(canonicalRanking, curSession);
   if (me && me.usedStreakFreeze) {
-    checkStreakFreezeNotification(me, session);
+    checkStreakFreezeNotification(me, curSession);
   }
   if (me && me.readToday) {
-    autoResolveTodayNotifications(session ? session.username : null);
+    autoResolveTodayNotifications(curSession ? curSession.username : null);
   }
 
   sortedRows.forEach((row, index) => {
     const tr = document.createElement('tr');
-    const isYou = session && row.username === session.username;
+    const isYou = curSession && row.username === curSession.username;
     if (isYou) {
       tr.classList.add('is-you');
       checkMilestoneCelebration(row.daysCompleted);
@@ -3374,7 +3502,7 @@ function renderLeaderboard(rows, session) {
     const nameRow = document.createElement('div');
     nameRow.className = 'reader-name-row';
 
-    const avatarEl = createLeaderboardAvatarEl(row.username, session);
+    const avatarEl = createLeaderboardAvatarEl(row.username, curSession);
     nameRow.appendChild(avatarEl);
 
     const nameSpan = document.createElement('span');
@@ -3382,7 +3510,7 @@ function renderLeaderboard(rows, session) {
     nameRow.appendChild(nameSpan);
 
     // Interactive Profile Popup (Disabled for guest accounts)
-    if (session && !session.isGuest) {
+    if (curSession && !curSession.isGuest) {
       avatarEl.classList.add('clickable-user-profile');
       avatarEl.title = `View ${row.username}'s profile`;
       avatarEl.addEventListener('click', (e) => {
@@ -4482,6 +4610,7 @@ async function fetchPrayersForDate(ddmmyy, session) {
 }
 
 function renderPrayers(session) {
+  const curSession = session || (typeof getSession === 'function' ? getSession() : null);
   const listEl = document.getElementById('prayers-list');
   if (!listEl) return;
   listEl.innerHTML = '';
@@ -4492,13 +4621,14 @@ function renderPrayers(session) {
   }
 
   prayersCache.forEach(prayer => {
-    listEl.appendChild(buildPrayerElement(prayer, session));
+    listEl.appendChild(buildPrayerElement(prayer, curSession));
   });
 }
 
 function buildPrayerElement(prayer, session) {
-  const isYou = session && prayer.username === session.username;
-  const canModerate = (isYou || (session && session.isAdmin)) && (!session || !session.isGuest);
+  const curSession = session || (typeof getSession === 'function' ? getSession() : null);
+  const isYou = curSession && prayer.username === curSession.username;
+  const canModerate = (isYou || (curSession && curSession.isAdmin)) && (!curSession || !curSession.isGuest);
 
   const item = document.createElement('div');
   item.className = 'prayer-card' + (isYou ? ' is-my-prayer' : '');
@@ -4515,7 +4645,7 @@ function buildPrayerElement(prayer, session) {
   const initial = (prayer.username || '?').charAt(0).toUpperCase();
 
   // Guest users ONLY see initial fallback
-  if (!session || session.isGuest) {
+  if (!curSession || curSession.isGuest) {
     avatar.textContent = initial;
   } else {
     const profile = getUserProfile(prayer.username);
@@ -4523,6 +4653,10 @@ function buildPrayerElement(prayer, session) {
       const img = document.createElement('img');
       img.src = profile.avatar;
       img.alt = prayer.username;
+      img.onerror = () => {
+        img.remove();
+        if (!avatar.textContent) avatar.textContent = initial;
+      };
       avatar.appendChild(img);
     } else {
       avatar.textContent = initial;
@@ -4536,7 +4670,7 @@ function buildPrayerElement(prayer, session) {
   authorInfo.appendChild(authorName);
 
   // Interactive Profile Popup (Disabled for guest accounts)
-  if (session && !session.isGuest) {
+  if (curSession && !curSession.isGuest) {
     avatar.classList.add('clickable-user-profile');
     avatar.title = `View ${prayer.username}'s profile`;
     avatar.addEventListener('click', (e) => {
