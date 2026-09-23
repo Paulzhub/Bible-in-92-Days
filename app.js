@@ -1086,6 +1086,7 @@ function showSite(session) {
   initHeaderProfile(session);
   initProfileEditModal(session);
   initUserProfileModal();
+  initCameraModal();
   initScrollTransitions();
   initSquadNudgeBanner(session);
   initNotifications(session);
@@ -1103,33 +1104,51 @@ function showSite(session) {
   startAutoRefresh(session);
 }
 
+let lastRefreshTime = Date.now();
+
+function triggerResponsiveUpdates(session) {
+  const cur = session || getSession();
+  if (!cur) return;
+  lastRefreshTime = Date.now();
+  if (!currentLeaderboard || currentLeaderboard.length === 0 || !currentDayNum) {
+    loadInitialData(cur);
+  } else {
+    loadUpdates(cur);
+  }
+}
+
 function startAutoRefresh(session) {
+  // Fast 12s polling when active, 45s when hidden
   setInterval(() => {
     const cur = getSession();
-    if (cur) loadUpdates(cur);
-  }, 30000);
+    if (!cur) return;
+    if (document.hidden) {
+      if (Date.now() - lastRefreshTime >= 45000) {
+        triggerResponsiveUpdates(cur);
+      }
+    } else {
+      triggerResponsiveUpdates(cur);
+    }
+  }, 12000);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      const cur = getSession();
-      if (!cur) return;
-      if (!currentLeaderboard || currentLeaderboard.length === 0 || !currentDayNum) {
-        loadInitialData(cur);
-      } else {
-        loadUpdates(cur);
-      }
+      triggerResponsiveUpdates(getSession());
     }
   });
 
   window.addEventListener('focus', () => {
-    const cur = getSession();
-    if (!cur) return;
-    if (!currentLeaderboard || currentLeaderboard.length === 0 || !currentDayNum) {
-      loadInitialData(cur);
-    } else {
-      loadUpdates(cur);
-    }
+    triggerResponsiveUpdates(getSession());
   });
+
+  // Responsive check on user activity if more than 8 seconds elapsed since last check
+  const onUserActivity = () => {
+    if (Date.now() - lastRefreshTime > 8000 && !document.hidden) {
+      triggerResponsiveUpdates(getSession());
+    }
+  };
+  window.addEventListener('pointerdown', onUserActivity, { passive: true });
+  window.addEventListener('keydown', onUserActivity, { passive: true });
 
   window.addEventListener('online', () => {
     const cur = getSession();
@@ -2189,17 +2208,31 @@ function mergeCloudProfiles(cloudProfiles) {
     const cloudTs = cloudP.updatedAt || 0;
     const localTs = localP ? (localP.updatedAt || 0) : 0;
 
-    // Cloud profile is newer or equal
-    if (!localP || cloudTs >= localTs) {
+    const contentChanged = !localP ||
+      localP.avatar !== (cloudP.avatar || null) ||
+      localP.driveUrl !== (cloudP.driveUrl || null) ||
+      localP.bio !== (cloudP.bio !== undefined ? String(cloudP.bio).trim() : '');
+
+    // Cloud profile is newer, or content has changed across devices
+    if (!localP || cloudTs >= localTs || contentChanged) {
       localProfiles[key] = {
         avatar: cloudP.avatar || null,
         driveUrl: cloudP.driveUrl || null,
         bio: cloudP.bio !== undefined ? String(cloudP.bio).trim() : (localP ? localP.bio : ''),
-        updatedAt: cloudTs
+        updatedAt: Math.max(cloudTs, localTs)
       };
       try {
         localStorage.setItem('bible92_profile_' + key, JSON.stringify(localProfiles[key]));
       } catch (e) {}
+
+      // Fast cross-device sync: update bible92_my_profile for the active user
+      const cur = (typeof getSession === 'function') ? getSession() : null;
+      if (cur && cur.username && cur.username.toLowerCase() === key) {
+        try {
+          localStorage.setItem('bible92_my_profile', JSON.stringify(localProfiles[key]));
+        } catch (e) {}
+      }
+
       changed = true;
     }
   });
@@ -2388,8 +2421,13 @@ function initProfileEditModal(session) {
     });
   }
 
-  if (takePhotoBtn && cameraInput) {
-    takePhotoBtn.addEventListener('click', () => cameraInput.click());
+  if (takePhotoBtn) {
+    takePhotoBtn.addEventListener('click', () => {
+      openCameraModal();
+    });
+  }
+
+  if (cameraInput) {
     cameraInput.addEventListener('change', async (e) => {
       if (e.target.files && e.target.files[0]) {
         await handleAvatarFileSelected(e.target.files[0]);
@@ -2432,9 +2470,9 @@ function initProfileEditModal(session) {
       if (!cur || cur.isGuest) return;
       const username = cur.username;
       const currentProfile = getUserProfile(username);
-      const newBio = bioInput ? bioInput.value : '';
-      const newAvatar = (pendingEditAvatar === '') ? null : (pendingEditAvatar || currentProfile.avatar);
-      const newDriveUrl = (pendingEditAvatar === '') ? null : (pendingEditAvatar ? null : (currentProfile.driveUrl || null));
+      const newBio = bioInput ? bioInput.value.trim() : '';
+      const newAvatar = (pendingEditAvatar === '') ? null : (pendingEditAvatar || (currentProfile ? currentProfile.avatar : null));
+      const newDriveUrl = (pendingEditAvatar === '') ? null : (pendingEditAvatar ? null : ((currentProfile && currentProfile.driveUrl) || null));
 
       saveUserProfile(username, {
         avatar: newAvatar,
@@ -2454,35 +2492,252 @@ function initProfileEditModal(session) {
   }
 }
 
+async function handleAvatarDataUrlSelected(compressedDataUrl, toastMsg = 'Profile photo saved! 📸') {
+  pendingEditAvatar = compressedDataUrl;
+  const imgEl = document.getElementById('edit-avatar-img');
+  const initialEl = document.getElementById('edit-avatar-initial');
+  const removeBtn = document.getElementById('profile-remove-photo-btn');
+  if (imgEl) {
+    imgEl.src = compressedDataUrl;
+    imgEl.hidden = false;
+  }
+  if (initialEl) initialEl.hidden = true;
+  if (removeBtn) removeBtn.hidden = false;
+
+  // Immediately persist and sync so photo persists across reloads or tabs
+  const cur = getSession();
+  if (cur && !cur.isGuest) {
+    saveUserProfile(cur.username, { avatar: compressedDataUrl, driveUrl: null });
+    updateHeaderProfile(cur);
+    if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
+      renderLeaderboard(currentLeaderboard, cur);
+    }
+    renderPrayers(cur);
+    showNudgeToast(toastMsg);
+  }
+}
+
 async function handleAvatarFileSelected(file) {
   try {
     const compressedDataUrl = await compressImageFile(file, 256, 256, 0.85);
-    pendingEditAvatar = compressedDataUrl;
-    const imgEl = document.getElementById('edit-avatar-img');
-    const initialEl = document.getElementById('edit-avatar-initial');
-    const removeBtn = document.getElementById('profile-remove-photo-btn');
-    if (imgEl) {
-      imgEl.src = compressedDataUrl;
-      imgEl.hidden = false;
-    }
-    if (initialEl) initialEl.hidden = true;
-    if (removeBtn) removeBtn.hidden = false;
-
-    // Immediately persist and sync so the photo never disappears if closed or refreshed!
-    const cur = getSession();
-    if (cur && !cur.isGuest) {
-      saveUserProfile(cur.username, { avatar: compressedDataUrl, driveUrl: null });
-      updateHeaderProfile(cur);
-      if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
-        renderLeaderboard(currentLeaderboard, cur);
-      }
-      renderPrayers(cur);
-      showNudgeToast('Profile photo saved! 📸');
-    }
+    await handleAvatarDataUrlSelected(compressedDataUrl, 'Profile photo saved! 📸');
   } catch (err) {
     console.error('Error processing avatar image:', err);
     alert('Could not process this image. Please choose another image file.');
   }
+}
+
+let cameraStream = null;
+let currentCameraFacingMode = 'user';
+let pendingCapturedDataUrl = null;
+
+function initCameraModal() {
+  const modal = document.getElementById('camera-modal');
+  const closeBtn = document.getElementById('close-camera-modal');
+  const cancelBtn = document.getElementById('cancel-camera-btn');
+  const flipBtn = document.getElementById('camera-flip-btn');
+  const captureBtn = document.getElementById('camera-capture-btn');
+  const retakeBtn = document.getElementById('camera-retake-btn');
+  const useBtn = document.getElementById('camera-use-btn');
+
+  if (!modal) return;
+
+  if (closeBtn) closeBtn.addEventListener('click', closeCameraModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeCameraModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeCameraModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeCameraModal();
+  });
+
+  if (flipBtn) {
+    flipBtn.addEventListener('click', async () => {
+      currentCameraFacingMode = currentCameraFacingMode === 'user' ? 'environment' : 'user';
+      await startCameraStream(currentCameraFacingMode);
+    });
+  }
+
+  if (captureBtn) {
+    captureBtn.addEventListener('click', () => captureCameraPhoto());
+  }
+
+  if (retakeBtn) {
+    retakeBtn.addEventListener('click', () => retakeCameraPhoto());
+  }
+
+  if (useBtn) {
+    useBtn.addEventListener('click', async () => {
+      if (pendingCapturedDataUrl) {
+        const dataUrl = pendingCapturedDataUrl;
+        closeCameraModal();
+        await handleAvatarDataUrlSelected(dataUrl, 'Profile photo captured & saved! 📸');
+      }
+    });
+  }
+}
+
+async function openCameraModal() {
+  // If getUserMedia is not supported, fallback to standard file capture input
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    const cameraInput = document.getElementById('profile-camera-input');
+    if (cameraInput) {
+      cameraInput.click();
+      return;
+    }
+  }
+
+  const modal = document.getElementById('camera-modal');
+  if (!modal) return;
+
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-preview-canvas');
+  const overlay = document.getElementById('camera-guide-overlay');
+  const errorMsg = document.getElementById('camera-error-msg');
+  const captureBtn = document.getElementById('camera-capture-btn');
+  const flipBtn = document.getElementById('camera-flip-btn');
+  const retakeBtn = document.getElementById('camera-retake-btn');
+  const useBtn = document.getElementById('camera-use-btn');
+
+  pendingCapturedDataUrl = null;
+  if (canvas) canvas.hidden = true;
+  if (errorMsg) { errorMsg.hidden = true; errorMsg.textContent = ''; }
+  if (video) video.hidden = false;
+  if (overlay) overlay.hidden = false;
+  if (captureBtn) captureBtn.hidden = false;
+  if (flipBtn) flipBtn.hidden = false;
+  if (retakeBtn) retakeBtn.hidden = true;
+  if (useBtn) useBtn.hidden = true;
+
+  modal.hidden = false;
+  void modal.offsetWidth;
+  modal.classList.add('active');
+
+  await startCameraStream(currentCameraFacingMode);
+}
+
+async function startCameraStream(facingMode) {
+  stopCameraStream();
+  const video = document.getElementById('camera-video');
+  const errorMsg = document.getElementById('camera-error-msg');
+  const captureBtn = document.getElementById('camera-capture-btn');
+
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: facingMode },
+        width: { ideal: 720 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (video) {
+      video.srcObject = cameraStream;
+      await video.play().catch(e => console.warn('Camera video play caught:', e));
+    }
+    if (errorMsg) errorMsg.hidden = true;
+    if (captureBtn) captureBtn.hidden = false;
+  } catch (err) {
+    console.error('Camera stream error:', err);
+    if (errorMsg) {
+      errorMsg.textContent = 'Camera access was denied or is unavailable. Please check your browser camera permissions or choose an existing photo.';
+      errorMsg.hidden = false;
+    }
+    if (captureBtn) captureBtn.hidden = true;
+  }
+}
+
+function stopCameraStream() {
+  if (cameraStream) {
+    try {
+      cameraStream.getTracks().forEach(track => track.stop());
+    } catch (e) {}
+    cameraStream = null;
+  }
+  const video = document.getElementById('camera-video');
+  if (video) {
+    video.srcObject = null;
+  }
+}
+
+function closeCameraModal() {
+  stopCameraStream();
+  pendingCapturedDataUrl = null;
+  const modal = document.getElementById('camera-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 400);
+}
+
+function captureCameraPhoto() {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-preview-canvas');
+  const overlay = document.getElementById('camera-guide-overlay');
+  const captureBtn = document.getElementById('camera-capture-btn');
+  const flipBtn = document.getElementById('camera-flip-btn');
+  const retakeBtn = document.getElementById('camera-retake-btn');
+  const useBtn = document.getElementById('camera-use-btn');
+
+  if (!video || !canvas) return;
+
+  const vw = video.videoWidth || 640;
+  const vh = video.videoHeight || 480;
+  const minDim = Math.min(vw, vh);
+  const sx = (vw - minDim) / 2;
+  const sy = (vh - minDim) / 2;
+
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // If using front camera, mirror image for intuitive selfie alignment
+  if (currentCameraFacingMode === 'user') {
+    ctx.save();
+    ctx.translate(256, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, 256, 256);
+    ctx.restore();
+  } else {
+    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, 256, 256);
+  }
+
+  pendingCapturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+  video.hidden = true;
+  if (overlay) overlay.hidden = true;
+  canvas.hidden = false;
+  if (captureBtn) captureBtn.hidden = true;
+  if (flipBtn) flipBtn.hidden = true;
+  if (retakeBtn) retakeBtn.hidden = false;
+  if (useBtn) useBtn.hidden = false;
+}
+
+function retakeCameraPhoto() {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-preview-canvas');
+  const overlay = document.getElementById('camera-guide-overlay');
+  const captureBtn = document.getElementById('camera-capture-btn');
+  const flipBtn = document.getElementById('camera-flip-btn');
+  const retakeBtn = document.getElementById('camera-retake-btn');
+  const useBtn = document.getElementById('camera-use-btn');
+
+  pendingCapturedDataUrl = null;
+  if (canvas) canvas.hidden = true;
+  if (video) video.hidden = false;
+  if (overlay) overlay.hidden = false;
+  if (captureBtn) captureBtn.hidden = false;
+  if (flipBtn) flipBtn.hidden = false;
+  if (retakeBtn) retakeBtn.hidden = true;
+  if (useBtn) useBtn.hidden = true;
 }
 
 function openProfileEditModal() {
@@ -2542,7 +2797,13 @@ function openProfileEditModal() {
   }
 
   if (bioInput) {
-    bioInput.value = (profile && profile.bio) ? profile.bio : '';
+    const key = username.toLowerCase();
+    const rawBio = (profile && profile.bio) ? profile.bio : '';
+    const defaultBio = (typeof DEFAULT_DISCIPLE_BIOS !== 'undefined' && DEFAULT_DISCIPLE_BIOS[key])
+      ? DEFAULT_DISCIPLE_BIOS[key]
+      : 'Disciple at The Youth Gathering 2026 🙏';
+    const isDefault = !rawBio || rawBio === defaultBio || rawBio === 'Disciple at The Youth Gathering 2026 🙏';
+    bioInput.value = isDefault ? '' : rawBio;
     if (charCount) charCount.textContent = String(bioInput.value.length);
   }
 

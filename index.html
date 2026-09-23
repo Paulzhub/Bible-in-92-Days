@@ -2997,6 +2997,36 @@
     </div>
   </div>
 
+  <!-- IN-APP CAMERA / WEBCAM MODAL -->
+  <div id="camera-modal" class="modal-backdrop" hidden>
+    <div class="modal-card camera-modal-card">
+      <div class="modal-header">
+        <div class="profile-modal-title-wrap">
+          <span class="profile-header-icon">📷</span>
+          <h3 class="modal-title">Take Profile Photo</h3>
+        </div>
+        <button id="close-camera-modal" class="modal-close-btn" type="button" aria-label="Close camera">&times;</button>
+      </div>
+      <div class="modal-body camera-modal-body">
+        <div class="camera-viewport-wrap">
+          <video id="camera-video" playsinline autoplay muted></video>
+          <canvas id="camera-preview-canvas" hidden></canvas>
+          <div class="camera-guide-overlay" id="camera-guide-overlay">
+            <div class="camera-circle-guide"></div>
+          </div>
+          <div id="camera-error-msg" class="camera-error-msg" hidden></div>
+        </div>
+      </div>
+      <div class="modal-actions camera-modal-actions">
+        <button id="camera-flip-btn" class="btn btn-secondary btn-sm" type="button" title="Switch front/back camera">🔄 Flip Camera</button>
+        <button id="camera-capture-btn" class="btn btn-primary btn-sm" type="button">📸 Capture</button>
+        <button id="camera-retake-btn" class="btn btn-secondary btn-sm" type="button" hidden>🔄 Retake</button>
+        <button id="camera-use-btn" class="btn btn-primary btn-sm" type="button" hidden>✅ Use Photo</button>
+        <button id="cancel-camera-btn" class="btn btn-secondary btn-sm" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- DISCIPLE PROFILE INFO POPUP MODAL -->
   <div id="user-profile-modal" class="modal-backdrop" hidden>
     <div class="modal-card user-profile-card">
@@ -3067,6 +3097,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=44"></script>
+  <script src="app.js?v=45"></script>
 </body>
 </html>
