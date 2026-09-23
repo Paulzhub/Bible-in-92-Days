@@ -1890,7 +1890,20 @@ function openBoysVsGirlsShareModal() {
     lastBvgCardBlob = blob;
     if (previewImg) previewImg.src = URL.createObjectURL(blob);
     modal.hidden = false;
+    void modal.offsetWidth;
+    modal.classList.add('active');
   }, 'image/png');
+}
+
+function closeBoysVsGirlsShareModal() {
+  const modal = document.getElementById('bvg-share-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 700);
 }
 
 function wireBoysVsGirlsShareButton(session) {
@@ -1933,9 +1946,12 @@ function initBoysVsGirlsShareModal() {
 
   wireBoysVsGirlsShareButton();
 
-  if (closeBtn) closeBtn.addEventListener('click', () => modal.hidden = true);
+  if (closeBtn) closeBtn.addEventListener('click', closeBoysVsGirlsShareModal);
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.hidden = true;
+    if (e.target === modal) closeBoysVsGirlsShareModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeBoysVsGirlsShareModal();
   });
 
   if (downloadBtn) {
@@ -4086,6 +4102,15 @@ function buildPrayerElement(prayer, session) {
   const reactionsRow = document.createElement('div');
   reactionsRow.className = 'prayer-reactions';
 
+  if (!window.__prayerTooltipTouchWired) {
+    window.__prayerTooltipTouchWired = true;
+    document.addEventListener('touchstart', (e) => {
+      if (!e.target.closest('.prayer-reaction-chip')) {
+        document.querySelectorAll('.prayer-reaction-chip.show-tooltip').forEach(c => c.classList.remove('show-tooltip'));
+      }
+    }, { passive: true });
+  }
+
   PRAYER_REACTIONS_MAP.forEach(reaction => {
     const usersWhoReacted = (prayer.reactions && prayer.reactions[reaction.key]) || [];
     const count = usersWhoReacted.length;
@@ -4096,15 +4121,70 @@ function buildPrayerElement(prayer, session) {
     chip.className = 'prayer-reaction-chip' + (hasReacted ? ' active' : '');
     chip.innerHTML = `<span>${reaction.icon}</span><span>${count > 0 ? count : ''}</span>`;
     
-    // Tooltip listing exactly who reacted on hover
+    // Rich Tooltip listing exactly who reacted
+    const tooltip = document.createElement('span');
+    tooltip.className = 'prayer-reaction-tooltip';
     if (count > 0) {
-      chip.title = `${reaction.label} by: ${usersWhoReacted.join(', ')}`;
+      tooltip.textContent = `${reaction.label}: ${usersWhoReacted.join(', ')}`;
+      chip.title = `${reaction.label}: ${usersWhoReacted.join(', ')}`;
     } else {
+      tooltip.textContent = `${reaction.label}`;
       chip.title = `${reaction.label}`;
     }
+    chip.appendChild(tooltip);
+
+    // Mobile long-press detection
+    let touchTimer = null;
+    let isLongPress = false;
+    let startX = 0;
+    let startY = 0;
+
+    chip.addEventListener('touchstart', (e) => {
+      isLongPress = false;
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+      touchTimer = setTimeout(() => {
+        isLongPress = true;
+        document.querySelectorAll('.prayer-reaction-chip.show-tooltip').forEach(c => c.classList.remove('show-tooltip'));
+        chip.classList.add('show-tooltip');
+        if (typeof triggerHapticFeedback === 'function') {
+          triggerHapticFeedback('light');
+        }
+      }, 450);
+    }, { passive: true });
+
+    chip.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) {
+        const dx = Math.abs(e.touches[0].clientX - startX);
+        const dy = Math.abs(e.touches[0].clientY - startY);
+        if (dx > 10 || dy > 10) {
+          clearTimeout(touchTimer);
+        }
+      }
+    }, { passive: true });
+
+    chip.addEventListener('touchend', (e) => {
+      clearTimeout(touchTimer);
+      if (isLongPress) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    chip.addEventListener('touchcancel', () => {
+      clearTimeout(touchTimer);
+    });
 
     if (session && !session.isGuest) {
       chip.addEventListener('click', (e) => {
+        if (isLongPress) {
+          e.preventDefault();
+          e.stopPropagation();
+          isLongPress = false;
+          return;
+        }
         togglePrayerReaction(prayer.username, reaction.key, session, e);
       });
     } else {
@@ -5183,6 +5263,7 @@ function openNotificationsModal() {
   updateNotificationBadge(safeUser);
   updatePermissionBadgeUI();
   modal.hidden = false;
+  void modal.offsetWidth;
   modal.classList.add('active');
 }
 
@@ -5190,7 +5271,11 @@ function closeNotificationsModal() {
   const modal = document.getElementById('notifications-modal');
   if (!modal) return;
   modal.classList.remove('active');
-  modal.hidden = true;
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 700);
 }
 
 function updatePermissionBadgeUI() {
@@ -6615,15 +6700,31 @@ function wireShareTodayButton(session) {
   };
 }
 
+function closeShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 700);
+}
+
 function initShareModal() {
   const modal = document.getElementById('share-modal');
   const closeBtn = document.getElementById('close-share-modal');
   const downloadBtn = document.getElementById('download-card-btn');
   const shareBtn = document.getElementById('native-share-btn');
 
-  closeBtn.addEventListener('click', () => modal.hidden = true);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.hidden = true;
+  if (closeBtn) closeBtn.addEventListener('click', closeShareModal);
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeShareModal();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeShareModal();
   });
 
   const themeBtns = document.querySelectorAll('#theme-chip-group .chip-btn');
@@ -6696,6 +6797,8 @@ async function openShareModal(session) {
     lastGeneratedCardBlob = blob;
     previewImg.src = URL.createObjectURL(blob);
     modal.hidden = false;
+    void modal.offsetWidth;
+    modal.classList.add('active');
   }, 'image/png');
 }
 
@@ -9281,7 +9384,7 @@ function initReadingSidebar() {
     setTimeout(() => {
       sidebar.hidden = true;
       backdrop.hidden = true;
-    }, 400);
+    }, 700);
   };
 
   toggleBtn.addEventListener('click', openSidebar);

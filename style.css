@@ -125,7 +125,7 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 }
 
 .nav-left {
-  display: none;
+  display: flex;
   grid-column: 1 / -1;
   position: absolute;
   top: 100%;
@@ -141,9 +141,27 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   margin-top: 0.5rem;
   box-shadow: var(--shadow);
   z-index: 30;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.7s;
 }
 
-.nav-left.open { display: flex; }
+.nav-left.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.nav-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 
 .user-badge-wrap {
   display: flex;
@@ -164,6 +182,12 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.hamburger-btn:hover {
+  background: var(--surface-2);
 }
 
 @media (min-width: 640px) {
@@ -171,6 +195,11 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
 
   .nav-left {
     display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    transition: none !important;
     grid-column: 3;
     justify-self: end;
     position: static;
@@ -181,6 +210,10 @@ main { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.5rem; 
     box-shadow: none;
     padding: 0;
     margin: 0;
+  }
+
+  .nav-toggle-row {
+    display: contents;
   }
 
   .hamburger-btn { display: none; }
@@ -3193,6 +3226,10 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
 }
 
 /* ============ SECTION 4: COMMENTS ============ */
+.section-comments[hidden] {
+  display: none !important;
+}
+
 .comments-list {
   display: flex;
   flex-direction: column;
@@ -4001,17 +4038,41 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   margin: 0;
 }
 
-/* ============ SHARE CARD MODAL ============ */
+/* ============ SHARE & NOTIFICATION MODALS ============ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(10, 11, 22, 0.85);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
   z-index: 999;
+}
+
+#share-modal,
+#bvg-share-modal,
+#notifications-modal {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.7s;
+}
+
+#share-modal:not([hidden]),
+#bvg-share-modal:not([hidden]),
+#notifications-modal:not([hidden]) {
+  display: flex;
+}
+
+#share-modal.active,
+#bvg-share-modal.active,
+#notifications-modal.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .modal-card {
@@ -4027,6 +4088,23 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   gap: 1rem;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+#share-modal .modal-card,
+#bvg-share-modal .modal-card,
+#notifications-modal .modal-card {
+  transform: scale(0.2);
+  transform-origin: center center;
+  opacity: 0;
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#share-modal.active .modal-card,
+#bvg-share-modal.active .modal-card,
+#notifications-modal.active .modal-card {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .modal-header {
@@ -4821,7 +4899,7 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   -webkit-backdrop-filter: blur(4px);
   z-index: 1000;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-backdrop.active {
@@ -4842,7 +4920,7 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reading-sidebar.open {
@@ -5837,6 +5915,48 @@ tr.is-you td { background: rgba(232, 169, 59, 0.08); }
   border-color: #f59e0b;
   color: #f59e0b;
   font-weight: 600;
+}
+
+.prayer-reaction-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  max-width: 260px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  box-shadow: var(--shadow);
+  z-index: 50;
+}
+
+.prayer-reaction-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+}
+
+.prayer-reaction-chip:hover .prayer-reaction-tooltip,
+.prayer-reaction-chip:focus-visible .prayer-reaction-tooltip,
+.prayer-reaction-chip.show-tooltip .prayer-reaction-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .prayer-already-wrap {

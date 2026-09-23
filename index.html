@@ -74,7 +74,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=28">
+<link rel="stylesheet" href="style.css?v=29">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -2010,17 +2010,19 @@
             <span id="welcome-user" class="welcome-user"></span>
             <span id="header-user-level" class="level-badge" role="button" tabindex="0" title="Click to inspect interactive 3D Medallion" aria-label="Inspect 3D Level Medallion"></span>
           </div>
-          <button id="header-notif-btn" class="icon-btn notif-bell-btn" type="button" aria-label="Notifications & Activity" title="Notifications & Activity">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-            <span id="notif-badge" class="notif-badge" hidden>0</span>
-          </button>
-          <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
-            <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-          </button>
+          <div class="nav-toggle-row">
+            <button id="header-notif-btn" class="icon-btn notif-bell-btn" type="button" aria-label="Notifications & Activity" title="Notifications & Activity">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span id="notif-badge" class="notif-badge" hidden>0</span>
+            </button>
+            <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode">
+              <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </button>
+          </div>
           <button id="logout-btn" class="text-btn" type="button">Log out</button>
         </div>
 
@@ -2196,41 +2198,6 @@
           </button>
         </div>
 
-        <!-- 3D VERSE FLIP CARD & YOUTH TL;DR BITE -->
-        <div id="verse-flip-card-wrap" class="verse-flip-card-wrap">
-          <div class="flip-card-header">
-            <span class="flip-card-badge">✨ DAILY BITE & MEMORY VERSE</span>
-            <button type="button" id="flip-card-toggle-btn" class="flip-card-toggle-btn" title="Flip Card">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-              <span>Flip</span>
-            </button>
-          </div>
-          <div class="flip-card-container" id="flip-card-container" tabindex="0" role="button" aria-label="Flip between TLDR Bite and Key Verse">
-            <div class="flip-card-inner" id="flip-card-inner">
-              <!-- FRONT FACE: TL;DR BITE -->
-              <div class="flip-card-face flip-card-front">
-                <div class="flip-face-pill">💡 1-Sentence TL;DR Bite</div>
-                <p id="flip-card-tldr-text" class="flip-card-tldr">"God initiates His redemption story, revealing His unstoppable covenant love and purpose for your life."</p>
-                <div class="flip-card-footer">
-                  <span class="flip-hint">Tap card or flip button to reveal Memory Verse 🔄</span>
-                </div>
-              </div>
-              <!-- BACK FACE: KEY MEMORY VERSE & IG SHARE -->
-              <div class="flip-card-face flip-card-back">
-                <div class="flip-face-pill">📖 Key Memory Verse</div>
-                <blockquote id="flip-card-verse-text" class="flip-card-verse">"Your word is a lamp to my feet and a light to my path."</blockquote>
-                <cite id="flip-card-verse-ref" class="flip-card-ref">— Psalm 119:105</cite>
-                <div class="flip-card-actions">
-                  <button type="button" id="copy-ig-story-btn" class="btn btn-secondary btn-xs ig-copy-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                    <span>Copy for Instagram Story</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- DAILY MICRO-TRIVIA / FLASH QUIZ -->
         <div id="daily-quiz-card" class="daily-quiz-card">
           <div class="quiz-header">
@@ -2384,8 +2351,8 @@
         </div>
       </section>
 
-      <!-- SECTION 4: DAILY COMMENTS -->
-      <section id="section-comments" class="card section-comments">
+      <!-- SECTION 4: DAILY COMMENTS (HIDDEN) -->
+      <section id="section-comments" class="card section-comments" hidden style="display: none;">
         <div class="section-head-row">
           <p class="eyebrow" id="comments-section-title">Daily Comments</p>
           <div class="section-date-controls">
@@ -2991,6 +2958,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=39"></script>
+  <script src="app.js?v=40"></script>
 </body>
 </html>
