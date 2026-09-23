@@ -19,8 +19,16 @@ let activeCommentsDate = null;
 let activePrayersDate = null;
 
 // App Version & Release Registry for GitHub Feature Updates
-const CURRENT_APP_VERSION = 'v36';
+const CURRENT_APP_VERSION = 'v41';
 const APP_RELEASE_REGISTRY = [
+  {
+    version: 'v41',
+    title: 'PROFILE PICS & COHORT BIOS ARE HERE!',
+    summary: 'Hey squad! You can now personalize your profile and see each other across the entire app! 👤✨\n\n📸 Upload Profile Pictures:\nTap your profile initial at the top-left of the screen to upload a photo from your device or snap a selfie with your camera! Images are automatically cropped and compressed to keep things super fast.\n\n✍️ Add Your Spiritual Bio:\nWrite a short intro, favorite Scripture, or your personal reading goal (up to 150 characters) so the cohort can get to know you better.\n\n🏆 Avatars on the Leaderboard:\nYour profile photo now shows up right next to your name on the Leaderboard and on all your prayers & gratitude posts!\n\n✨ 0.7s Disciple Profile Popup:\nTap anyone\'s name or profile picture on the Leaderboard or Prayer Wall to pop up their profile card with their bio, current streak, reading stats, and cohort tag!\n\n🔒 Privacy First:\nGuest accounts only see fallback initials and cannot access personal photos or profile cards.',
+    toastSummary: 'New update live! Upload profile photos, write your bio, and tap friends on the Leaderboard! 👤✨',
+    date: '2026-09-23',
+    icon: '👤'
+  },
   {
     version: 'v36',
     title: 'BIBLE IN 92 DAYS — NEW APP UPDATE!',
