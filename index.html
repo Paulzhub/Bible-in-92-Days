@@ -74,7 +74,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=26">
+<link rel="stylesheet" href="style.css?v=27">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -2887,25 +2887,82 @@
           <button id="notif-mark-all-read-btn" class="notif-tool-btn" type="button" title="Mark all notifications as read">✓ Mark All Read</button>
           <button id="notif-clear-all-btn" class="notif-tool-btn" type="button" title="Clear notification history">🗑️ Clear</button>
         </div>
-        <button id="notif-toggle-settings-btn" class="notif-tool-btn settings-btn" type="button" title="Reminder Settings">⚙️ Reminders</button>
+        <button id="notif-toggle-settings-btn" class="notif-tool-btn settings-btn" type="button" title="Notification Preferences">⚙️ Preferences</button>
       </div>
 
-      <!-- REMINDER SETTINGS PANEL -->
+      <!-- CATEGORY FILTER PILLS -->
+      <div id="notif-filter-pills" class="notif-filter-pills" role="tablist" aria-label="Filter notifications">
+        <button type="button" class="notif-filter-pill active" data-filter="all">All</button>
+        <button type="button" class="notif-filter-pill" data-filter="alerts">⚡ Alerts</button>
+        <button type="button" class="notif-filter-pill" data-filter="community">💬 Community</button>
+        <button type="button" class="notif-filter-pill" data-filter="milestones">🏆 Milestones</button>
+        <button type="button" class="notif-filter-pill" data-filter="unread">Unread</button>
+      </div>
+
+      <!-- NOTIFICATION PREFERENCES PANEL -->
       <div id="reminder-settings-panel" class="reminder-settings-panel" hidden>
-        <h4 class="reminder-panel-heading">Daily Reading Reminders</h4>
-        <p class="reminder-panel-desc">Receive a friendly notification on this device if you haven't completed today's Scripture reading.</p>
-        <div class="reminder-settings-grid">
-          <label class="reminder-toggle-label">
-            <input type="checkbox" id="notif-reminder-toggle">
-            <span class="reminder-toggle-text">Enable Daily Reading Alarm</span>
-          </label>
-          <div class="reminder-time-row">
-            <label for="notif-reminder-time" class="reminder-time-label">Reminder Time:</label>
-            <input type="time" id="notif-reminder-time" class="reminder-time-input" value="20:00">
+        <div class="reminder-panel-header">
+          <h4 class="reminder-panel-heading">Notification Preferences</h4>
+          <span class="reminder-panel-sub">Customize alerts, sounds, and reminders</span>
+        </div>
+
+        <div class="notif-pref-section">
+          <h5 class="notif-pref-section-title">⏰ Daily Reading Reminder</h5>
+          <p class="reminder-panel-desc">Receive a friendly notification on this device if you haven't completed today's Scripture reading.</p>
+          <div class="reminder-settings-grid">
+            <label class="reminder-toggle-label">
+              <input type="checkbox" id="notif-reminder-toggle">
+              <span class="reminder-toggle-text">Enable Daily Reading Alarm</span>
+            </label>
+            <div class="reminder-time-row">
+              <label for="notif-reminder-time" class="reminder-time-label">Reminder Time:</label>
+              <input type="time" id="notif-reminder-time" class="reminder-time-input" value="20:00">
+            </div>
+            <div class="reminder-test-row">
+              <button type="button" id="notif-test-btn" class="btn btn-secondary btn-sm">🔔 Send Test Notification</button>
+              <span id="notif-permission-status" class="notif-perm-badge"></span>
+            </div>
           </div>
-          <div class="reminder-test-row">
-            <button type="button" id="notif-test-btn" class="btn btn-secondary btn-sm">🔔 Send Test Notification</button>
-            <span id="notif-permission-status" class="notif-perm-badge"></span>
+        </div>
+
+        <div class="notif-pref-section">
+          <h5 class="notif-pref-section-title">⚡ Activity & Squad Alerts</h5>
+          <div class="notif-pref-list">
+            <label class="notif-pref-item">
+              <input type="checkbox" id="notif-pref-overtakes" checked>
+              <div class="notif-pref-info">
+                <span class="notif-pref-title">Leaderboard & Showdown Alerts</span>
+                <span class="notif-pref-desc">Instant notices when someone passes you or the Showdown lead flips</span>
+              </div>
+            </label>
+            <label class="notif-pref-item">
+              <input type="checkbox" id="notif-pref-nudges" checked>
+              <div class="notif-pref-info">
+                <span class="notif-pref-title">Squad Encouragement Nudges</span>
+                <span class="notif-pref-desc">Alerts when teammates send you encouragement pings</span>
+              </div>
+            </label>
+            <label class="notif-pref-item">
+              <input type="checkbox" id="notif-pref-community" checked>
+              <div class="notif-pref-info">
+                <span class="notif-pref-title">Community Reactions & Prayers</span>
+                <span class="notif-pref-desc">Notifications when squad members react to your reflections or prayers</span>
+              </div>
+            </label>
+            <label class="notif-pref-item">
+              <input type="checkbox" id="notif-pref-milestones" checked>
+              <div class="notif-pref-info">
+                <span class="notif-pref-title">Milestones, Streaks & Tiers</span>
+                <span class="notif-pref-desc">Celebration alerts for rank advancements and streak freeze notices</span>
+              </div>
+            </label>
+            <label class="notif-pref-item">
+              <input type="checkbox" id="notif-pref-audio-haptic" checked>
+              <div class="notif-pref-info">
+                <span class="notif-pref-title">Subtle Audio & Haptic Feedback</span>
+                <span class="notif-pref-desc">Soft chimes and gentle vibration pulses for active alerts</span>
+              </div>
+            </label>
           </div>
         </div>
       </div>
@@ -2934,6 +2991,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=38"></script>
 </body>
 </html>

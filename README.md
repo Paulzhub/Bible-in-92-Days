@@ -67,13 +67,20 @@ Engineered with a high-performance, zero-build vanilla HTML5/CSS3/JavaScript fro
 
 ### 🔔 4. Hybrid Notification Center & Activity Engine
 - **Illuminated Header Bell (`🔔`)**: Prominently placed notification button in the navigation header with an amber unread badge counter that animates gently when new alerts are pending.
+- **Category Filter Pills**: Instant activity filtering across 5 dedicated categories: `[All]`, `[⚡ Alerts]`, `[💬 Community]`, `[🏆 Milestones]`, and `[Unread]`.
 - **Slide-Out Activity Drawer**: High-contrast glassmorphic notification center categorizing activity feeds:
   - **Leaderboard Overtaking Alerts (`⚡`)**: Instant detection when cohort peers pass you on the leaderboard, with a 1-tap `[📖 Read Now]` button to fight back and reclaim your rank!
+  - **Cohort Showdown Lead Changes (`⚔️`)**: Instant alerts when reading velocity flips the lead between Boys and Girls, with 1-tap `[⚔️ View Showdown]` arena deep-links.
+  - **Community Reaction Alerts (`💬`)**: Direct notifications when squad members react to your reflections or prayer requests, with 1-tap deep links (`[💬 View Wall]`, `[🙏 View Prayers]`).
   - **Squad Nudges (`⚡`)**: Real-time notifications when a squadmate pings you to complete today's reading.
   - **Streak Freeze Safety-Net Notices (`🧊`)**: Automated confirmation when a streak freeze preserves an active reading streak after a missed day.
   - **Scheduled Daily Reading Alarms (`📖`)**: Configurable local time notifications via Web Notifications API (custom ON/OFF toggle, time picker, and instant test notification).
   - **Automated Feature Release Notes (`🚀`)**: In-app plain-English release summaries announcing new features and enhancements.
   - **Rank Advancement Alerts (`🏆`)**: Milestone celebration alerts whenever you climb leaderboard positions.
+- **Granular Notification Preferences**: Configurable switches in the activity drawer allowing members to independently toggle Overtakes/Showdown, Squad Nudges, Community Reactions, Milestones, and Audio/Haptic feedback.
+- **Subtle Audio & Haptic Feedback**: Gentle, zero-asset Web Audio API synthetic chimes and device vibration pulses (`navigator.vibrate`) on toasts, alerts, and milestones.
+- **Automated Expiry & Pruning**: Automated 7-day read pruning and 14-day unread retention keeping client storage performant and uncluttered.
+- **Cross-Device & Multi-Tab Synchronization**: Real-time multi-tab `BroadcastChannel` synchronization, reading-completion auto-resolution, and SWR watermark read-state tracking.
 - **Notification Management**: Relative timestamps (`formatRelativeTime`), 1-tap action deep-links, mark all read, clear all, and individual item dismissal with smooth red hover transitions.
 
 ### 🏆 5. Gamified Squad Leaderboard & Heatmap

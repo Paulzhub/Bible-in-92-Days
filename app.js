@@ -1556,6 +1556,39 @@ function renderBoysVsGirlsProgress(rows) {
     triggerBvgShockwave({ force: true });
   }
 
+  // Detect Showdown lead change for notification
+  const BVG_LEADER_KEY = 'bible92_bvg_last_leader';
+  const prevStoredLeader = localStorage.getItem(BVG_LEADER_KEY);
+  if (prevStoredLeader && prevStoredLeader !== leader && leader !== 'tie' && prevStoredLeader !== 'tie') {
+    const curSession = getSession();
+    if (curSession && !curSession.isGuest && curSession.username) {
+      const winnerName = leader === 'boys' ? 'Boys' : 'Girls';
+      const winPct = (leader === 'boys' ? boysPct : girlsPct).toFixed(1);
+      const losePct = (leader === 'boys' ? girlsPct : boysPct).toFixed(1);
+      const todayStr = formatDDMMYY(new Date());
+      const notifId = `showdown_lead_${leader}_${todayStr}`;
+
+      addNotification(curSession.username, {
+        id: notifId,
+        type: 'showdown',
+        title: `⚔️ Showdown Alert: ${winnerName} Take the Lead!`,
+        body: `The ${winnerName} just surged ahead in the Cohort Showdown (${winPct}% vs ${losePct}%)! Grab your Bibles! ⚔️🔥`,
+        icon: '⚔️',
+        actionType: 'showdown',
+        actionLabel: 'View Showdown'
+      });
+
+      if (typeof showNudgeToast === 'function') {
+        showNudgeToast(`⚔️ Showdown: The ${winnerName} just took the lead!`);
+      }
+      playNotificationChime('celebration');
+      triggerHapticFeedback([40, 60, 40]);
+    }
+  }
+  if (leader !== 'tie') {
+    localStorage.setItem(BVG_LEADER_KEY, leader);
+  }
+
   // Update roster pills with active reader badges in respective themes
   const boysRosterEl = document.getElementById('bvg-boys-roster');
   if (boysRosterEl) {
@@ -2282,6 +2315,10 @@ function applyInitialData(res, session, { isBackgroundUpdate = false, isCached =
   } catch (e) { console.error('Error rendering prayers:', e); }
 
   try {
+    checkCommunityReactionNotifications(session);
+  } catch (e) {}
+
+  try {
     if (res.history && res.history.success) {
       renderHeatmap(res.history.history || []);
     }
@@ -2422,6 +2459,10 @@ async function loadUpdates(session) {
         renderPrayers(session);
         updatePrayerFormVisibility(session);
       }
+    } catch (e) {}
+
+    try {
+      checkCommunityReactionNotifications(session);
     } catch (e) {}
 
     try {
@@ -2816,6 +2857,9 @@ function renderLeaderboard(rows, session) {
   checkLeaderboardOvertake(canonicalRanking, session);
   if (me && me.usedStreakFreeze) {
     checkStreakFreezeNotification(me, session);
+  }
+  if (me && me.readToday) {
+    autoResolveTodayNotifications(session ? session.username : null);
   }
 
   sortedRows.forEach((row, index) => {
@@ -4433,6 +4477,9 @@ function showNudgeToast(msg, isError = false) {
   toast.hidden = false;
   toast.classList.add('visible');
 
+  triggerHapticFeedback([25]);
+  playNotificationChime(isError ? 'gentle' : 'gentle');
+
   if (nudgeToastTimer) clearTimeout(nudgeToastTimer);
   nudgeToastTimer = setTimeout(() => {
     toast.classList.remove('visible');
@@ -4494,6 +4541,177 @@ async function handleNudgeUser(targetUsername, btnEl, session) {
 
 let isNotificationsInitialized = false;
 let dailyReminderTimer = null;
+let currentNotificationFilter = 'all';
+
+// --- SUBTLE AUDIO & HAPTIC FEEDBACK ---
+let notificationAudioContext = null;
+
+function triggerHapticFeedback(pattern = [25]) {
+  const prefs = getNotificationPreferences();
+  if (!prefs.audioHaptic) return;
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try { navigator.vibrate(pattern); } catch (e) {}
+  }
+}
+
+function playNotificationChime(type = 'gentle') {
+  const prefs = getNotificationPreferences();
+  if (!prefs.audioHaptic) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!notificationAudioContext) {
+      notificationAudioContext = new AudioCtx();
+    }
+    if (notificationAudioContext.state === 'suspended') {
+      notificationAudioContext.resume();
+    }
+    const now = notificationAudioContext.currentTime;
+    const notes = type === 'celebration'
+      ? [523.25, 659.25, 783.99, 1046.50]
+      : [587.33, 880.0];
+
+    notes.forEach((freq, idx) => {
+      const osc = notificationAudioContext.createOscillator();
+      const gain = notificationAudioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+      gain.gain.setValueAtTime(0.05, now + idx * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.07 + 0.35);
+      osc.connect(gain);
+      gain.connect(notificationAudioContext.destination);
+      osc.start(now + idx * 0.07);
+      osc.stop(now + idx * 0.07 + 0.4);
+    });
+  } catch (e) {}
+}
+
+// --- GRANULAR NOTIFICATION PREFERENCES ---
+const DEFAULT_NOTIF_PREFS = {
+  overtakes: true,
+  nudges: true,
+  community: true,
+  milestones: true,
+  audioHaptic: true
+};
+
+function getNotificationPreferences(username) {
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_notif_prefs_${safeUser}`;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? { ...DEFAULT_NOTIF_PREFS, ...JSON.parse(raw) } : { ...DEFAULT_NOTIF_PREFS };
+  } catch (e) {
+    return { ...DEFAULT_NOTIF_PREFS };
+  }
+}
+
+function saveNotificationPreferences(username, prefs) {
+  const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
+  const key = `bible92_notif_prefs_${safeUser}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(prefs));
+  } catch (e) {}
+}
+
+function isNotificationCategoryAllowed(type, username) {
+  const prefs = getNotificationPreferences(username);
+  if (type === 'overtake' || type === 'showdown') return prefs.overtakes;
+  if (type === 'nudge') return prefs.nudges;
+  if (type === 'reaction' || type === 'comment' || type === 'prayer') return prefs.community;
+  if (type === 'rank_up' || type === 'streak' || type === 'milestone') return prefs.milestones;
+  if (type === 'release' || type === 'reminder') return true;
+  return true;
+}
+
+function syncPreferencesUI(username) {
+  const prefs = getNotificationPreferences(username);
+  const ot = document.getElementById('notif-pref-overtakes');
+  const nd = document.getElementById('notif-pref-nudges');
+  const cm = document.getElementById('notif-pref-community');
+  const ml = document.getElementById('notif-pref-milestones');
+  const ah = document.getElementById('notif-pref-audio-haptic');
+  if (ot) ot.checked = !!prefs.overtakes;
+  if (nd) nd.checked = !!prefs.nudges;
+  if (cm) cm.checked = !!prefs.community;
+  if (ml) ml.checked = !!prefs.milestones;
+  if (ah) ah.checked = !!prefs.audioHaptic;
+}
+
+// --- AUTOMATED EXPIRY & PRUNING ---
+function pruneNotifications(list) {
+  const now = Date.now();
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+
+  return (list || []).filter(item => {
+    const age = now - (item.timestamp || now);
+    if (item.type === 'release' && !item.read) return true;
+    if (!item.read) return age < FOURTEEN_DAYS_MS;
+    return age < SEVEN_DAYS_MS;
+  }).slice(0, 50);
+}
+
+// --- MULTI-TAB & CROSS-DEVICE SYNC ---
+let notifSyncChannel = null;
+try {
+  if (typeof BroadcastChannel !== 'undefined') {
+    notifSyncChannel = new BroadcastChannel('bible92_notif_sync');
+    notifSyncChannel.onmessage = (event) => {
+      const data = event.data;
+      if (!data) return;
+      const curUser = (getSession() ? getSession().username : 'public').toLowerCase();
+      if (data.username && data.username.toLowerCase() !== curUser) return;
+      if (data.type === 'SYNC_REFRESH') {
+        const activeUser = getSession() ? getSession().username : 'public';
+        renderNotificationsList(activeUser);
+        updateNotificationBadge(activeUser);
+      }
+    };
+  }
+} catch (e) {}
+
+function broadcastNotifSync(username) {
+  if (notifSyncChannel) {
+    try {
+      notifSyncChannel.postMessage({ type: 'SYNC_REFRESH', username });
+    } catch (e) {}
+  }
+}
+
+function autoResolveTodayNotifications(username) {
+  if (!username) return;
+  const safeUser = username.toLowerCase();
+  const list = getNotifications(safeUser);
+  const todayStr = formatDDMMYY(new Date());
+  let modified = false;
+
+  list.forEach(n => {
+    if (!n.read && (n.type === 'reminder' || n.type === 'nudge')) {
+      if (n.id && n.id.includes(todayStr)) {
+        n.read = true;
+        modified = true;
+      }
+    }
+  });
+
+  if (modified) {
+    saveNotifications(safeUser, list);
+    updateNotificationBadge(safeUser);
+    renderNotificationsList(safeUser);
+    broadcastNotifSync(safeUser);
+  }
+}
+
+// --- CATEGORY FILTER PILLS ---
+function setNotificationFilter(filter, username) {
+  currentNotificationFilter = filter || 'all';
+  const pillBtns = document.querySelectorAll('.notif-filter-pill');
+  pillBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === currentNotificationFilter);
+  });
+  renderNotificationsList(username);
+}
 
 function formatRelativeTime(timestamp) {
   if (!timestamp) return 'Just now';
@@ -4513,9 +4731,19 @@ function formatRelativeTime(timestamp) {
 function getNotifications(username) {
   const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
   const key = `bible92_notifications_${safeUser}`;
+  const watermarkKey = `bible92_notif_watermark_${safeUser}`;
+  const watermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
   try {
     const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
+    let list = raw ? JSON.parse(raw) : [];
+    if (watermark > 0) {
+      list.forEach(item => {
+        if ((item.timestamp || 0) <= watermark) {
+          item.read = true;
+        }
+      });
+    }
+    return pruneNotifications(list);
   } catch (e) {
     return [];
   }
@@ -4525,7 +4753,7 @@ function saveNotifications(username, list) {
   const safeUser = (username || (getSession() ? getSession().username : 'public')).toLowerCase();
   const key = `bible92_notifications_${safeUser}`;
   try {
-    const trimmed = (list || []).slice(0, 50);
+    const trimmed = pruneNotifications(list || []);
     localStorage.setItem(key, JSON.stringify(trimmed));
   } catch (e) {}
 }
@@ -4533,6 +4761,11 @@ function saveNotifications(username, list) {
 function addNotification(username, notif) {
   if (!notif || !notif.title) return;
   const safeUser = username || (getSession() ? getSession().username : 'public');
+
+  if (!isNotificationCategoryAllowed(notif.type, safeUser)) {
+    return;
+  }
+
   const list = getNotifications(safeUser);
 
   // Deduplicate by ID
@@ -4540,14 +4773,19 @@ function addNotification(username, notif) {
     return;
   }
 
+  const watermarkKey = `bible92_notif_watermark_${safeUser.toLowerCase()}`;
+  const watermark = parseInt(localStorage.getItem(watermarkKey) || '0', 10);
+  const ts = notif.timestamp || Date.now();
+  const isHistoricallyRead = watermark > 0 && ts <= watermark;
+
   const newEntry = {
     id: notif.id || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    type: notif.type || 'info', // 'overtake', 'nudge', 'streak', 'release', 'reminder', 'rank_up'
+    type: notif.type || 'info', // 'overtake', 'nudge', 'streak', 'release', 'reminder', 'rank_up', 'reaction', 'showdown'
     title: notif.title,
     body: notif.body || '',
     icon: notif.icon || '🔔',
-    timestamp: notif.timestamp || Date.now(),
-    read: false,
+    timestamp: ts,
+    read: isHistoricallyRead || !!notif.read,
     actionType: notif.actionType || '',
     actionLabel: notif.actionLabel || ''
   };
@@ -4556,9 +4794,15 @@ function addNotification(username, notif) {
   saveNotifications(safeUser, list);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
+  broadcastNotifSync(safeUser);
+
+  if (!newEntry.read) {
+    playNotificationChime('gentle');
+    triggerHapticFeedback([25]);
+  }
 
   // If app is hidden/minimized and device notification is allowed, send native notification
-  if (document.hidden && isDeviceNotificationEnabled()) {
+  if (document.hidden && isDeviceNotificationEnabled() && !newEntry.read) {
     sendDeviceNotification({
       title: notif.title,
       body: notif.body,
@@ -4592,16 +4836,47 @@ function renderNotificationsList(username) {
   const safeUser = username || (getSession() ? getSession().username : 'public');
   const list = getNotifications(safeUser);
 
-  if (list.length === 0) {
+  let filteredList = list;
+  if (currentNotificationFilter === 'alerts') {
+    filteredList = list.filter(n => ['overtake', 'nudge', 'reminder', 'showdown'].includes(n.type));
+  } else if (currentNotificationFilter === 'community') {
+    filteredList = list.filter(n => ['reaction', 'comment', 'prayer'].includes(n.type));
+  } else if (currentNotificationFilter === 'milestones') {
+    filteredList = list.filter(n => ['rank_up', 'streak', 'release', 'milestone'].includes(n.type));
+  } else if (currentNotificationFilter === 'unread') {
+    filteredList = list.filter(n => !n.read);
+  }
+
+  if (filteredList.length === 0) {
     listEl.innerHTML = '';
     emptyEl.hidden = false;
+    const emptyHeading = emptyEl.querySelector('h4');
+    const emptyDesc = emptyEl.querySelector('p');
+    if (emptyHeading && emptyDesc) {
+      if (currentNotificationFilter === 'alerts') {
+        emptyHeading.textContent = 'No Active Alerts';
+        emptyDesc.textContent = 'No squad alerts or overtake notices right now. Keep cruising!';
+      } else if (currentNotificationFilter === 'community') {
+        emptyHeading.textContent = 'No Community Reactions';
+        emptyDesc.textContent = 'No reactions logged yet. Share reflections or prayer requests to connect!';
+      } else if (currentNotificationFilter === 'milestones') {
+        emptyHeading.textContent = 'No Milestones Yet';
+        emptyDesc.textContent = 'Complete more daily readings to unlock Disciple XP tiers and streak shields!';
+      } else if (currentNotificationFilter === 'unread') {
+        emptyHeading.textContent = 'All Caught Up!';
+        emptyDesc.textContent = 'No unread notifications right now. Keep up the great reading!';
+      } else {
+        emptyHeading.textContent = 'All Caught Up!';
+        emptyDesc.textContent = 'No new notifications right now. Keep up the faithful reading!';
+      }
+    }
     return;
   }
 
   emptyEl.hidden = true;
   listEl.innerHTML = '';
 
-  list.forEach(item => {
+  filteredList.forEach(item => {
     const itemEl = document.createElement('div');
     itemEl.className = 'notif-item' + (!item.read ? ' unread' : '');
     itemEl.dataset.id = item.id;
@@ -4660,6 +4935,48 @@ function renderNotificationsList(username) {
         }
       });
       actionsEl.appendChild(actBtn);
+    } else if (item.actionType === 'reflections') {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'notif-action-btn';
+      actBtn.textContent = item.actionLabel || '💬 View Wall';
+      actBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeNotificationsModal();
+        const comSec = document.getElementById('comments-section');
+        if (comSec) {
+          comSec.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      actionsEl.appendChild(actBtn);
+    } else if (item.actionType === 'prayers') {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'notif-action-btn';
+      actBtn.textContent = item.actionLabel || '🙏 View Prayers';
+      actBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeNotificationsModal();
+        const praySec = document.getElementById('prayers-section');
+        if (praySec) {
+          praySec.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      actionsEl.appendChild(actBtn);
+    } else if (item.actionType === 'showdown') {
+      const actBtn = document.createElement('button');
+      actBtn.type = 'button';
+      actBtn.className = 'notif-action-btn';
+      actBtn.textContent = item.actionLabel || '⚔️ View Showdown';
+      actBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeNotificationsModal();
+        const bvgCard = document.getElementById('boys-vs-girls-card');
+        if (bvgCard) {
+          bvgCard.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      actionsEl.appendChild(actBtn);
     }
 
     const dismissBtn = document.createElement('button');
@@ -4686,6 +5003,7 @@ function renderNotificationsList(username) {
         saveNotifications(safeUser, list);
         itemEl.classList.remove('unread');
         updateNotificationBadge(safeUser);
+        broadcastNotifSync(safeUser);
       }
     });
 
@@ -4699,15 +5017,19 @@ function dismissNotification(username, id) {
   saveNotifications(safeUser, list);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
+  broadcastNotifSync(safeUser);
 }
 
 function markAllNotificationsRead(username) {
   const safeUser = username || (getSession() ? getSession().username : 'public');
+  const watermarkKey = `bible92_notif_watermark_${safeUser.toLowerCase()}`;
+  localStorage.setItem(watermarkKey, String(Date.now()));
   const list = getNotifications(safeUser);
   list.forEach(n => { n.read = true; });
   saveNotifications(safeUser, list);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
+  broadcastNotifSync(safeUser);
 }
 
 function clearAllNotifications(username) {
@@ -4715,6 +5037,7 @@ function clearAllNotifications(username) {
   saveNotifications(safeUser, []);
   updateNotificationBadge(safeUser);
   renderNotificationsList(safeUser);
+  broadcastNotifSync(safeUser);
 }
 
 function openNotificationsModal() {
@@ -4722,6 +5045,7 @@ function openNotificationsModal() {
   if (!modal) return;
   const session = getSession();
   const safeUser = session ? session.username : 'public';
+  syncPreferencesUI(safeUser);
   renderNotificationsList(safeUser);
   updateNotificationBadge(safeUser);
   updatePermissionBadgeUI();
@@ -4960,6 +5284,73 @@ function checkStreakFreezeNotification(meRow, session) {
   });
 }
 
+const REACTION_EMOJI_MAP = {
+  heart: '❤️',
+  pray: '🙏',
+  fire: '🔥',
+  laugh: '😂',
+  cross: '✝️',
+  amen: '🕊️',
+  strength: '💪',
+  candle: '🕯️'
+};
+
+function checkCommunityReactionNotifications(session) {
+  if (!session || session.isGuest || !session.username) return;
+  const myUsername = session.username.trim().toLowerCase();
+  const todayStr = formatDDMMYY(new Date());
+
+  // 1. Check comments authored by this user
+  if (Array.isArray(commentsCache)) {
+    commentsCache.forEach(comment => {
+      if (!comment || !comment.username || comment.username.trim().toLowerCase() !== myUsername) return;
+      const reactions = comment.reactions || {};
+      Object.keys(reactions).forEach(rKey => {
+        const reactors = reactions[rKey] || [];
+        reactors.forEach(reactor => {
+          if (!reactor || reactor.trim().toLowerCase() === myUsername) return;
+          const emoji = REACTION_EMOJI_MAP[rKey] || '❤️';
+          const notifId = `reaction_comment_${comment.date || todayStr}_${reactor}_${rKey}`;
+          addNotification(session.username, {
+            id: notifId,
+            type: 'reaction',
+            title: `${emoji} Reflection Reaction`,
+            body: `${reactor} reacted ${emoji} to your daily reflection!`,
+            icon: emoji,
+            actionType: 'reflections',
+            actionLabel: 'View Wall'
+          });
+        });
+      });
+    });
+  }
+
+  // 2. Check prayers authored by this user
+  if (Array.isArray(prayersCache)) {
+    prayersCache.forEach(prayer => {
+      if (!prayer || !prayer.username || prayer.username.trim().toLowerCase() !== myUsername) return;
+      const reactions = prayer.reactions || {};
+      Object.keys(reactions).forEach(rKey => {
+        const reactors = reactions[rKey] || [];
+        reactors.forEach(reactor => {
+          if (!reactor || reactor.trim().toLowerCase() === myUsername) return;
+          const emoji = REACTION_EMOJI_MAP[rKey] || '🙏';
+          const notifId = `reaction_prayer_${todayStr}_${reactor}_${rKey}`;
+          addNotification(session.username, {
+            id: notifId,
+            type: 'reaction',
+            title: `${emoji} Prayer Support`,
+            body: `${reactor} supported your prayer request with ${emoji}!`,
+            icon: emoji,
+            actionType: 'prayers',
+            actionLabel: 'View Prayers'
+          });
+        });
+      });
+    });
+  }
+}
+
 function initDailyReminderTimer(session) {
   if (dailyReminderTimer) clearInterval(dailyReminderTimer);
 
@@ -5081,9 +5472,46 @@ function initNotifications(session) {
   if (toggleSettingsBtn && settingsPanel) {
     toggleSettingsBtn.addEventListener('click', () => {
       settingsPanel.hidden = !settingsPanel.hidden;
+      syncPreferencesUI(safeUser);
       updatePermissionBadgeUI();
     });
   }
+
+  // Filter Pills listener
+  const filterPills = document.querySelectorAll('.notif-filter-pill');
+  filterPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const activeUser = (getSession() ? getSession().username : 'public');
+      setNotificationFilter(pill.dataset.filter, activeUser);
+    });
+  });
+
+  // Preferences Checkboxes
+  const prefOvertakes = document.getElementById('notif-pref-overtakes');
+  const prefNudges = document.getElementById('notif-pref-nudges');
+  const prefCommunity = document.getElementById('notif-pref-community');
+  const prefMilestones = document.getElementById('notif-pref-milestones');
+  const prefAudioHaptic = document.getElementById('notif-pref-audio-haptic');
+
+  function handlePrefChange() {
+    const activeUser = (getSession() ? getSession().username : 'public');
+    const prefs = {
+      overtakes: prefOvertakes ? prefOvertakes.checked : true,
+      nudges: prefNudges ? prefNudges.checked : true,
+      community: prefCommunity ? prefCommunity.checked : true,
+      milestones: prefMilestones ? prefMilestones.checked : true,
+      audioHaptic: prefAudioHaptic ? prefAudioHaptic.checked : true
+    };
+    saveNotificationPreferences(activeUser, prefs);
+    showNudgeToast('✓ Preferences saved!');
+  }
+
+  if (prefOvertakes) prefOvertakes.addEventListener('change', handlePrefChange);
+  if (prefNudges) prefNudges.addEventListener('change', handlePrefChange);
+  if (prefCommunity) prefCommunity.addEventListener('change', handlePrefChange);
+  if (prefMilestones) prefMilestones.addEventListener('change', handlePrefChange);
+  if (prefAudioHaptic) prefAudioHaptic.addEventListener('change', handlePrefChange);
+  syncPreferencesUI(safeUser);
 
   if (reminderToggle) {
     reminderToggle.checked = localStorage.getItem('bible92_reminder_enabled') === 'true';
