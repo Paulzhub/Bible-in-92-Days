@@ -132,6 +132,29 @@ async function apiGet(params, { retries = 2, timeoutMs = 30000 } = {}) {
   throw lastErr;
 }
 
+async function apiPost(payload, { retries = 2, timeoutMs = 30000 } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      return await res.json();
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 const GUEST_INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minutes
 
 function getSession() {
@@ -2086,7 +2109,7 @@ function getUserProfile(username) {
   };
 }
 
-function saveUserProfile(username, data) {
+function saveUserProfile(username, data, { skipCloudSync = false } = {}) {
   if (!username) return;
   const key = String(username).trim().toLowerCase();
   const profiles = getUserProfiles();
@@ -2095,7 +2118,7 @@ function saveUserProfile(username, data) {
   const updated = {
     avatar: data.avatar !== undefined ? data.avatar : (existing.avatar || null),
     bio: data.bio !== undefined ? String(data.bio).trim() : (existing.bio || ''),
-    updatedAt: Date.now()
+    updatedAt: data.updatedAt || Date.now()
   };
 
   profiles[key] = updated;
@@ -2119,14 +2142,84 @@ function saveUserProfile(username, data) {
       localStorage.setItem('bible92_my_profile', JSON.stringify(updated));
     }
   } catch (e) {}
+
+  // Asynchronously synchronize with Cloud Google Sheet backend
+  if (!skipCloudSync) {
+    syncProfileToCloud(username, updated);
+  }
+}
+
+async function syncProfileToCloud(username, data) {
+  const session = (typeof getSession === 'function') ? getSession() : null;
+  if (!session || session.isGuest || !session.password) return;
+  if (session.username.toLowerCase() !== String(username).toLowerCase() && !session.isAdmin) return;
+
+  try {
+    const payload = {
+      action: 'saveProfile',
+      username: session.username,
+      password: session.password,
+      avatar: data.avatar !== undefined ? data.avatar : null,
+      bio: data.bio !== undefined ? data.bio : ''
+    };
+    const res = await apiPost(payload);
+    if (res && res.success && res.profile) {
+      saveUserProfile(username, res.profile, { skipCloudSync: true });
+    } else if (res && !res.success) {
+      console.warn('Cloud profile sync notice:', res.error);
+    }
+  } catch (err) {
+    console.warn('Silent notice: Profile stored locally; cloud sync notice:', err);
+  }
+}
+
+function mergeCloudProfiles(cloudProfiles) {
+  if (!cloudProfiles || typeof cloudProfiles !== 'object') return;
+  const localProfiles = getUserProfiles();
+  let changed = false;
+
+  Object.entries(cloudProfiles).forEach(([uname, cloudP]) => {
+    if (!uname || !cloudP) return;
+    const key = uname.toLowerCase();
+    const localP = localProfiles[key];
+    const cloudTs = cloudP.updatedAt || 0;
+    const localTs = localP ? (localP.updatedAt || 0) : 0;
+
+    // Cloud profile is newer or equal
+    if (!localP || cloudTs >= localTs) {
+      localProfiles[key] = {
+        avatar: cloudP.avatar || null,
+        bio: cloudP.bio !== undefined ? String(cloudP.bio).trim() : (localP ? localP.bio : ''),
+        updatedAt: cloudTs
+      };
+      try {
+        localStorage.setItem('bible92_profile_' + key, JSON.stringify(localProfiles[key]));
+      } catch (e) {}
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    try {
+      localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(localProfiles));
+    } catch (e) {}
+    const cur = (typeof getSession === 'function') ? getSession() : null;
+    if (cur) {
+      updateHeaderProfile(cur);
+      if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
+        renderLeaderboard(currentLeaderboard, cur);
+      }
+      renderPrayers(cur);
+    }
+  }
 }
 
 /**
  * High-performance offscreen canvas image compressor.
- * Auto-crops to a centered square and downscales to max 256x256 px at JPEG quality 0.85 (~15 KB).
+ * Auto-crops to a centered square and downscales to max 200x200 px at JPEG quality 0.8 (~10-12 KB).
  * Mobile-resilient: handles camera uploads where MIME type is empty or octet-stream.
  */
-function compressImageFile(file, maxWidth = 256, maxHeight = 256, quality = 0.85) {
+function compressImageFile(file, maxWidth = 200, maxHeight = 200, quality = 0.8) {
   return new Promise((resolve, reject) => {
     if (!file) {
       reject(new Error('No file selected'));
@@ -2859,6 +2952,12 @@ function applyInitialData(res, session, { isBackgroundUpdate = false, isCached =
   } catch (e) { console.error('Error rendering squad nudges:', e); }
 
   try {
+    if (res.profiles) {
+      mergeCloudProfiles(res.profiles);
+    }
+  } catch (e) { console.error('Error merging profiles in initialData:', e); }
+
+  try {
     if (res.leaderboard && res.leaderboard.success) {
       currentLeaderboard = res.leaderboard.leaderboard || [];
       renderLeaderboard(currentLeaderboard, session);
@@ -3018,6 +3117,12 @@ async function loadUpdates(session) {
           nudgedTargetsToday = new Set([...nudgedTargetsToday, ...serverTargets, ...localTargets].filter(Boolean));
         }
         renderSquadNudgeBanner(currentNudges, session);
+      }
+    } catch (e) {}
+
+    try {
+      if (res.profiles) {
+        mergeCloudProfiles(res.profiles);
       }
     } catch (e) {}
 
