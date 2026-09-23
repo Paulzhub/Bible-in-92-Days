@@ -2069,30 +2069,32 @@ function getUserProfile(username) {
   let profile = profiles[key];
 
   // Redundancy check 1: Individual key store
-  if (!profile || !profile.avatar) {
+  if (!profile || (!profile.avatar && !profile.driveUrl)) {
     try {
       const singleRaw = localStorage.getItem('bible92_profile_' + key);
       if (singleRaw) {
         const parsed = JSON.parse(singleRaw);
-        if (parsed && (parsed.avatar || parsed.bio)) {
+        if (parsed && (parsed.avatar || parsed.driveUrl || parsed.bio)) {
           profile = { ...parsed, ...(profile || {}) };
           if (parsed.avatar && (!profile.avatar)) profile.avatar = parsed.avatar;
+          if (parsed.driveUrl && (!profile.driveUrl)) profile.driveUrl = parsed.driveUrl;
         }
       }
     } catch (e) {}
   }
 
   // Redundancy check 2: My profile fallback if current user
-  if (!profile || !profile.avatar) {
+  if (!profile || (!profile.avatar && !profile.driveUrl)) {
     try {
       const cur = (typeof getSession === 'function') ? getSession() : null;
       if (cur && cur.username && cur.username.toLowerCase() === key) {
         const myRaw = localStorage.getItem('bible92_my_profile');
         if (myRaw) {
           const parsed = JSON.parse(myRaw);
-          if (parsed && (parsed.avatar || parsed.bio)) {
+          if (parsed && (parsed.avatar || parsed.driveUrl || parsed.bio)) {
             profile = { ...parsed, ...(profile || {}) };
             if (parsed.avatar && (!profile.avatar)) profile.avatar = parsed.avatar;
+            if (parsed.driveUrl && (!profile.driveUrl)) profile.driveUrl = parsed.driveUrl;
           }
         }
       }
@@ -2104,6 +2106,7 @@ function getUserProfile(username) {
   const defaultBio = DEFAULT_DISCIPLE_BIOS[key] || 'Disciple at The Youth Gathering 2026 🙏';
   return {
     avatar: null,
+    driveUrl: null,
     bio: defaultBio,
     updatedAt: 0
   };
@@ -2117,6 +2120,7 @@ function saveUserProfile(username, data, { skipCloudSync = false } = {}) {
 
   const updated = {
     avatar: data.avatar !== undefined ? data.avatar : (existing.avatar || null),
+    driveUrl: data.driveUrl !== undefined ? data.driveUrl : (existing.driveUrl || null),
     bio: data.bio !== undefined ? String(data.bio).trim() : (existing.bio || ''),
     updatedAt: data.updatedAt || Date.now()
   };
@@ -2189,6 +2193,7 @@ function mergeCloudProfiles(cloudProfiles) {
     if (!localP || cloudTs >= localTs) {
       localProfiles[key] = {
         avatar: cloudP.avatar || null,
+        driveUrl: cloudP.driveUrl || null,
         bio: cloudP.bio !== undefined ? String(cloudP.bio).trim() : (localP ? localP.bio : ''),
         updatedAt: cloudTs
       };
@@ -2302,17 +2307,29 @@ function updateHeaderProfile(session) {
   profileBtn.classList.remove('guest-disabled');
   profileBtn.title = 'Click to customize your profile and photo';
 
+  initialEl.textContent = initial;
+
   const profile = getUserProfile(username);
-  if (profile && profile.avatar) {
-    imgEl.src = profile.avatar;
+  if (profile && (profile.avatar || profile.driveUrl)) {
+    const primarySrc = profile.avatar || profile.driveUrl;
+    const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+    let triedDriveFallback = false;
+
+    imgEl.src = primarySrc;
     imgEl.hidden = false;
     imgEl.onerror = () => {
+      // Tier 2 Fallback: If Method 1 fails, try Method 2 (Google Drive CDN)
+      if (!triedDriveFallback && fallbackSrc) {
+        triedDriveFallback = true;
+        imgEl.src = fallbackSrc;
+        return;
+      }
+      // Tier 3 Final Fallback: First letter initial
       imgEl.hidden = true;
       initialEl.hidden = false;
     };
     initialEl.hidden = true;
   } else {
-    initialEl.textContent = initial;
     initialEl.hidden = false;
     imgEl.hidden = true;
     imgEl.src = '';
@@ -2392,7 +2409,7 @@ function initProfileEditModal(session) {
 
       const cur = getSession();
       if (cur && !cur.isGuest) {
-        saveUserProfile(cur.username, { avatar: null });
+        saveUserProfile(cur.username, { avatar: null, driveUrl: null });
         updateHeaderProfile(cur);
         if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
           renderLeaderboard(currentLeaderboard, cur);
@@ -2417,9 +2434,11 @@ function initProfileEditModal(session) {
       const currentProfile = getUserProfile(username);
       const newBio = bioInput ? bioInput.value : '';
       const newAvatar = (pendingEditAvatar === '') ? null : (pendingEditAvatar || currentProfile.avatar);
+      const newDriveUrl = (pendingEditAvatar === '') ? null : (pendingEditAvatar ? null : (currentProfile.driveUrl || null));
 
       saveUserProfile(username, {
         avatar: newAvatar,
+        driveUrl: newDriveUrl,
         bio: newBio
       });
 
@@ -2452,7 +2471,7 @@ async function handleAvatarFileSelected(file) {
     // Immediately persist and sync so the photo never disappears if closed or refreshed!
     const cur = getSession();
     if (cur && !cur.isGuest) {
-      saveUserProfile(cur.username, { avatar: compressedDataUrl });
+      saveUserProfile(cur.username, { avatar: compressedDataUrl, driveUrl: null });
       updateHeaderProfile(cur);
       if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
         renderLeaderboard(currentLeaderboard, cur);
@@ -2493,10 +2512,23 @@ function openProfileEditModal() {
     badgeEl.textContent = (authorData && authorData.levelTitle) ? authorData.levelTitle : 'Disciple';
   }
 
-  if (profile && profile.avatar) {
+  if (profile && (profile.avatar || profile.driveUrl)) {
     if (imgEl) {
-      imgEl.src = profile.avatar;
+      const primarySrc = profile.avatar || profile.driveUrl;
+      const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+      let triedFallback = false;
+      imgEl.src = primarySrc;
       imgEl.hidden = false;
+      imgEl.onerror = () => {
+        if (!triedFallback && fallbackSrc) {
+          triedFallback = true;
+          imgEl.src = fallbackSrc;
+          return;
+        }
+        imgEl.hidden = true;
+        imgEl.src = '';
+        if (initialEl) initialEl.hidden = false;
+      };
     }
     if (initialEl) initialEl.hidden = true;
     if (removeBtn) removeBtn.hidden = false;
@@ -2569,20 +2601,33 @@ function openUserProfileModal(username) {
   const statusIconEl = document.getElementById('user-profile-status-icon');
 
   if (nameEl) nameEl.textContent = normUser;
+  if (initialEl) initialEl.textContent = initial;
 
-  if (profile && profile.avatar) {
+  if (profile && (profile.avatar || profile.driveUrl)) {
     if (imgEl) {
-      imgEl.src = profile.avatar;
+      const primarySrc = profile.avatar || profile.driveUrl;
+      const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+      let triedDriveFallback = false;
+
+      imgEl.src = primarySrc;
       imgEl.hidden = false;
       imgEl.onerror = () => {
+        // Tier 2 Fallback: If Method 1 fails, try Method 2 (Google Drive CDN)
+        if (!triedDriveFallback && fallbackSrc) {
+          triedDriveFallback = true;
+          imgEl.src = fallbackSrc;
+          return;
+        }
+        // Tier 3 Final Fallback: First letter initial
         imgEl.hidden = true;
+        imgEl.src = '';
         if (initialEl) initialEl.hidden = false;
       };
     }
     if (initialEl) initialEl.hidden = true;
   } else {
     if (imgEl) { imgEl.hidden = true; imgEl.src = ''; }
-    if (initialEl) { initialEl.textContent = initial; initialEl.hidden = false; }
+    if (initialEl) initialEl.hidden = false;
   }
 
   // Cohort Tag
@@ -2657,12 +2702,23 @@ function createLeaderboardAvatarEl(username, session) {
   }
 
   const profile = getUserProfile(username);
-  if (profile && profile.avatar) {
+  if (profile && (profile.avatar || profile.driveUrl)) {
+    const primarySrc = profile.avatar || profile.driveUrl;
+    const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+    let triedDriveFallback = false;
+
     const img = document.createElement('img');
-    img.src = profile.avatar;
+    img.src = primarySrc;
     img.alt = username;
     img.className = 'leaderboard-avatar-img';
     img.onerror = () => {
+      // Tier 2 Fallback: If Method 1 fails, try Method 2 (Google Drive CDN)
+      if (!triedDriveFallback && fallbackSrc) {
+        triedDriveFallback = true;
+        img.src = fallbackSrc;
+        return;
+      }
+      // Tier 3 Final Fallback: First letter initial
       img.remove();
       if (!avatarWrap.textContent) avatarWrap.textContent = initial;
     };
@@ -4752,13 +4808,23 @@ function buildPrayerElement(prayer, session) {
   // Guest users ONLY see initial fallback
   if (!curSession || curSession.isGuest) {
     avatar.textContent = initial;
-  } else {
     const profile = getUserProfile(prayer.username);
-    if (profile && profile.avatar) {
+    if (profile && (profile.avatar || profile.driveUrl)) {
+      const primarySrc = profile.avatar || profile.driveUrl;
+      const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+      let triedDriveFallback = false;
+
       const img = document.createElement('img');
-      img.src = profile.avatar;
+      img.src = primarySrc;
       img.alt = prayer.username;
       img.onerror = () => {
+        // Tier 2 Fallback: If Method 1 fails, try Method 2 (Google Drive CDN)
+        if (!triedDriveFallback && fallbackSrc) {
+          triedDriveFallback = true;
+          img.src = fallbackSrc;
+          return;
+        }
+        // Tier 3 Final Fallback: First letter initial
         img.remove();
         if (!avatar.textContent) avatar.textContent = initial;
       };
@@ -6789,7 +6855,37 @@ function openPlaygroundPopover(entry, clientX, clientY) {
 
   if (avatarEl) {
     avatarEl.style.background = colorFor(row.username);
-    avatarEl.textContent = (row.username || '?').charAt(0).toUpperCase();
+    const initial = (row.username || '?').charAt(0).toUpperCase();
+    if (!session || session.isGuest) {
+      avatarEl.textContent = initial;
+    } else {
+      const profile = getUserProfile(row.username);
+      if (profile && (profile.avatar || profile.driveUrl)) {
+        const primarySrc = profile.avatar || profile.driveUrl;
+        const fallbackSrc = (profile.avatar && profile.driveUrl && profile.avatar !== profile.driveUrl) ? profile.driveUrl : null;
+        let triedDriveFallback = false;
+        avatarEl.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = primarySrc;
+        img.alt = row.username;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.borderRadius = '50%';
+        img.style.objectFit = 'cover';
+        img.onerror = () => {
+          if (!triedDriveFallback && fallbackSrc) {
+            triedDriveFallback = true;
+            img.src = fallbackSrc;
+            return;
+          }
+          avatarEl.innerHTML = '';
+          avatarEl.textContent = initial;
+        };
+        avatarEl.appendChild(img);
+      } else {
+        avatarEl.textContent = initial;
+      }
+    }
   }
   if (nameEl) nameEl.textContent = row.username;
 
