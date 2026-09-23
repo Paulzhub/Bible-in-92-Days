@@ -74,7 +74,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=29">
+<link rel="stylesheet" href="style.css?v=30">
 
 <!-- Structured Data (JSON-LD) for SEO & GEO -->
 <script type="application/ld+json">
@@ -2007,6 +2007,12 @@
       <div class="site-header-inner">
         <div id="nav-left" class="nav-left">
           <div class="user-badge-wrap">
+            <button type="button" id="header-profile-btn" class="header-profile-btn" aria-label="Open your profile" title="Your Profile">
+              <span class="header-avatar-circle">
+                <span id="header-avatar-initial">?</span>
+                <img id="header-avatar-img" class="header-avatar-img" src="" alt="Profile Photo" hidden>
+              </span>
+            </button>
             <span id="welcome-user" class="welcome-user"></span>
             <span id="header-user-level" class="level-badge" role="button" tabindex="0" title="Click to inspect interactive 3D Medallion" aria-label="Inspect 3D Level Medallion"></span>
           </div>
@@ -2947,6 +2953,109 @@
     </div>
   </div>
 
+  <!-- SELF-PROFILE EDIT MODAL -->
+  <div id="profile-edit-modal" class="modal-backdrop" hidden>
+    <div class="modal-card profile-modal-card">
+      <div class="modal-header">
+        <div class="profile-modal-title-wrap">
+          <span class="profile-header-icon">👤</span>
+          <h3 class="modal-title">Edit Your Profile</h3>
+        </div>
+        <button id="close-profile-edit-modal" class="modal-close-btn" type="button" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body profile-edit-body">
+        <!-- AVATAR UPLOAD & PREVIEW -->
+        <div class="profile-avatar-section">
+          <div class="profile-avatar-preview-wrap">
+            <div id="edit-avatar-preview" class="profile-avatar-preview">
+              <span id="edit-avatar-initial" class="avatar-large-initial">?</span>
+              <img id="edit-avatar-img" class="avatar-large-img" src="" alt="Avatar Preview" hidden>
+            </div>
+            <div class="profile-avatar-badge-tag" id="edit-profile-badge">Disciple</div>
+          </div>
+          <div class="profile-upload-actions">
+            <input type="file" id="profile-file-input" accept="image/*" hidden>
+            <input type="file" id="profile-camera-input" accept="image/*" capture="user" hidden>
+            <button type="button" id="profile-upload-file-btn" class="btn btn-secondary btn-sm">📁 Choose Photo</button>
+            <button type="button" id="profile-take-photo-btn" class="btn btn-secondary btn-sm">📷 Take Photo</button>
+            <button type="button" id="profile-remove-photo-btn" class="btn btn-outline btn-sm" hidden>🗑️ Remove Photo</button>
+          </div>
+          <p class="profile-upload-hint">Upload from your device or snap a photo. Images are automatically cropped and compressed.</p>
+        </div>
+
+        <!-- BIO SECTION -->
+        <div class="profile-bio-section">
+          <label for="profile-bio-input" class="profile-input-label">Bio (Short Intro / Favorite Verse)</label>
+          <textarea id="profile-bio-input" class="profile-bio-textarea" maxlength="150" rows="3" placeholder="Describe yourself, favorite Scripture, or your reading goal..."></textarea>
+          <div class="bio-char-count"><span id="bio-char-num">0</span> / 150</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="save-profile-btn" class="btn btn-primary" type="button">Save Profile</button>
+        <button id="cancel-profile-btn" class="btn btn-secondary" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISCIPLE PROFILE INFO POPUP MODAL -->
+  <div id="user-profile-modal" class="modal-backdrop" hidden>
+    <div class="modal-card user-profile-card">
+      <div class="modal-header">
+        <div class="profile-modal-title-wrap">
+          <span class="profile-header-icon">✨</span>
+          <h3 class="modal-title" id="user-profile-modal-title">Disciple Profile</h3>
+        </div>
+        <button id="close-user-profile-modal" class="modal-close-btn" type="button" aria-label="Close profile modal">&times;</button>
+      </div>
+      <div class="modal-body user-profile-body">
+        <!-- HERO AVATAR & NAME -->
+        <div class="profile-hero">
+          <div class="profile-avatar-display" id="user-profile-avatar-wrap">
+            <span id="user-profile-initial" class="avatar-large-initial">?</span>
+            <img id="user-profile-img" class="avatar-large-img" src="" alt="Profile Photo" hidden>
+          </div>
+          <div class="profile-hero-info">
+            <h4 class="profile-username" id="user-profile-name">Disciple</h4>
+            <div class="profile-tag-row">
+              <span id="user-profile-cohort-tag" class="cohort-tag">Cohort</span>
+              <span id="user-profile-level-badge" class="level-badge">Disciple I</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- BIO CARD -->
+        <div class="profile-bio-box">
+          <p class="profile-bio-label">Bio</p>
+          <p class="profile-bio-text" id="user-profile-bio">No bio shared yet.</p>
+        </div>
+
+        <!-- READING JOURNEY STATS -->
+        <div class="profile-stats-grid">
+          <div class="profile-stat-card">
+            <span class="profile-stat-icon">📖</span>
+            <span class="profile-stat-val" id="user-profile-days">0 / 92</span>
+            <span class="profile-stat-lbl">Days Completed</span>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-icon">🔥</span>
+            <span class="profile-stat-val" id="user-profile-streak">0</span>
+            <span class="profile-stat-lbl">Day Streak</span>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-icon">🧊</span>
+            <span class="profile-stat-val" id="user-profile-freezes">3</span>
+            <span class="profile-stat-lbl">Freezes Left</span>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-icon" id="user-profile-status-icon">⏳</span>
+            <span class="profile-stat-val" id="user-profile-status">In Progress</span>
+            <span class="profile-stat-lbl">Today's Reading</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- CELEBRATION CONFETTI CANVAS -->
   <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
@@ -2958,6 +3067,6 @@
   <script src="assets/vendor/gsap.min.js"></script>
   <script src="assets/vendor/ScrollTrigger.min.js"></script>
   <script src="assets/vendor/lenis.min.js"></script>
-  <script src="app.js?v=40"></script>
+  <script src="app.js?v=41"></script>
 </body>
 </html>

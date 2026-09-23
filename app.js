@@ -1052,6 +1052,9 @@ function showSite(session) {
   initBoysVsGirlsShareModal();
   initReadingSidebar();
   initScriptureReader(session);
+  initHeaderProfile(session);
+  initProfileEditModal(session);
+  initUserProfileModal();
   initScrollTransitions();
   initSquadNudgeBanner(session);
   initNotifications(session);
@@ -1995,6 +1998,455 @@ function initBoysVsGirlsShareModal() {
   }
 }
 
+// ==========================================================================
+// USER PROFILE & COHORT INSPECTION SYSTEM
+// ==========================================================================
+
+const PROFILES_STORAGE_KEY = 'bible92_user_profiles';
+
+// Pre-seeded default disciple bios for The Youth Gathering 2026 cohort
+const DEFAULT_DISCIPLE_BIOS = {
+  'paulz': 'Walking with Christ daily 🙏 | Genesis to Revelation in 92 Days',
+  'victor': 'Faith over fear 🛡️ | The Youth Gathering 2026',
+  'jason': 'Trust in the Lord with all your heart ⚡',
+  'guptaji': 'Seeking first the Kingdom of God ✨',
+  'puia': 'Rooted and grounded in love ❤️',
+  'ducks fartbomber': 'Joyful in hope, patient in affliction 🔥',
+  'vishan': 'Iron sharpens iron ⚔️ | Cohort Boys',
+  'elisha': 'His grace is sufficient for me 🌸',
+  'daysel': 'The joy of the Lord is my strength 💫',
+  'dechen': 'Thy word is a lamp unto my feet 🕯️',
+  'nim nim': 'Be still and know that I am God 🌿',
+  'yutso': 'Let your light shine ✨ | The Youth Gathering',
+  'yeshi': 'Created with purpose and faith 🕊️'
+};
+
+function getUserProfiles() {
+  try {
+    const raw = localStorage.getItem(PROFILES_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {};
+}
+
+function getUserProfile(username) {
+  if (!username) return null;
+  const profiles = getUserProfiles();
+  const key = String(username).trim().toLowerCase();
+  if (profiles[key]) return profiles[key];
+  const defaultBio = DEFAULT_DISCIPLE_BIOS[key] || 'Disciple at The Youth Gathering 2026 🙏';
+  return {
+    avatar: null,
+    bio: defaultBio,
+    updatedAt: 0
+  };
+}
+
+function saveUserProfile(username, data) {
+  if (!username) return;
+  const profiles = getUserProfiles();
+  const key = String(username).trim().toLowerCase();
+  profiles[key] = {
+    avatar: data.avatar !== undefined ? data.avatar : (profiles[key] ? profiles[key].avatar : null),
+    bio: data.bio !== undefined ? String(data.bio).trim() : (profiles[key] ? profiles[key].bio : ''),
+    updatedAt: Date.now()
+  };
+  try {
+    localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+  } catch (e) {
+    console.warn('Failed to save user profile to localStorage:', e);
+  }
+}
+
+/**
+ * High-performance offscreen canvas image compressor.
+ * Auto-crops to a centered square and downscales to max 256x256 px at JPEG quality 0.85 (~15 KB).
+ */
+function compressImageFile(file, maxWidth = 256, maxHeight = 256, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      reject(new Error('Selected file is not an image'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const width = img.width;
+        const height = img.height;
+        const minDim = Math.min(width, height);
+        const sx = (width - minDim) / 2;
+        const sy = (height - minDim) / 2;
+        const targetDim = Math.min(minDim, maxWidth);
+        canvas.width = targetDim;
+        canvas.height = targetDim;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetDim, targetDim);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('Image decode failed'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('File reading failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function updateHeaderProfile(session) {
+  const profileBtn = document.getElementById('header-profile-btn');
+  const initialEl = document.getElementById('header-avatar-initial');
+  const imgEl = document.getElementById('header-avatar-img');
+  if (!profileBtn || !initialEl || !imgEl || !session) return;
+
+  const username = session.username || '?';
+  const initial = username.charAt(0).toUpperCase();
+
+  if (session.isGuest) {
+    // Guest user restriction: show initial fallback only, disabled from editing
+    initialEl.textContent = initial;
+    initialEl.hidden = false;
+    imgEl.hidden = true;
+    imgEl.src = '';
+    profileBtn.disabled = true;
+    profileBtn.classList.add('guest-disabled');
+    profileBtn.title = 'Guest Account (Profile customization disabled)';
+    return;
+  }
+
+  profileBtn.disabled = false;
+  profileBtn.classList.remove('guest-disabled');
+  profileBtn.title = 'Click to customize your profile and photo';
+
+  const profile = getUserProfile(username);
+  if (profile && profile.avatar) {
+    imgEl.src = profile.avatar;
+    imgEl.hidden = false;
+    initialEl.hidden = true;
+  } else {
+    initialEl.textContent = initial;
+    initialEl.hidden = false;
+    imgEl.hidden = true;
+    imgEl.src = '';
+  }
+}
+
+function initHeaderProfile(session) {
+  updateHeaderProfile(session);
+}
+
+let pendingEditAvatar = null;
+
+function initProfileEditModal(session) {
+  const modal = document.getElementById('profile-edit-modal');
+  const closeBtn = document.getElementById('close-profile-edit-modal');
+  const cancelBtn = document.getElementById('cancel-profile-btn');
+  const saveBtn = document.getElementById('save-profile-btn');
+  const headerBtn = document.getElementById('header-profile-btn');
+  const chooseFileBtn = document.getElementById('profile-upload-file-btn');
+  const takePhotoBtn = document.getElementById('profile-take-photo-btn');
+  const removePhotoBtn = document.getElementById('profile-remove-photo-btn');
+  const fileInput = document.getElementById('profile-file-input');
+  const cameraInput = document.getElementById('profile-camera-input');
+  const bioInput = document.getElementById('profile-bio-input');
+  const charCount = document.getElementById('bio-char-num');
+
+  if (!modal) return;
+
+  if (headerBtn) {
+    headerBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const cur = getSession();
+      if (!cur || cur.isGuest) return;
+      openProfileEditModal();
+    });
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeProfileEditModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeProfileEditModal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeProfileEditModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeProfileEditModal();
+  });
+
+  if (chooseFileBtn && fileInput) {
+    chooseFileBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        await handleAvatarFileSelected(e.target.files[0]);
+        fileInput.value = '';
+      }
+    });
+  }
+
+  if (takePhotoBtn && cameraInput) {
+    takePhotoBtn.addEventListener('click', () => cameraInput.click());
+    cameraInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        await handleAvatarFileSelected(e.target.files[0]);
+        cameraInput.value = '';
+      }
+    });
+  }
+
+  if (removePhotoBtn) {
+    removePhotoBtn.addEventListener('click', () => {
+      pendingEditAvatar = '';
+      const imgEl = document.getElementById('edit-avatar-img');
+      const initialEl = document.getElementById('edit-avatar-initial');
+      if (imgEl) { imgEl.hidden = true; imgEl.src = ''; }
+      if (initialEl) initialEl.hidden = false;
+      removePhotoBtn.hidden = true;
+    });
+  }
+
+  if (bioInput && charCount) {
+    bioInput.addEventListener('input', () => {
+      charCount.textContent = String(bioInput.value.length);
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const cur = getSession();
+      if (!cur || cur.isGuest) return;
+      const username = cur.username;
+      const currentProfile = getUserProfile(username);
+      const newBio = bioInput ? bioInput.value : '';
+      const newAvatar = (pendingEditAvatar === '') ? null : (pendingEditAvatar || currentProfile.avatar);
+
+      saveUserProfile(username, {
+        avatar: newAvatar,
+        bio: newBio
+      });
+
+      updateHeaderProfile(cur);
+      if (typeof currentLeaderboard !== 'undefined' && currentLeaderboard) {
+        renderLeaderboard(currentLeaderboard, cur);
+      }
+      renderPrayers(cur);
+
+      closeProfileEditModal();
+      showNudgeToast('Profile updated successfully! ✨');
+    });
+  }
+}
+
+async function handleAvatarFileSelected(file) {
+  try {
+    const compressedDataUrl = await compressImageFile(file, 256, 256, 0.85);
+    pendingEditAvatar = compressedDataUrl;
+    const imgEl = document.getElementById('edit-avatar-img');
+    const initialEl = document.getElementById('edit-avatar-initial');
+    const removeBtn = document.getElementById('profile-remove-photo-btn');
+    if (imgEl) {
+      imgEl.src = compressedDataUrl;
+      imgEl.hidden = false;
+    }
+    if (initialEl) initialEl.hidden = true;
+    if (removeBtn) removeBtn.hidden = false;
+  } catch (err) {
+    console.error('Error processing avatar image:', err);
+    alert('Could not process this image. Please choose another image file.');
+  }
+}
+
+function openProfileEditModal() {
+  const modal = document.getElementById('profile-edit-modal');
+  if (!modal) return;
+  const session = getSession();
+  if (!session || session.isGuest) return;
+
+  const username = session.username;
+  const profile = getUserProfile(username);
+  pendingEditAvatar = null;
+
+  const initialEl = document.getElementById('edit-avatar-initial');
+  const imgEl = document.getElementById('edit-avatar-img');
+  const badgeEl = document.getElementById('edit-profile-badge');
+  const bioInput = document.getElementById('profile-bio-input');
+  const charCount = document.getElementById('bio-char-num');
+  const removeBtn = document.getElementById('profile-remove-photo-btn');
+
+  const initial = username.charAt(0).toUpperCase();
+  if (initialEl) initialEl.textContent = initial;
+
+  const authorData = (typeof currentLeaderboard !== 'undefined' && currentLeaderboard)
+    ? currentLeaderboard.find(u => u.username === username)
+    : null;
+  if (badgeEl) {
+    badgeEl.textContent = (authorData && authorData.levelTitle) ? authorData.levelTitle : 'Disciple';
+  }
+
+  if (profile && profile.avatar) {
+    if (imgEl) {
+      imgEl.src = profile.avatar;
+      imgEl.hidden = false;
+    }
+    if (initialEl) initialEl.hidden = true;
+    if (removeBtn) removeBtn.hidden = false;
+  } else {
+    if (imgEl) {
+      imgEl.hidden = true;
+      imgEl.src = '';
+    }
+    if (initialEl) initialEl.hidden = false;
+    if (removeBtn) removeBtn.hidden = true;
+  }
+
+  if (bioInput) {
+    bioInput.value = (profile && profile.bio) ? profile.bio : '';
+    if (charCount) charCount.textContent = String(bioInput.value.length);
+  }
+
+  modal.hidden = false;
+  void modal.offsetWidth;
+  modal.classList.add('active');
+}
+
+function closeProfileEditModal() {
+  const modal = document.getElementById('profile-edit-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 700);
+}
+
+function initUserProfileModal() {
+  const modal = document.getElementById('user-profile-modal');
+  const closeBtn = document.getElementById('close-user-profile-modal');
+  if (!modal) return;
+
+  if (closeBtn) closeBtn.addEventListener('click', closeUserProfileModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeUserProfileModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeUserProfileModal();
+  });
+}
+
+function openUserProfileModal(username) {
+  const session = getSession();
+  // Guest users strictly cannot access profile info popup
+  if (!session || session.isGuest || !username) return;
+
+  const modal = document.getElementById('user-profile-modal');
+  if (!modal) return;
+
+  const normUser = String(username).trim();
+  const profile = getUserProfile(normUser);
+  const initial = normUser.charAt(0).toUpperCase();
+
+  const initialEl = document.getElementById('user-profile-initial');
+  const imgEl = document.getElementById('user-profile-img');
+  const nameEl = document.getElementById('user-profile-name');
+  const cohortEl = document.getElementById('user-profile-cohort-tag');
+  const levelEl = document.getElementById('user-profile-level-badge');
+  const bioEl = document.getElementById('user-profile-bio');
+  const daysEl = document.getElementById('user-profile-days');
+  const streakEl = document.getElementById('user-profile-streak');
+  const freezesEl = document.getElementById('user-profile-freezes');
+  const statusEl = document.getElementById('user-profile-status');
+  const statusIconEl = document.getElementById('user-profile-status-icon');
+
+  if (nameEl) nameEl.textContent = normUser;
+
+  if (profile && profile.avatar) {
+    if (imgEl) { imgEl.src = profile.avatar; imgEl.hidden = false; }
+    if (initialEl) initialEl.hidden = true;
+  } else {
+    if (imgEl) { imgEl.hidden = true; imgEl.src = ''; }
+    if (initialEl) { initialEl.textContent = initial; initialEl.hidden = false; }
+  }
+
+  // Cohort Tag
+  const uLow = normUser.toLowerCase();
+  const isBoy = typeof BOY_USERS !== 'undefined' && BOY_USERS.includes(uLow);
+  if (cohortEl) {
+    cohortEl.className = 'cohort-tag ' + (isBoy ? 'boys' : 'girls');
+    cohortEl.textContent = isBoy ? '⚔️ Cohort: Boys' : '🌸 Cohort: Girls';
+  }
+
+  // Bio
+  if (bioEl) {
+    bioEl.textContent = (profile && profile.bio) ? profile.bio : 'No bio shared yet.';
+  }
+
+  // Find user's leaderboard data
+  const userData = (typeof currentLeaderboard !== 'undefined' && currentLeaderboard)
+    ? currentLeaderboard.find(u => u.username && u.username.toLowerCase() === uLow)
+    : null;
+
+  if (levelEl) {
+    levelEl.textContent = (userData && userData.levelTitle) ? userData.levelTitle : 'Disciple I';
+  }
+
+  const days = userData ? (userData.daysCompleted || 0) : 0;
+  const streak = userData ? (userData.streak || 0) : 0;
+  const freezes = userData ? (userData.freezesAvailable !== undefined ? userData.freezesAvailable : 3) : 3;
+  const hasRead = userData ? !!userData.readToday : false;
+
+  if (daysEl) daysEl.textContent = `${days} / 92`;
+  if (streakEl) streakEl.textContent = `${streak} Days`;
+  if (freezesEl) freezesEl.textContent = `${freezes} Left`;
+
+  if (statusEl) {
+    statusEl.textContent = hasRead ? '✓ Completed Today' : '⏳ In Progress';
+    statusEl.style.color = hasRead ? 'var(--good)' : 'var(--text-muted)';
+  }
+  if (statusIconEl) {
+    statusIconEl.textContent = hasRead ? '✅' : '⏳';
+  }
+
+  modal.hidden = false;
+  void modal.offsetWidth;
+  modal.classList.add('active');
+}
+
+function closeUserProfileModal() {
+  const modal = document.getElementById('user-profile-modal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  setTimeout(() => {
+    if (!modal.classList.contains('active')) {
+      modal.hidden = true;
+    }
+  }, 700);
+}
+
+function createLeaderboardAvatarEl(username, session) {
+  const avatarWrap = document.createElement('span');
+  avatarWrap.className = 'leaderboard-avatar';
+  const initial = (username || '?').charAt(0).toUpperCase();
+
+  // If guest, ONLY and ALWAYS show fallback initial!
+  if (!session || session.isGuest) {
+    avatarWrap.textContent = initial;
+    return avatarWrap;
+  }
+
+  const profile = getUserProfile(username);
+  if (profile && profile.avatar) {
+    const img = document.createElement('img');
+    img.src = profile.avatar;
+    img.alt = username;
+    img.className = 'leaderboard-avatar-img';
+    avatarWrap.appendChild(img);
+  } else {
+    avatarWrap.textContent = initial;
+  }
+  return avatarWrap;
+}
+
 function celebrateTier(tier) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -2914,9 +3366,29 @@ function renderLeaderboard(rows, session) {
     const nameRow = document.createElement('div');
     nameRow.className = 'reader-name-row';
 
+    const avatarEl = createLeaderboardAvatarEl(row.username, session);
+    nameRow.appendChild(avatarEl);
+
     const nameSpan = document.createElement('span');
     nameSpan.textContent = row.username;
     nameRow.appendChild(nameSpan);
+
+    // Interactive Profile Popup (Disabled for guest accounts)
+    if (session && !session.isGuest) {
+      avatarEl.classList.add('clickable-user-profile');
+      avatarEl.title = `View ${row.username}'s profile`;
+      avatarEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openUserProfileModal(row.username);
+      });
+
+      nameSpan.classList.add('clickable-user-profile');
+      nameSpan.title = `View ${row.username}'s profile`;
+      nameSpan.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openUserProfileModal(row.username);
+      });
+    }
 
     if (row.levelTitle) {
       const lvlBadge = createLevelBadgeEl(row.levelTitle);
@@ -4032,13 +4504,45 @@ function buildPrayerElement(prayer, session) {
 
   const avatar = document.createElement('div');
   avatar.className = 'prayer-avatar';
-  avatar.textContent = (prayer.username || '?').charAt(0).toUpperCase();
+  const initial = (prayer.username || '?').charAt(0).toUpperCase();
+
+  // Guest users ONLY see initial fallback
+  if (!session || session.isGuest) {
+    avatar.textContent = initial;
+  } else {
+    const profile = getUserProfile(prayer.username);
+    if (profile && profile.avatar) {
+      const img = document.createElement('img');
+      img.src = profile.avatar;
+      img.alt = prayer.username;
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = initial;
+    }
+  }
   authorInfo.appendChild(avatar);
 
   const authorName = document.createElement('span');
   authorName.className = 'prayer-author';
   authorName.textContent = prayer.username;
   authorInfo.appendChild(authorName);
+
+  // Interactive Profile Popup (Disabled for guest accounts)
+  if (session && !session.isGuest) {
+    avatar.classList.add('clickable-user-profile');
+    avatar.title = `View ${prayer.username}'s profile`;
+    avatar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openUserProfileModal(prayer.username);
+    });
+
+    authorName.classList.add('clickable-user-profile');
+    authorName.title = `View ${prayer.username}'s profile`;
+    authorName.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openUserProfileModal(prayer.username);
+    });
+  }
 
   const authorData = currentLeaderboard.find(u => u.username === prayer.username);
   if (authorData && authorData.levelTitle) {
