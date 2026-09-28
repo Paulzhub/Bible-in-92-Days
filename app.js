@@ -1293,7 +1293,7 @@ function renderDayCountdown(day) {
 // ====== SQUAD FLAME GAUGE & MULTI-TIER CELEBRATION FX ======
 
 const SQUAD_CELEBRATION_TIERS = [
-  { count: 13, name: 'SQUAD HEATWAVE (13/13)', big: true, emojis: ['🔥', '👑', '🏆', '✨', '⚡'], colors: ['#FFD700', '#FFA500', '#FF4500', '#FFF8DC'], haptic: [50, 80, 50, 80, 100] },
+  { count: 12, name: 'SQUAD HEATWAVE (12/12)', big: true, emojis: ['🔥', '👑', '🏆', '✨', '⚡'], colors: ['#FFD700', '#FFA500', '#FF4500', '#FFF8DC'], haptic: [50, 80, 50, 80, 100] },
   { count: 10, name: 'Double Digits (10+)', big: true, emojis: ['🔥', '⚡', '✨', '🙌'], colors: ['#E8A93B', '#6FAE8C', '#5B8DEF', '#FFD700'], haptic: [40, 60, 40] },
   { count: 5,  name: 'Squad On Fire (5+)', big: false, emojis: ['🔥', '✨', '⚡'], colors: ['#E8A93B', '#E4685D', '#6FAE8C'], haptic: [30, 50, 30] },
   { count: 3,  name: 'Momentum (3+)', big: false, emojis: ['✨', '⚡', '📖'], colors: ['#5B8DEF', '#6FAE8C', '#E8A93B'], haptic: [30, 30] },
@@ -1322,7 +1322,7 @@ function renderSquadGauge(rows) {
   if (!card || !bar) return;
 
   const readCount = rows.filter(r => r.readToday).length;
-  const total = rows.length || 13;
+  const total = rows.length || 12;
   const pct = Math.round((readCount / total) * 100);
 
   bar.style.width = pct + '%';
@@ -1337,17 +1337,17 @@ function renderSquadGauge(rows) {
     badge.hidden = true;
   }
 
-  // Trigger celebration tiers for 2, 3, 5, 10, 13 members reading on the same day
+  // Trigger celebration tiers for 2, 3, 5, 10, 12 members reading on the same day
   if (readCount >= 2) {
     checkSquadMilestoneCelebration(readCount);
   }
 }
 
-const BOY_USERS = ['paulz', 'victor', 'jason', 'guptaji', 'puia', 'ducks fartbomber', 'vishan'];
+const BOY_USERS = ['paulz', 'victor', 'jason', 'guptaji', 'puia', 'ducks fartbomber'];
 const GIRL_USERS = ['nim nim', 'daysel', 'yutso', 'elisha', 'dechen', 'yeshi'];
-const BOYS_TOTAL_TARGET_DAYS = 644; // 7 boys * 92 days
+const BOYS_TOTAL_TARGET_DAYS = 552; // 6 boys * 92 days
 const GIRLS_TOTAL_TARGET_DAYS = 552; // 6 girls * 92 days
-const BOYS_ROSTER_DEFS = ['Paulz', 'Victor', 'Jason', 'Guptaji', 'Puia', 'Ducks Fartbomber', 'Vishan'];
+const BOYS_ROSTER_DEFS = ['Paulz', 'Victor', 'Jason', 'Guptaji', 'Puia', 'Ducks Fartbomber'];
 const GIRLS_ROSTER_DEFS = ['Nim Nim', 'Daysel', 'Yutso', 'Elisha', 'Dechen', 'Yeshi'];
 
 let lastBvgData = null;
@@ -1519,10 +1519,16 @@ function initBoysVsGirlsRivalryObserver() {
   }
 }
 
-function renderBoysVsGirlsProgress(rows) {
+function sanitizeLeaderboardRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  const validUsers = new Set([...BOY_USERS, ...GIRL_USERS]);
+  return rows.filter(r => r && validUsers.has((r.username || '').trim().toLowerCase()));
+}
+
+function renderBoysVsGirlsProgress(rawRows) {
   const card = document.getElementById('boys-vs-girls-card');
   if (!card) return;
-  if (!rows || !Array.isArray(rows)) return;
+  const rows = sanitizeLeaderboardRows(rawRows);
 
   let boysDays = 0;
   let girlsDays = 0;
@@ -1549,6 +1555,15 @@ function renderBoysVsGirlsProgress(rows) {
   const girlsFracEl = document.getElementById('bvg-girls-fraction');
   if (boysFracEl) boysFracEl.textContent = `${boysDays} / ${BOYS_TOTAL_TARGET_DAYS} days`;
   if (girlsFracEl) girlsFracEl.textContent = `${girlsDays} / ${GIRLS_TOTAL_TARGET_DAYS} days`;
+
+  const boysTargetLabel = card.querySelector('.bvg-boys-card .bvg-target-label');
+  if (boysTargetLabel) boysTargetLabel.textContent = `Target: ${BOYS_TOTAL_TARGET_DAYS}`;
+  const boysRosterCount = card.querySelector('.bvg-boys-card .bvg-cohort-roster-count');
+  if (boysRosterCount) boysRosterCount.textContent = `${BOYS_ROSTER_DEFS.length} disciples`;
+  const girlsTargetLabel = card.querySelector('.bvg-girls-card .bvg-target-label');
+  if (girlsTargetLabel) girlsTargetLabel.textContent = `Target: ${GIRLS_TOTAL_TARGET_DAYS}`;
+  const girlsRosterCount = card.querySelector('.bvg-girls-card .bvg-cohort-roster-count');
+  if (girlsRosterCount) girlsRosterCount.textContent = `${GIRLS_ROSTER_DEFS.length} disciples`;
 
   const boysSingleBar = document.getElementById('bvg-boys-single-bar');
   const girlsSingleBar = document.getElementById('bvg-girls-single-bar');
@@ -1687,7 +1702,7 @@ function renderBoysVsGirlsProgress(rows) {
 function generateBoysVsGirlsShareCanvas(bvgData) {
   const data = bvgData || lastBvgData || {
     boysDays: 0,
-    boysTotal: 644,
+    boysTotal: 552,
     boysPct: 0,
     girlsDays: 0,
     girlsTotal: 552,
@@ -1785,7 +1800,7 @@ function generateBoysVsGirlsShareCanvas(bvgData) {
 
   ctx.fillStyle = '#94A3B8';
   ctx.font = '500 13px "Space Grotesk", sans-serif';
-  ctx.fillText('7 Disciples • Cumulative Target: 644 Days', 85, 270);
+  ctx.fillText('6 Disciples • Cumulative Target: 552 Days', 85, 270);
 
   ctx.fillStyle = '#38bdf8';
   ctx.font = '800 54px "Fraunces", Georgia, serif';
@@ -1793,7 +1808,7 @@ function generateBoysVsGirlsShareCanvas(bvgData) {
 
   ctx.fillStyle = '#E2E8F0';
   ctx.font = '600 17px "Space Grotesk", sans-serif';
-  ctx.fillText(`${data.boysDays} / 644 target days read`, 85, 368);
+  ctx.fillText(`${data.boysDays} / ${data.boysTotal || 552} target days read`, 85, 368);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
   roundRect(ctx, 85, 385, 460, 12, 6, true, false);
@@ -2062,7 +2077,6 @@ const DEFAULT_DISCIPLE_BIOS = {
   'guptaji': 'Seeking first the Kingdom of God ✨',
   'puia': 'Rooted and grounded in love ❤️',
   'ducks fartbomber': 'Joyful in hope, patient in affliction 🔥',
-  'vishan': 'Iron sharpens iron ⚔️ | Cohort Boys',
   'elisha': 'His grace is sufficient for me 🌸',
   'daysel': 'The joy of the Lord is my strength 💫',
   'dechen': 'Thy word is a lamp unto my feet 🕯️',
@@ -3276,7 +3290,7 @@ function applyInitialData(res, session, { isBackgroundUpdate = false, isCached =
 
   try {
     if (res.leaderboard && res.leaderboard.success) {
-      currentLeaderboard = res.leaderboard.leaderboard || [];
+      currentLeaderboard = sanitizeLeaderboardRows(res.leaderboard.leaderboard || []);
       renderLeaderboard(currentLeaderboard, session);
       renderPlayground(currentLeaderboard);
       updateHeaderLevel(currentLeaderboard, session);
@@ -3353,6 +3367,9 @@ async function loadInitialData(session, retryCount = 0) {
       if (rawCache) {
         const cachedRes = JSON.parse(rawCache);
         if (cachedRes && typeof cachedRes === 'object') {
+          if (cachedRes.leaderboard && Array.isArray(cachedRes.leaderboard.leaderboard)) {
+            cachedRes.leaderboard.leaderboard = sanitizeLeaderboardRows(cachedRes.leaderboard.leaderboard);
+          }
           applyInitialData(cachedRes, session, { isBackgroundUpdate: false, isCached: true });
         }
       } else {
@@ -3445,7 +3462,7 @@ async function loadUpdates(session) {
 
     try {
       if (res.leaderboard && res.leaderboard.success) {
-        currentLeaderboard = res.leaderboard.leaderboard || [];
+        currentLeaderboard = sanitizeLeaderboardRows(res.leaderboard.leaderboard || []);
         renderLeaderboard(currentLeaderboard, session);
         renderPlayground(currentLeaderboard);
         updateHeaderLevel(currentLeaderboard, session);
@@ -4146,7 +4163,7 @@ function renderWeeklyRecap(recap) {
     ? `${actualReads} / ${possibleReads}`
     : `${actualReads}`;
 
-  // Render the communal 13x7 Squad Reading Heatmap Matrix
+  // Render the communal 12x7 Squad Reading Heatmap Matrix
   renderSquadMatrix(recap);
 }
 
@@ -6896,7 +6913,6 @@ const USER_COLORS = {
   'Paulz': '#F2C14E',
   'Puia': '#8FBF4D',
   'Victor': '#64B5F6',
-  'Vishan': '#9D6FD9',
   'Yutso': '#D9A066',
   'Yeshi': '#B2495C'
 };
@@ -7543,8 +7559,9 @@ function updatePlaygroundPhysics(dt) {
   });
 }
 
-function renderPlayground(rows) {
+function renderPlayground(rawRows) {
   const container = document.getElementById('playground');
+  const rows = sanitizeLeaderboardRows(rawRows);
   if (!container || !rows || !rows.length) return;
 
   initPlaygroundControls();
